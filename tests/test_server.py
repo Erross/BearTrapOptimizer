@@ -31,7 +31,11 @@ class HTTPTests(unittest.TestCase):
 
     def test_dashboard_and_compare(self):
         with urllib.request.urlopen(self.url) as r:
-            self.assertIn(b'Bear Trap Lab',r.read())
+            self.assertIn(b'Bear Trap Optimizer',r.read())
+        for path, mime in [('/app.js','text/javascript'),('/ux.js','text/javascript'),('/styles.css','text/css'),('/ux.css','text/css')]:
+            with urllib.request.urlopen(self.url+path) as asset:
+                self.assertIn(mime,asset.headers['Content-Type'])
+                self.assertGreater(len(asset.read()),0)
         with self.post('/api/compare',{'synthetic':{'n':4},'host_count':2}) as r:
             data=json.load(r)
         self.assertEqual(len(data['runs']),11)

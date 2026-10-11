@@ -8,6 +8,8 @@ https://erross.github.io/BearTrapOptimizer/
 
 The `web/` folder is a fully static GitHub Pages app. It runs all calculations in a Web Worker in the browser; members need no Python installation. No input data is uploaded. The Python engine remains available for local analysis and automated parity checks.
 
+The [beginner UX audit](docs/UX_AUDIT.md) records the page-by-page critique and resulting changes. The interface uses one selected plan for its summary and schedule, labels all time/score graphs, provides keyboard time readouts, and marks old results when inputs change. Save an alliance JSON file to retain edits after closing the tab.
+
 In GitHub, enable **Settings → Pages → Source: GitHub Actions**. The included `pages.yml` workflow validates both engines and publishes the web folder on pushes to main. Alternatively publish the `web` directory contents from a dedicated Pages branch.
 
 ## Run locally
@@ -38,9 +40,9 @@ Open **http://127.0.0.1:8765**. On Windows, `py app.py` also works. Stop with Ct
 ## Start with the demo, then calibrate
 
 1. Compare the default scenarios. Treat the charts as demonstrations, not promises about your alliance.
-2. In **Troops & formations**, select each member and save their usable infantry, cavalry, archers, tiers and report stats. The preview can check five full marches or your five 45,301-troop shares. Power-based estimates use your selected endpoints only and stay labelled estimated. In **Members & calibration**, enter attendance, capacities and travel. The Host checkbox controls eligibility. Unchecking Here removes a member from that event.
+2. In **Alliance setup**, choose attending players and select a name to edit march sizes, capacities and travel. “May start rallies” controls eligibility; each plan chooses how many eligible starters to use. In **Troop mixes**, save usable infantry, cavalry, archers, tiers and report stats. The preview can check full marches or five 45,301-troop shares. Power-based estimates use your selected endpoints only and stay labelled estimated.
 3. Choose the damage model and scope. The community square-root model is the new UI default; compare per-player and pooled-rally assumptions. Enter empirically estimated residual host strength after accounting for type stats. Account power and town level are context, not damage coefficients. Personal event totals cannot identify rally-host strength by themselves.
-4. Paste individual contribution reports into the calibration panel. Include each report's three troop counts and tiers; counts must sum to total troops. Troop-aware fitting currently supports per-player mode only. Repeat tier/buff conditions where possible. Apply the fitted coefficients to exact matching member names.
+4. Optionally paste individual contribution reports into the advanced report-fitting panel on Alliance setup. Include each report's three troop counts and tiers; counts must sum to total troops. Troop-aware fitting supports per-player mode only. Repeat tier/buff conditions where possible. Apply estimates to exact matching member names.
 5. Disable baseline normalization for an absolute report-calibrated run. Normalization deliberately fits one baseline to a target and holds that scale fixed across other strategies; it does not independently validate them.
 6. Search host counts and troop mixtures, inspect personal outcomes, export the host start timetable and trial one approach in-game.
 
