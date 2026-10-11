@@ -4,8 +4,8 @@
 <title>Bear Trap Optimizer</title><link rel="stylesheet" href="./styles.css"><link rel="stylesheet" href="./ux.css"></head>
 <body><a class="skip" href="#main">Skip to results</a><div class="layout">
 <aside aria-label="Simulation settings"><h1>Bear Trap Optimizer</h1><small>Plan a better 30-minute hunt</small>
-<p class="help">Change your plan here, then run a comparison. Enter actual players on Alliance setup.</p>
-<details open id="customsettings"><summary>Your rally plan</summary>
+<p class="help">These controls define the “Your plan settings” comparison. Other tested plans use different settings. Enter actual players on Alliance setup.</p>
+<details open id="customsettings"><summary>Custom plan settings</summary>
 <label class="control"><span>Number of regular rally starters <b id="hostval">12</b></span><input id="hosts" type="range" min="1" max="32" value="12" oninput="hostval.textContent=this.value"></label>
 <label class="control"><span>When rallies start</span><select id="cadence"><option value="staggered">Spread starts across one cycle</option><option value="synchronized">Start all rallies together</option><option value="waves">Three start groups</option><option value="custom">Use a fixed start interval</option></select></label>
 <label class="control"><span>Start interval (seconds)</span><input id="spacing" type="number" value="25" min="0" max="600"></label>

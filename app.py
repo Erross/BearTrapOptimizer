@@ -26,8 +26,9 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
     def do_GET(self):
-        if self.path in ("/","/index.html"):
-            self.send(200,(ROOT/"web"/"index.html").read_bytes(),"text/html; charset=utf-8")
+        if self.path in ("/","/index.html","/responsive-check.html"):
+            page="index.html" if self.path=="/" else self.path[1:]
+            self.send(200,(ROOT/"web"/page).read_bytes(),"text/html; charset=utf-8")
         elif self.path in ("/engine.js","/worker.js","/combat.js","/formations-ui.js","/app.js","/ux.js"):
             self.send(200,(ROOT/"web"/self.path[1:]).read_bytes(),"text/javascript; charset=utf-8")
         elif self.path in ("/styles.css","/ux.css"):

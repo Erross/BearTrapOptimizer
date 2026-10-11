@@ -16,6 +16,7 @@ function activatePage(id){
  for(const panel of document.querySelectorAll('.tab'))panel.classList.toggle('active',panel.id===id);
  $('resultcontext').hidden=!['comparetab','plantab'].includes(id);
  $('tab-'+id).scrollIntoView({block:'nearest',inline:'nearest'});
+ if(result){if(id==='comparetab')renderCharts();if(id==='plantab')renderPlan();}
 }
 function markResultsDirty(reason='Settings changed.'){
  if(result){resultsDirty=true;dirtyReason=reason;$('stale').hidden=false;$('stalereason').textContent=reason+' The graphs and schedule still show the last comparison.';}
@@ -54,7 +55,7 @@ function ensureSavedDrafts(){
 }
 run=async function(){
  if(!ensureSavedDrafts())return;
- const previous=result?.runs[chosen]?.strategy.name;
+ const previous=resultsDirty?'Your custom strategy':result?.runs[chosen]?.strategy.name;
  busy(true,'Comparing rally plans. You can browse the other pages while this runs.');
  try{
   const request=JSON.parse(JSON.stringify(payload()));
@@ -128,11 +129,11 @@ chart=function(id,lines,{bar=false,unit='damage'}={}){
  const names={alliancechart:'Alliance cumulative score',individualchart:'Player cumulative score',minutechart:'Score in each minute',usagechart:'Troops away from home'};
  const unitLabel=unit==='troops'?'Troops':'Estimated score';
  if(!lines.length){el.innerHTML='<div class="empty">No plans selected. Tick a plan above, or choose “Show baseline + selected plan”.</div>';return;}
- const W=960,H=320,L=78,R=22,T=35,B=60;
+ const W=Math.max(320,Math.min(960,el.clientWidth||$('main').clientWidth-44)),H=W<500?290:320,L=65,R=20,T=35,B=60;
  const maxValue=Math.max(1,...lines.flatMap(l=>l.points.map(p=>p.y))),ymax=maxValue*1.08;
  const X=x=>L+x/duration*(W-L-R),Y=y=>H-B-y/ymax*(H-T-B);
  let svg='<svg viewBox="0 0 '+W+' '+H+'" role="img" aria-label="'+esc(names[id]||unitLabel)+'; time from event opening, zero to '+time(duration)+'"><title>'+esc(names[id]||unitLabel)+'</title><desc>'+esc(bar?'Each bar covers one minute.':unit==='troops'?'Troops currently waiting, travelling or returning.':'Score changes only when a rally hits; flat lines mean no new score.')+'</desc>';
- svg+='<text x="'+L+'" y="18" fill="#53665c" font-size="13">'+unitLabel+(unit==='troops'?'':' (k = thousand, M = million, B = billion)')+'</text>';
+ svg+='<text x="'+L+'" y="18" fill="#53665c" font-size="13">'+unitLabel+'</text>';
  for(let k=0;k<=4;k++){const y=ymax*k/4;svg+='<line x1="'+L+'" x2="'+(W-R)+'" y1="'+Y(y)+'" y2="'+Y(y)+'" stroke="#dce5de"/><text x="'+(L-9)+'" y="'+(Y(y)+4)+'" text-anchor="end" fill="#53665c" font-size="12">'+fmt(y)+'</text>';}
  for(let k=0;k<=6;k++)svg+='<text x="'+X(duration*k/6)+'" y="'+(H-34)+'" text-anchor="middle" fill="#53665c" font-size="12">'+time(duration*k/6)+'</text>';
  svg+='<text x="'+(W/2)+'" y="'+(H-7)+'" text-anchor="middle" fill="#53665c" font-size="13">Time since event opened (minutes:seconds)</text>';
@@ -147,7 +148,7 @@ chart=function(id,lines,{bar=false,unit='damage'}={}){
  });
  svg+='<line class="cross" x1="'+L+'" x2="'+L+'" y1="'+T+'" y2="'+(H-B)+'" stroke="#53665c" stroke-dasharray="4 4"/></svg>';
  const inputId=id+'-time',readId=id+'-readout';
- el.innerHTML=svg+'<div class="chart-inspect"><label for="'+inputId+'">Inspect '+(bar?'a minute':'an event time')+' <b id="'+id+'-clock">0:00</b><input id="'+inputId+'" type="range" min="0" max="'+(bar?Math.max(0,duration-60):duration)+'" step="'+(bar?60:1)+'" value="0"></label><div id="'+readId+'" class="chart-readout" aria-live="polite"></div></div>'+
+ el.innerHTML=svg+'<p class="chart-description">k = thousand · M = million · B = billion. Drag the time control or use its arrow keys for exact values.</p><div class="chart-inspect"><label for="'+inputId+'">Inspect '+(bar?'a minute':'an event time')+' <b id="'+id+'-clock">0:00</b><input id="'+inputId+'" type="range" min="0" max="'+(bar?Math.max(0,duration-60):duration)+'" step="'+(bar?60:1)+'" value="0"></label><div id="'+readId+'" class="chart-readout" aria-live="polite"></div></div>'+
   '<details class="summary-table"><summary>Read exact '+(bar?'minute totals':'final totals')+' as a table</summary>'+table(bar?['Minute','Estimated score']:['Plan',unitLabel+' at event end'],bar?lines[0].points.filter(p=>p.x<duration).map(p=>[time(p.x)+'–'+time(Math.min(p.x+60,duration)),exactNumber(p.y)]):lines.map(l=>[esc(l.name),exactNumber(l.points.at(-1)?.y||0)]))+'</details>';
  const cross=el.querySelector('.cross'),input=$(inputId),clock=$(id+'-clock'),readout=$(readId);
  function display(second){
@@ -177,7 +178,7 @@ renderPlan=function(){
  const eligible=result.roster.filter(m=>m.can_host),latest=eligible.length?Math.max(...eligible.map(m=>duration-result.mechanics.countdown_s-m.outbound_s-1)):null;
  $('cutoffhelp').innerHTML='<b>Only rallies that hit before '+time(duration)+' score.</b> '+(latest===null?'No player is currently allowed to start rallies.':latest<0?'No eligible player can hit in time with this countdown and travel.':'With these inputs, even the fastest eligible starter must begin by '+time(latest)+'. Each player’s exact latest safe start is shown below.')+' A 25:01 start is wasted in a 30-minute event with a five-minute countdown.';
  if(!r.hits.length)$('timelinechart').innerHTML='<div class="empty">No rallies hit before the event ended. Check countdown, travel, starter eligibility and troop stock.</div>';
- $('timelinecaption').textContent=r.hits.length+' scored hits, from '+(r.hits.length?time(r.hits[0].second):'—')+' to '+(r.hits.length?time(r.hits.at(-1).second):'—')+'. Read exact start times in the table below.';
+ $('timelinecaption').textContent=r.hits.length+' scored hits, from '+(r.hits.length?time(r.hits[0].second):'—')+' to '+(r.hits.length?time(r.hits.at(-1).second):'—')+'. Read exact start times in the table below. On narrow screens, scroll sideways within the timeline to read all hit times.';
  const hosts=[...new Set(r.rallies.map(x=>x.host))];
  $('scheduletable').innerHTML=table(['Rally starter','Rally troop capacity','Latest safe start','Actual start times (elapsed)','Hits','Whole-rally score'],hosts.map(name=>{
   const m=result.roster.find(x=>x.name===name),rr=r.rallies.filter(x=>x.host===name);
@@ -335,4 +336,5 @@ for(const id of ['projectfile','rosterfile']){
   }else{$('memberfilter').value='';editingMember=null;renderRoster();$('status').textContent='Alliance file loaded. Results have been recomputed from its inputs.';}
  };
 }
+let resizeTimer;window.addEventListener('resize',()=>{clearTimeout(resizeTimer);resizeTimer=setTimeout(()=>{if(!result)return;if(activePage==='comparetab')renderCharts();if(activePage==='plantab')renderPlan();},100);});
 activatePage('comparetab');updateFormationHelp();generate();

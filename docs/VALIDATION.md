@@ -12,3 +12,12 @@
 - Live GitHub Pages verification in Chrome passed on 11 October 2026: initial comparison, small/large-player stock limits, stock saving, troop-tier editing, power estimation, individual type breakdowns, pooled-rally comparison, troop-aware report fitting, and the 432-setting strategy search.
 - The live player-assignment CSV contained 1,630 assignments. Every row's three troop-type counts summed to its total, and every exported impact was before 30:00. Plain-language plan explanations and the five-by-45,301 formation comparison were inspected visually.
 - Both GitHub Actions workflows (Tests and Publish Bear Trap Lab) succeeded for the implementation commit `7986b53ce623d17fe1f650e0040c67ba50f9ebb8`.
+
+## Beginner UX revision
+
+- The 28-test suite and 72 full-output engine parity cases still pass. HTTP checks also verify the extracted app scripts and stylesheets are served by the local Python app.
+- DOM-stub checks exercise selected-plan/card consistency, stale export protection, troop preview, saving stocks, valid imports and restoration after an invalid import. The full revised search path completed in a separate stub smoke run. JavaScript syntax and unique static HTML IDs were checked.
+- Live Chrome checks passed for initial comparison, searching/selecting a player, saving travel details, warning about old results, editing and saving archer stocks, interpreting signed wave-damage changes, inspecting exact score at 15:00, and consistent selected-plan/schedule instructions.
+- A live JSON save/load round trip succeeded. The old exported file measured 10,334,382 bytes because it included computed output that loading ignored. The revision saves roster, controls and reports and recomputes results instead.
+- The live app was inspected inside a 375-pixel frame. Its initial usable viewport was 360 pixels after scrollbar space, and document width matched viewport width without page-level horizontal overflow. Responsive chart coordinates and compact mobile steps address the observed readability problems. This is a Chrome layout check, not physical-device or touch validation.
+- Tests and Pages deployment succeeded for both UX implementation commits `1aa0b2516a2c39c26be838f930a1325f3988155a` and `d187cb1129e398eba1d3a2d6324e36e90c80fa10`. Further visual refinements are committed with the final revision.
