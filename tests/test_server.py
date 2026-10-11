@@ -33,7 +33,7 @@ class HTTPTests(unittest.TestCase):
         with urllib.request.urlopen(self.url) as r:
             self.assertIn(b'Bear Trap Optimizer',r.read())
         for path, mime in [('/app.js','text/javascript'),('/ux.js','text/javascript'),('/styles.css','text/css'),('/ux.css','text/css')]:
-            with urllib.request.urlopen(self.url+path) as asset:
+            with urllib.request.urlopen(self.url+path+'?v=20261011-ux4') as asset:
                 self.assertIn(mime,asset.headers['Content-Type'])
                 self.assertGreater(len(asset.read()),0)
         with self.post('/api/compare',{'synthetic':{'n':4},'host_count':2}) as r:
