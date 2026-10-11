@@ -1,6 +1,6 @@
 /* Presentation and interaction state. The simulation engines remain unchanged. */
 'use strict';
-let resultsDirty=false, stockDraft=false, memberDraft=false, running=false;
+let resultsDirty=false, stockDraft=false, memberDraft=false, running=false, dirtyReason='Inputs changed.';
 let editingMember=null, editingTroops=null, activePage='comparetab';
 const changeText=n=>!Number.isFinite(n)?'No baseline':(n>0?'+':'')+pct(n);
 const exactNumber=n=>Number(n).toLocaleString('en-US',{maximumFractionDigits:1});
@@ -18,11 +18,13 @@ function activatePage(id){
  $('tab-'+id).scrollIntoView({block:'nearest',inline:'nearest'});
 }
 function markResultsDirty(reason='Settings changed.'){
- if(result){resultsDirty=true;$('stale').hidden=false;$('stalereason').textContent=reason+' The graphs and schedule still show the last comparison.';}
+ if(result){resultsDirty=true;dirtyReason=reason;$('stale').hidden=false;$('stalereason').textContent=reason+' The graphs and schedule still show the last comparison.';}
  updateActionAvailability();
 }
 function updateActionAvailability(){
  const draft=stockDraft||memberDraft;
+ $('stale').hidden=!result||!(resultsDirty||draft);
+ if(result&&(resultsDirty||draft))$('stalereason').textContent=draft?'Player edits are not saved. Save or discard the edits on Alliance setup or Troop mixes before comparing.':dirtyReason+' The graphs and schedule still show the last comparison.';
  for(const id of ['save','exportcsv','svgexport','planexport','assignmentexport']){
   $(id).disabled=running||!result||(id==='save'?draft:resultsDirty||draft);
  }
@@ -97,8 +99,11 @@ function renderSelectedSummary(){
 }
 function renderLegend(){
  if(!result)return;
- $('legend').innerHTML=result.runs.map((r,i)=>'<label><input type="checkbox" data-line="'+i+'" '+(visible.has(i)?'checked':'')+'><span class="dot" style="background:'+colors[i%colors.length]+'"></span>'+esc(strategyTitle(r.strategy))+'</label>').join('');
- for(const checkbox of $('legend').querySelectorAll('input'))checkbox.onchange=()=>{checkbox.checked?visible.add(Number(checkbox.dataset.line)):visible.delete(Number(checkbox.dataset.line));renderCharts();};
+ const wasOpen=$('legend').querySelector('details')?.open;
+ const chips=result.runs.map((r,i)=>({r,i})).filter(x=>visible.has(x.i)).map(({r,i})=>'<span class="plan-chip"><span class="dot" style="background:'+colors[i%colors.length]+'"></span> '+esc(strategyTitle(r.strategy))+'</span>').join('');
+ const choices=result.runs.map((r,i)=>'<label><input type="checkbox" data-line="'+i+'" '+(visible.has(i)?'checked':'')+'><span class="dot" style="background:'+colors[i%colors.length]+'"></span>'+esc(strategyTitle(r.strategy))+'</label>').join('');
+ $('legend').innerHTML=chips+'<details class="plan-picker" '+(wasOpen?'open':'')+'><summary>Choose which plans appear on the graphs</summary><div class="legend">'+choices+'</div></details>';
+ for(const checkbox of $('legend').querySelectorAll('input'))checkbox.onchange=()=>{checkbox.checked?visible.add(Number(checkbox.dataset.line)):visible.delete(Number(checkbox.dataset.line));renderLegend();renderCharts();};
 }
 function renderComparison(){
  if(!result)return;const base=result.runs[0];
@@ -207,17 +212,17 @@ async function saveMemberDetails(){
   $('status').textContent='Saved '+draft.name+'. Compare rally plans to update the results.';
  }catch(e){showError(e);if($('savemember'))$('savemember').disabled=false;}
 }
-renderRoster=function(){
+renderRoster=function(refreshProfiles=true){
  const query=$('memberfilter').value.trim().toLowerCase();
  const players=roster.map((m,index)=>({m,index})).filter(({m})=>m.name.toLowerCase().includes(query));
  $('rostertable').innerHTML=players.length?'<table><thead><tr>'+['Attending','Player (select to edit)','Usable troop stock','Maximum march','Joining marches','May start rallies'].map(h=>'<th scope="col">'+h+'</th>').join('')+'</tr></thead><tbody>'+players.map(({m,index})=>'<tr class="'+(m.name===editingMember?'selected':'')+'"><td><input type="checkbox" aria-label="'+esc(m.name)+' attending" data-attend="'+index+'" '+(!absent.has(m.name)?'checked':'')+'></td><td><button class="text-button" data-edit-member="'+index+'">'+esc(m.name)+'</button></td><td>'+exactNumber(m.troops)+'<div class="fine">'+(estimatedStocks.has(m.name)||m.infantry==null?'Estimated stock':'Entered stock')+'</div></td><td>'+exactNumber(m.march_capacity)+'</td><td>'+m.join_slots+'</td><td>'+(m.can_host?'Yes':'No')+'</td></tr>').join('')+'</tbody></table>':'<p>No players match that name.</p>';
  for(const input of $('rostertable').querySelectorAll('[data-attend]'))input.onchange=()=>{const name=roster[Number(input.dataset.attend)].name;input.checked?absent.delete(name):absent.add(name);updateBadge();markResultsDirty('Attendance changed.');};
  for(const button of $('rostertable').querySelectorAll('[data-edit-member]'))button.onclick=()=>{
   if(memberDraft){showError(new Error('Save or discard the current player’s detail edits before choosing another player.'));return;}
-  editingMember=roster[Number(button.dataset.editMember)].name;renderRoster();
+  editingMember=roster[Number(button.dataset.editMember)].name;renderRoster(false);
   $('membereditor').scrollIntoView({block:'nearest'});
  };
- renderMemberEditor();renderTroopProfiles();renderInventoryDiagnostics();
+ renderMemberEditor();if(refreshProfiles)renderTroopProfiles();renderInventoryDiagnostics();
 };
 renderPlayerEditor=function(){
  const selected=$('troopplayer').value;
@@ -286,7 +291,7 @@ $('load').onclick=()=>{if(ensureSavedDrafts())$('projectfile').click();};
 $('rosterimport').onclick=()=>{if(ensureSavedDrafts())$('rosterfile').click();};
 $('run').onclick=run;$('refreshresults').onclick=run;$('search').onclick=search;
 $('troopplayer').onchange=renderPlayerEditor;$('applystock').onclick=savePlayer;$('estimatepower').onclick=estimatePlayerStock;
-$('memberfilter').oninput=renderRoster;
+$('memberfilter').oninput=()=>renderRoster(false);
 $('samplereports').onclick=()=>{$('reports').value='host,troops,damage,infantry,cavalry,archers,infantry_tier,cavalry_tier,archers_tier\n'+(roster.at(-1)?.name||'Leader name')+',50000,9000000,5000,5000,40000,8,8,8';};
 $('fullsize').onclick=()=>{if(!ensureSavedDrafts())return;const m=roster.find(x=>x.name===$('troopplayer').value);$('previewsize').value=m.march_capacity;previewFormations();};
 const discardButton=document.createElement('button');discardButton.id='stockdiscard';discardButton.textContent='Discard troop edits';discardButton.hidden=true;$('applystock').parentElement.append(discardButton);
@@ -302,7 +307,7 @@ for(const id of ['previewcount','previewsize','previewhost'])$(id).addEventListe
 const generateDemo=generate;
 generate=async function(){
  if(!ensureSavedDrafts())return;
- editingMember=null;editingTroops=null;await generateDemo();
+ editingMember=null;editingTroops=null;$('memberfilter').value='';await generateDemo();
  if(!result)return;
  await previewFormations();
 };
@@ -315,4 +320,19 @@ $('generate').onclick=async()=>{
  $('status').innerHTML='Created demo players. <button id="undodemo" class="text-button">Undo demo replacement</button>';
  $('undodemo').onclick=async()=>{roster=backup.roster;absent=new Set(backup.absent);estimatedStocks=new Set(backup.estimated);synthetic=backup.synthetic;editingMember=null;editingTroops=null;renderRoster();await run();};
 };
+// Bad imports must leave the current alliance usable. Keep a transaction snapshot
+// around the existing parsers and worker validation, including control settings.
+for(const id of ['projectfile','rosterfile']){
+ const importCore=$(id).onchange;
+ $(id).onchange=async event=>{
+  if(!event.target.files?.length)return;
+  const backup={roster:JSON.parse(JSON.stringify(roster)),absent:[...absent],estimated:[...estimatedStocks],synthetic,result,searchData,chosen,visible:[...visible],dirty:resultsDirty,reason:dirtyReason,editingMember,editingTroops,controls:Object.fromEntries(controls.map(key=>[key,$(key).type==='checkbox'?$(key).checked:$(key).value])),reports:$('reports').value};
+  $('error').style.display='none';await importCore(event);
+  if($('error').style.display==='block'){
+   const error=$('error').textContent;roster=backup.roster;absent=new Set(backup.absent);estimatedStocks=new Set(backup.estimated);synthetic=backup.synthetic;result=backup.result;searchData=backup.searchData;chosen=backup.chosen;visible=new Set(backup.visible);resultsDirty=backup.dirty;dirtyReason=backup.reason;editingMember=backup.editingMember;editingTroops=backup.editingTroops;
+   for(const [key,value]of Object.entries(backup.controls))$(key).type==='checkbox'?$(key).checked=value:$(key).value=value;
+   $('reports').value=backup.reports;renderRoster();if(result)renderResults();busy(false);showError(new Error('Could not load the file. Your previous alliance was restored. '+error));
+  }else{$('memberfilter').value='';editingMember=null;renderRoster();$('status').textContent='Alliance file loaded. Results have been recomputed from its inputs.';}
+ };
+}
 activatePage('comparetab');updateFormationHelp();generate();
