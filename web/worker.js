@@ -1,4 +1,4 @@
-importScripts('./engine.js');
+importScripts('./combat.js', './engine.js');
 self.onmessage=function({data}){
   const {id,path,payload}=data;
   try{

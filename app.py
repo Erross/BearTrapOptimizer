@@ -7,6 +7,7 @@ from pathlib import Path
 import traceback
 from beartrap.analysis import compare, search, calibrate
 from beartrap.model import synthetic_roster
+from beartrap.combat import formation_plan
 from dataclasses import asdict
 
 ROOT = Path(__file__).resolve().parent
@@ -27,7 +28,7 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         if self.path in ("/","/index.html"):
             self.send(200,(ROOT/"web"/"index.html").read_bytes(),"text/html; charset=utf-8")
-        elif self.path in ("/engine.js","/worker.js"):
+        elif self.path in ("/engine.js","/worker.js","/combat.js","/formations-ui.js"):
             self.send(200,(ROOT/"web"/self.path[1:]).read_bytes(),"text/javascript; charset=utf-8")
         elif self.path == "/api/defaults":
             self.send(200,{"roster":[asdict(m) for m in synthetic_roster()]})
@@ -44,6 +45,7 @@ class Handler(BaseHTTPRequestHandler):
             self.send(403,{"error":"Cross-origin requests are not allowed"})
             return
         actions = {"/api/compare":compare,"/api/search":search,"/api/calibrate":calibrate,
+                   "/api/formation_plan":formation_plan,
                    "/api/roster":lambda p: {"roster":[asdict(m) for m in synthetic_roster(**p)]}}
         if self.path not in actions:
             self.send(404,{"error":"Not found"})

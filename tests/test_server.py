@@ -34,7 +34,7 @@ class HTTPTests(unittest.TestCase):
             self.assertIn(b'Bear Trap Lab',r.read())
         with self.post('/api/compare',{'synthetic':{'n':4},'host_count':2}) as r:
             data=json.load(r)
-        self.assertEqual(len(data['runs']),8)
+        self.assertEqual(len(data['runs']),11)
         self.assertAlmostEqual(data['runs'][0]['total_damage'],2e9,delta=.001)
 
     def test_invalid_input_is_400(self):

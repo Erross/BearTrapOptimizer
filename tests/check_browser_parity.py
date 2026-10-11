@@ -1,5 +1,5 @@
 """Compare the browser engine with the Python reference. Requires Node for CI only."""
-from dataclasses import asdict
+from dataclasses import asdict, replace
 import json
 import math
 from pathlib import Path
@@ -9,6 +9,7 @@ sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
 from beartrap.model import Member, Mechanics, Strategy, synthetic_roster
 from beartrap.simulator import simulate
 from beartrap.analysis import compare, calibrate
+from beartrap.combat import formation_plan, effective_components
 
 ROOT=Path(__file__).resolve().parents[1]
 
@@ -54,6 +55,34 @@ def main():
     fit=calibrate(reports)
     fit.pop('note')
     cases.append({'method':'calibrate','args':[reports],'expected':fit})
+    typed = [replace(m, infantry_tier=7+i%3, cavalry_tier=8, archers_tier=9,
+                     archers_attack_bonus=40+i*10, cavalry_lethality_bonus=20)
+             for i,m in enumerate(members[:5])]
+    for model in ('legacy','weighted','sqrt'):
+        for scope in ('march','rally'):
+            for formation in ('inventory','strict','adaptive','optimized'):
+                cfg=replace(c,damage_model=model,damage_scope=scope,archer_volley_bonus=10,bear_attack_bonus=25)
+                setting=Strategy(host_count=3,formation=formation,infantry_pct=7,cavalry_pct=13,
+                                 host_allocation='small',troop_split='concentrated',final_push=True)
+                cases.append({'method':'simulate','args':[[asdict(m) for m in typed],asdict(cfg),asdict(setting)],
+                              'expected':simulate(typed,cfg,setting,audit=True)})
+    for model in ('weighted','sqrt'):
+        for count in (1,5,6):
+            p={'member':asdict(typed[2]),'host':asdict(typed[4]),'mechanics':asdict(replace(c,damage_model=model)),
+               'marches':count,'march_size':45301}
+            cases.append({'method':'formation_plan','args':[p],'expected':formation_plan(p)})
+    p={'synthetic':{'n':8,'troops_max':1500000},'host_count':4,'mechanics':{'damage_model':'sqrt'},
+       'strategy':{'formation':'adaptive','infantry_pct':5,'cavalry_pct':20}}
+    expected=compare(p);expected.pop('assumptions')
+    cases.append({'method':'compare','args':[p],'expected':expected})
+    cfg=replace(c,damage_model='sqrt',score_per_effective_troop=1)
+    mix={'infantry':5000,'cavalry':5000,'archers':40000}
+    report_member=replace(typed[0],infantry_tier=8,cavalry_tier=8,archers_tier=8,troop_quality=1)
+    damage=sum(effective_components(mix,report_member,typed[0],cfg).values())*2.5
+    p={'mechanics':asdict(cfg),'score_scale':1,'roster':[asdict(typed[0])],
+       'reports':[dict(host=typed[0].name,troops=50000,damage=damage,**mix)]}
+    fit=calibrate(p);fit.pop('note')
+    cases.append({'method':'calibrate','args':[p],'expected':fit})
     js="const fs=require('fs'),e=require('./web/engine.js');const cases=JSON.parse(fs.readFileSync(0,'utf8'));console.log(JSON.stringify(cases.map(c=>e[c.method](...c.args))));"
     result=subprocess.run(['node','-e',js],input=json.dumps([{k:v for k,v in c.items() if k!='expected'} for c in cases]),
                           text=True,capture_output=True,cwd=ROOT,check=True)

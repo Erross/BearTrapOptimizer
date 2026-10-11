@@ -3,6 +3,7 @@ from dataclasses import asdict
 import heapq
 import math
 from .model import Mechanics, Strategy
+from .combat import TYPES, inventory, allocate, effective_components, rally_components, host_rating
 
 
 def simulate(members, mechanics=Mechanics(), strategy=Strategy(), audit=False):
@@ -17,12 +18,15 @@ def simulate(members, mechanics=Mechanics(), strategy=Strategy(), audit=False):
         raise ValueError("Member names must be unique")
     if set(strategy.host_names) - set(names):
         raise ValueError("Selected host does not exist in the roster")
+    ratings = [host_rating(m, mechanics) for m in members]
     eligible = sorted((i for i,m in enumerate(members) if m.can_host),
-                      key=lambda i:(-members[i].host_strength,-members[i].rally_capacity,members[i].name))
+                      key=lambda i:(-ratings[i],-members[i].rally_capacity,members[i].name))
     hosts = [i for i in eligible if names[i] in strategy.host_names] if strategy.host_names else eligible[:strategy.host_count]
     host_set = set(hosts)
     n = len(members)
     available = [m.troops for m in members]
+    available_types = [inventory(m) for m in members]
+    original_types = [dict(x) for x in available_types]
     lead_busy = [False]*n
     slots = [0]*n
     next_dispatch = [0]*n
@@ -45,16 +49,17 @@ def simulate(members, mechanics=Mechanics(), strategy=Strategy(), audit=False):
     join_count = [0]*n
     troop_busy_seconds = [0]*n
     slot_busy_seconds = [0]*n
+    type_busy_seconds = [dict.fromkeys(TYPES, 0) for m in members]
+    type_damage = [dict.fromkeys(TYPES, 0.0) for m in members]
+    type_hits = [dict.fromkeys(TYPES, 0) for m in members]
     utilization = []
     serial = 0
     def enqueue(t, kind, data):
         nonlocal serial
         serial += 1
         heapq.heappush(events,(t,serial,kind,data))
-    def contribution_damage(troops, i, host):
-        # Linear at exponent=1. Other exponents are sensitivity assumptions.
-        effective = troops * (troops/50000)**(mechanics.damage_exponent-1)
-        return effective * members[i].troop_quality * members[host].host_strength * mechanics.score_per_effective_troop
+    def contribution_damage(composition, i, host):
+        return sum(effective_components(composition, members[i], members[host], mechanics).values()) * members[host].host_strength * mechanics.score_per_effective_troop
     def permitted(departure, host):
         return departure + members[host].outbound_s < mechanics.duration_s
     final_push_at = max(0, mechanics.duration_s-mechanics.countdown_s-max(m.outbound_s for m in members)-30)
@@ -63,8 +68,10 @@ def simulate(members, mechanics=Mechanics(), strategy=Strategy(), audit=False):
         while events and events[0][0] <= now:
             _,_,kind,data = heapq.heappop(events)
             if kind == "release":
-                i, amount, leader = data
+                i, amount, leader, mix = data
                 available[i] += amount
+                for t in TYPES:
+                    available_types[i][t] += mix[t]
                 if leader:
                     lead_busy[i] = False
                 else:
@@ -77,17 +84,21 @@ def simulate(members, mechanics=Mechanics(), strategy=Strategy(), audit=False):
                 rally = data
                 rally["status"] = "hit"
                 damage = 0.0
-                for p in rally["participants"]:
+                components = rally_components(rally["participants"], members, members[rally["host_index"]], mechanics)
+                for p, by_type in zip(rally["participants"], components):
                     i = p["member_index"]
                     amount = p["troops"]
-                    d = contribution_damage(amount, i, rally["host_index"])
+                    d = sum(by_type.values())
+                    for t in TYPES:
+                        type_damage[i][t] += by_type[t]
+                        type_hits[i][t] += p["composition"][t]
                     damage += d
                     totals[i] += d
                     attacks[i] += 1
                     troops_used[i] += amount
                     individual_series[names[i]].append({"second":now,"damage":totals[i]})
                     contributions.append({"rally_id":rally["id"],"host":names[rally["host_index"]],
-                        "member":names[i],"troops":amount,"damage":d,"second":now,"role":p["role"]})
+                        "member":names[i],"troops":amount,"composition":p["composition"],"damage_by_type":by_type,"damage":d,"second":now,"role":p["role"]})
                 rally["damage"] = damage
                 hits.append({"second":now,"damage":damage,"rally_id":rally["id"],
                              "host":names[rally["host_index"]],"troops":rally["troops"],
@@ -112,18 +123,24 @@ def simulate(members, mechanics=Mechanics(), strategy=Strategy(), audit=False):
             else:
                 desired = max(1,math.ceil(m.troops/(m.join_slots+1)))
             amount = min(available[i],m.march_capacity,m.rally_capacity,desired)
+            mix = allocate(available_types[i], amount, m, m, mechanics, strategy)
+            amount = sum(mix.values())
+            if not amount:
+                continue
             available[i] -= amount
+            for t in TYPES:
+                available_types[i][t] -= mix[t]
             lead_busy[i] = True
             led[i] += 1
             hit = departure+m.outbound_s
             rally = {"id":len(rallies)+1,"host":names[i],"host_index":i,"start_s":now,
                      "departure_s":departure,"hit_s":hit,"troops":amount,"status":"forming",
-                     "participants":[{"member_index":i,"troops":amount,"role":"lead","sent_s":now}]}
+                     "participants":[{"member_index":i,"troops":amount,"composition":mix,"role":"lead","sent_s":now}]}
             rallies.append(rally)
             open_rallies.append(rally)
             enqueue(departure,"depart",rally)
             enqueue(hit,"hit",rally)
-            enqueue(hit+m.return_s,"release",(i,amount,True))
+            enqueue(hit+m.return_s,"release",(i,amount,True,mix))
             if strategy.cadence == "synchronized":
                 next_start[i] = hit+m.return_s+mechanics.reaction_s
             else:
@@ -145,44 +162,65 @@ def simulate(members, mechanics=Mechanics(), strategy=Strategy(), audit=False):
                     continue
                 desired = m.march_capacity if strategy.troop_split == "concentrated" else max(1,math.ceil(m.troops/(m.join_slots+(1 if i in active_hosts else 0))))
                 amount = min(desired,m.march_capacity,available[i],remaining)
-                d = contribution_damage(amount,i,r["host_index"])
+                mix = allocate(available_types[i], amount, m, members[r["host_index"]], mechanics, strategy)
+                amount = sum(mix.values())
+                if not amount:
+                    continue
+                if mechanics.damage_model == "sqrt" and mechanics.damage_scope == "rally":
+                    # Compare marginal alliance damage, not an independent-march proxy.
+                    before = sum(sum(x.values()) for x in rally_components(r["participants"], members, members[r["host_index"]], mechanics))
+                    after = sum(sum(x.values()) for x in rally_components(r["participants"]+[{"member_index":i,"composition":mix}], members, members[r["host_index"]], mechanics))
+                    d = after-before
+                else:
+                    d = contribution_damage(mix,i,r["host_index"])
                 priority = (-r["hit_s"] if strategy.join_policy == "next" else
-                            members[r["host_index"]].host_strength if strategy.join_policy == "strength" else
+                            ratings[r["host_index"]] if strategy.join_policy == "strength" else
                             d/(amount*max(1,r["hit_s"]+m.return_s-now)))
-                candidates.append((priority,-r["hit_s"],-r["id"],amount,r))
+                candidates.append((priority,-r["hit_s"],-r["id"],amount,r,mix))
             if not candidates:
                 continue
-            _,_,_,amount,r = max(candidates,key=lambda x:x[:3])
+            _,_,_,amount,r,mix = max(candidates,key=lambda x:x[:3])
             available[i] -= amount
+            for t in TYPES:
+                available_types[i][t] -= mix[t]
             slots[i] += 1
             join_count[i] += 1
             next_dispatch[i] = now+mechanics.reaction_s
             r["troops"] += amount
-            r["participants"].append({"member_index":i,"troops":amount,"role":"join","sent_s":now})
-            enqueue(r["hit_s"]+m.return_s,"release",(i,amount,False))
+            r["participants"].append({"member_index":i,"troops":amount,"composition":mix,"role":"join","sent_s":now})
+            enqueue(r["hit_s"]+m.return_s,"release",(i,amount,False,mix))
         if now < mechanics.duration_s:
             for i,m in enumerate(members):
                 troop_busy_seconds[i] += m.troops-available[i]
                 slot_busy_seconds[i] += slots[i]
+                for t in TYPES:
+                    type_busy_seconds[i][t] += original_types[i][t]-available_types[i][t]
         if now%15 == 0:
             utilization.append({"second":now,"committed_troops":sum(m.troops for m in members)-sum(available),
                                 "free_troops":sum(available),"forming_rallies":len(open_rallies)})
         if audit:
             committed = [0]*n
+            committed_types = [dict.fromkeys(TYPES, 0) for m in members]
             for r in rallies:
                 for p in r["participants"]:
                     i = p["member_index"]
                     if r["hit_s"]+members[i].return_s > now:
                         committed[i] += p["troops"]
+                        for t in TYPES:
+                            committed_types[i][t] += p["composition"][t]
             for i,m in enumerate(members):
                 assert 0 <= available[i] <= m.troops, (now,i,available[i])
                 assert available[i]+committed[i] == m.troops, (now,i,available[i],committed[i])
                 assert 0 <= slots[i] <= m.join_slots
+                for t in TYPES:
+                    assert available_types[i][t] >= 0
+                    assert available_types[i][t]+committed_types[i][t] == original_types[i][t], (now, i, t)
             for r in rallies:
                 assert r["troops"] <= members[r["host_index"]].rally_capacity
                 assert len(r["participants"])-1 <= mechanics.joiner_cap
                 ids = [p["member_index"] for p in r["participants"]]
                 assert len(ids) == len(set(ids))
+                assert all(sum(p["composition"].values()) == p["troops"] for p in r["participants"])
     total = sum(totals)
     last_t = max(mechanics.duration_s,max((h["second"] for h in hits),default=0))
     series.append({"second":last_t,"damage":total})
@@ -197,10 +235,15 @@ def simulate(members, mechanics=Mechanics(), strategy=Strategy(), audit=False):
     return {"strategy":asdict(strategy),"total_damage":total,"series":series,"individual_series":individual_series,
         "hits":hits,"rallies":rallies,"contributions":contributions,"utilization":utilization,
         "minute_damage":by_minute,"selected_hosts":[names[i] for i in hosts],
+        "host_ratings":dict(zip(names, ratings)),
+        "damage_by_type": {t:sum(x[t] for x in type_damage) for t in TYPES},
         "summary":{"rallies":len(hits),"mean_fill":sum(h["fill"] for h in hits)/max(1,len(hits)),
                    "max_gap_s":max(gaps+[tail_gap],default=0),"opening_wait_s":unique_hit_times[0] if unique_hit_times else mechanics.duration_s,
                    "troop_utilization":sum(troop_busy_seconds)/(mechanics.duration_s*sum(m.troops for m in members))},
         "members":[{"name":names[i],"damage":totals[i],"historical_score":m.historical_score,
+                    "damage_by_type":type_damage[i],"troop_hits_by_type":type_hits[i],
+                    "inventory_estimated":m.infantry is None,
+                    "type_utilization":{t:type_busy_seconds[i][t]/max(1,mechanics.duration_s*original_types[i][t]) for t in TYPES},
                     "attacks":attacks[i],"rallies_led":led[i],"joins":join_count[i],"troop_hits":troops_used[i],
                     "troop_utilization":troop_busy_seconds[i]/(mechanics.duration_s*m.troops),
                     "join_slot_utilization":slot_busy_seconds[i]/max(1,mechanics.duration_s*m.join_slots)} for i,m in enumerate(members)]}

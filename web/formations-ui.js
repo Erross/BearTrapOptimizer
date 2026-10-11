@@ -1,0 +1,86 @@
+/* Plain-language strategy guide and inventory-aware fleet preview. */
+'use strict';
+const troopTypes=['infantry','cavalry','archers'];
+const typeNames={infantry:'Infantry',cavalry:'Cavalry',archers:'Archers'};
+const formationNames={inventory:'Spread available troop types',strict:'Keep target ratio; send fewer if needed',adaptive:'Aim for target ratio; fill spare space',optimized:'Choose mix from damage model'};
+const ownNames={full:'Full march on own rally',equal:'Share troops between own rally and joins',small:'Small troop group on own rally'};
+const splitNames={equal:'Spread troops across joining marches',concentrated:'Fill one march before the next'};
+const joinNames={next:'Join the rally that hits soonest',strength:'Join the highest model-score host',rate:'Choose estimated damage for time away'};
+const integer=n=>Number(n).toLocaleString('en-US',{maximumFractionDigits:0});
+let fleetPreview=null,previewChosen='inventory',previewRequest=0;
+
+function strategyTitle(s){
+ const names={'All hosts · synchronized baseline':'Everyone starts together (baseline)','All hosts · evenly staggered':'Everyone starts at different times','Selected hosts · next impact':'Selected starters; join the next hit','Selected hosts · efficient joins':'Selected starters; choose score for time away','Selected hosts · small host marches':'Selected starters send few troops on own rally','Selected hosts · concentrated troops':'Selected starters; fill joining marches first','Three waves · efficient joins':'Selected starters begin in three groups','Your custom strategy':'Your chosen settings','Search winner (sampled)':'Best setup found in the search'};
+ if(names[s.name])return names[s.name];
+ if(s.name.startsWith('Formation test'))return 'Same settings; '+formationNames[s.formation].toLowerCase();
+ return s.host_count+' starters; '+formationNames[s.formation].toLowerCase();
+}
+function strategyShort(s){return esc(ownNames[s.host_allocation]+'. '+splitNames[s.troop_split]+'. '+joinNames[s.join_policy]+'. '+formationNames[s.formation]+'.')}
+function ratioText(s){return s.infantry_pct+'% Infantry / '+s.cavalry_pct+'% Cavalry / '+(100-s.infantry_pct-s.cavalry_pct)+'% Archers'}
+function formationExplanation(s){
+ if(s.formation==='inventory')return 'Send troop types in proportion to the troops you still have at home. This uses available infantry and cavalry as well as archers. It does not force an archer-heavy ratio.';
+ if(s.formation==='strict')return 'Keep '+ratioText(s)+'. If one type runs out, shrink the march. Other troops may remain unused. A march is skipped when the target mix cannot be made.';
+ if(s.formation==='adaptive')return 'Aim for '+ratioText(s)+'. If a type is missing, use other available types to fill the march, preferring the higher damage coefficient. Later marches can have fewer archers than earlier ones.';
+ return 'Choose the highest-scoring mix for the next march under the selected damage model and the troops still at home. In square-root mode this can use all three types; in weighted linear mode it fills the best type first. This is a local choice, not a plan for all future rallies.';
+}
+function strategyExplanation(s,actualCount){
+ const cadence=s.cadence==='synchronized'?'All starters begin together at event time 0. Each starts again after its troops return and the reaction delay.':s.cadence==='staggered'?'Initial starts are spread across one rally cycle. Each starter repeats on its own planned cycle. A cycle includes countdown, travel, return and reaction time. Troop shortages can delay a start.':s.cadence==='waves'?'Split starters into three groups. Their initial start times are 0:00, 1:30 and 3:00. Each repeats on its own cycle.':'Starter 1 begins at 0:00. Each next starter begins '+s.spacing_s+' seconds later. Each repeats on its own cycle.';
+ const own=s.host_allocation==='full'?'Put up to one maximum-size march in your own rally. The remaining troops can join other rallies.':s.host_allocation==='small'?'Put '+Math.round(s.small_host_fraction*10000)/100+'% of your maximum march size in your own rally (at least one troop), leaving more troops and rally capacity for others.':'Divide your total troops by joining slots plus one own-rally slot. Use that amount on your own rally, capped by march size.';
+ const split=s.troop_split==='equal'?'Divide the troop pool across joining slots and, for selected starters, the own-rally slot. Send one share at a time. Actual troop mixes and rally capacity can reduce the sent amount.':'Send up to maximum march size to one rally, then fill the next. Troops can run out before every joining slot is used.';
+ const joins=s.join_policy==='next'?'Pick the reachable open rally that will hit first. Full rallies and rallies departing before you arrive are skipped.':s.join_policy==='strength'?'Pick the reachable open rally with the highest model host score for identical reference troops. It may hit later, and your troop mix may differ from the reference mix.':'Compare estimated damage gained per troop per second away from home, including the wait, travel and return. Choose the highest value among open reachable rallies. It does not wait for a future rally that has not started.';
+ return '<p><b>Who starts:</b> '+actualCount+' regular starters, chosen by estimated host score for identical reference troops, then rally capacity. The score includes residual Host strength and troop-specific Attack and Lethality. Other players join. '+(s.final_push?'Near the end, other eligible players may also start a rally if it can hit in time.':'')+'</p><p><b>When to start:</b> '+cadence+'</p><p><b>Troops on your own rally:</b> '+own+'</p><p><b>Troops when joining:</b> '+split+'</p><p><b>Which rally to join:</b> '+joins+'</p><p><b>Troop mix:</b> '+formationExplanation(s)+'</p>';
+}
+function stockOf(m){if(m.infantry!=null&&m.cavalry!=null&&m.archers!=null)return Object.fromEntries(troopTypes.map(t=>[t,m[t]]));const n=Math.floor(m.troops/3);return {infantry:n,cavalry:n,archers:m.troops-2*n}}
+function troopDefaults(m){for(const t of troopTypes)for(const [suffix,value]of Object.entries({tier:8,quality:1,attack_bonus:0,lethality_bonus:0}))if(m[t+'_'+suffix]==null)m[t+'_'+suffix]=value;return m}
+function renderTroopProfiles(){
+ if(!roster.length)return;
+ const old=$('troopplayer').value,previousHost=$('previewhost').value;
+ $('troopplayer').innerHTML=roster.map(m=>'<option>'+esc(m.name)+'</option>').join('');
+ if(roster.some(m=>m.name===old))$('troopplayer').value=old;else $('troopplayer').value=roster.find(m=>m.name.includes('45,301'))?.name||roster[0].name;
+ $('previewhost').innerHTML=roster.filter(m=>m.can_host).slice().sort((a,b)=>b.host_strength-a.host_strength).map(m=>'<option>'+esc(m.name)+'</option>').join('');
+ if(roster.some(m=>m.can_host&&m.name===previousHost))$('previewhost').value=previousHost;
+ renderPlayerEditor();
+}
+function renderPlayerEditor(){
+ const m=troopDefaults(roster.find(m=>m.name===$('troopplayer').value));if(!m)return;const stock=stockOf(m);
+ $('stockeditor').innerHTML=troopTypes.map(t=>'<label class="control"><span>'+typeNames[t]+' available</span><input id="stock_'+t+'" type="number" min="0" step="1" value="'+stock[t]+'"></label>').join('')+'<div class="fine" style="align-self:center">'+integer(m.troops)+' total usable troops · '+integer(m.march_capacity)+' maximum march · '+m.join_slots+' joining slots + one own rally · '+m.power_m+'M account power</div>';
+ $('typeeditor').innerHTML='<table><thead><tr><th>Type</th><th>Troop tier</th><th>Type quality / TrueGold multiplier</th><th>Host Attack %</th><th>Host Lethality %</th></tr></thead><tbody>'+troopTypes.map(t=>'<tr><td>'+typeNames[t]+'</td><td><select id="edit_'+t+'_tier" aria-label="'+typeNames[t]+' troop tier">'+Array.from({length:10},(_,i)=>'<option value="'+(i+1)+'" '+(m[t+'_tier']===i+1?'selected':'')+'>T'+(i+1)+'</option>').join('')+'</select></td>'+['quality','attack_bonus','lethality_bonus'].map(suffix=>'<td><input id="edit_'+t+'_'+suffix+'" aria-label="'+typeNames[t]+' '+suffix.replaceAll('_',' ')+'" type="number" min="'+(suffix==='quality'?'.01':'0')+'" step=".01" value="'+m[t+'_'+suffix]+'"></td>').join('')+'</tr>').join('')+'</tbody></table>';
+ $('stocksource').textContent=estimatedStocks.has(m.name)||m.infantry==null?'These troop counts are estimates. Replace them with your actual usable counts and save. Tiers default to T8 unless you change them.':'These are entered troop counts. They have not been verified against the game.';
+ $('previewcount').value=Math.max(1,m.join_slots);$('previewsize').value=m.march_capacity;$('previewsize').max=m.march_capacity;
+ $('previewstatus').textContent='Compare troop mixes to refresh this preview.';fleetPreview=null;$('formationcomparison').innerHTML='';$('marchdetails').innerHTML='';$('stockcheck').textContent='Choose the number of simultaneous marches and the troops per march. Your own rally uses the same troop inventory.';
+}
+async function savePlayer(){
+ const m=roster.find(m=>m.name===$('troopplayer').value),draft={...m};for(const t of troopTypes){draft[t]=Number($('stock_'+t).value);for(const suffix of ['tier','quality','attack_bonus','lethality_bonus'])draft[t+'_'+suffix]=Number($('edit_'+t+'_'+suffix).value)}draft.troops=troopTypes.reduce((n,t)=>n+draft[t],0);
+ try{await api('formation_plan',{member:draft,mechanics:payload().mechanics,strategy:strategy(),marches:1,march_size:Math.min(draft.march_capacity,Math.max(1,draft.troops))});Object.assign(m,draft);estimatedStocks.delete(m.name);synthetic=false;renderRoster();renderInventoryDiagnostics();$('status').textContent='Player saved. Compare strategies to refresh event results.';await previewFormations()}catch(e){showError(e)}
+}
+function estimatePlayerStock(){
+ const m=roster.find(m=>m.name===$('troopplayer').value),pmin=num('minpower'),pmax=num('maxpower'),tmin=num('mintroops'),tmax=num('maxtroops'),ip=num('stockinf'),cp=num('stockcav');
+ if(![pmin,pmax,tmin,tmax,ip,cp,m.power_m].every(Number.isFinite)||pmin>pmax||tmin<1||tmin>tmax||tmax>5e6||ip<0||cp<0||ip+cp>100){showError(new Error('Check the demo power, troop and stock-percentage ranges first.'));return}
+ const x=pmax===pmin?.5:Math.max(0,Math.min(1,(m.power_m-pmin)/(pmax-pmin))),total=Math.round(tmin+(tmax-tmin)*x);m.infantry=Math.floor(total*ip/100);m.cavalry=Math.floor(total*cp/100);m.archers=total-m.infantry-m.cavalry;m.troops=total;estimatedStocks.add(m.name);renderRoster();renderInventoryDiagnostics();$('status').textContent='Estimated stock from your chosen endpoints. This is not a measured relationship between power and troops. Compare strategies to refresh event results.';
+}
+function renderInventoryDiagnostics(){
+ if(!roster.length)return;const s=strategy(),ratio=[s.infantry_pct/100,s.cavalry_pct/100,1-(s.infantry_pct+s.cavalry_pct)/100];
+ if(ratio.some(x=>!Number.isFinite(x)||x<0)){return}
+ $('inventorydiagnostics').innerHTML=table(['Player','Power','Infantry','Cavalry','Archers','Max march','Full target marches / join slots','Stock source'],roster.map(m=>{const av=stockOf(m),raw=ratio.map(x=>x*m.march_capacity),need=raw.map(Math.floor);let left=m.march_capacity-need.reduce((a,b)=>a+b,0);const order=[0,1,2].sort((a,b)=>(raw[b]-need[b])-(raw[a]-need[a])||a-b);for(let i=0;i<left;i++)need[order[i]]++;const limit=Math.min(...need.map((n,i)=>n?Math.floor(av[troopTypes[i]]/n):Infinity));return [esc(m.name),m.power_m+'M',...troopTypes.map(t=>integer(av[t])),integer(m.march_capacity),Math.min(m.join_slots,limit)+' / '+m.join_slots,estimatedStocks.has(m.name)||m.infantry==null?'Estimated':'Entered']}));
+}
+async function previewFormations(){
+ const request=++previewRequest,m=roster.find(m=>m.name===$('troopplayer').value),host=roster.find(m=>m.name===$('previewhost').value);
+ if(!m||!host){$('previewstatus').textContent='Mark at least one player as able to start rallies.';return}
+ $('previewstatus').textContent='Comparing available troop mixes…';
+ try{const p=await api('formation_plan',{member:m,host,mechanics:payload().mechanics,strategy:strategy(),marches:num('previewcount'),march_size:num('previewsize')});if(request!==previewRequest)return;fleetPreview=p;
+ const shortages=troopTypes.filter(t=>p.needed_for_target[t]>p.inventory[t]);
+ $('stockcheck').innerHTML='<b>'+p.full_target_marches+' of '+p.march_count+' full target-ratio marches can be supplied from this stock.</b><br>'+esc(ratioText(strategy()))+' at '+integer(p.march_size)+' troops each needs '+troopTypes.map(t=>integer(p.needed_for_target[t])+' '+typeNames[t]).join(', ')+'. '+(shortages.length?'<br>Shortage: '+shortages.map(t=>integer(p.needed_for_target[t]-p.inventory[t])+' '+typeNames[t]).join(', ')+'.':'No troop type is short for this wave.')+'<br><span class="fine">'+(estimatedStocks.has(m.name)||p.inventory_estimated?'Stock is estimated. ':'')+'Stock limit only: joining slots, open rallies, travel and rally capacity may impose further limits.</span>';
+ const reference=p.plans[0].effective_damage;
+ $('formationcomparison').innerHTML='<table><thead><tr>'+['Troop mix approach','Troops used','Troops left home','March fill','Damage index'].map(x=>'<th>'+x+'</th>').join('')+'</tr></thead><tbody>'+p.plans.map(x=>'<tr class="rowlink" data-formation-preview="'+x.formation+'"><td><b>'+esc(formationNames[x.formation])+'</b><div class="fine">'+esc(formationExplanation({...strategy(),formation:x.formation}))+'</div></td><td>'+integer(troopTypes.reduce((n,t)=>n+x.used[t],0))+'</td><td>'+integer(troopTypes.reduce((n,t)=>n+x.unused[t],0))+'</td><td>'+pct(x.fill)+'</td><td>'+pct(reference?x.effective_damage/reference:0)+'</td></tr>').join('')+'</tbody></table>';
+ $('formationcomparison').querySelectorAll('[data-formation-preview]').forEach(row=>row.onclick=()=>{previewChosen=row.dataset.formationPreview;renderMarchDetails()});renderMarchDetails();
+ $('previewstatus').textContent='Preview for '+m.name+' joining '+host.name+'. Coefficients (Infantry / Cavalry / Archers): '+troopTypes.map(t=>p.coefficients[t].toFixed(2)).join(' / ')+'. This uses the sidebar damage model. The fleet preview calculates each march separately, even if the event scope is pooled.';
+ }catch(e){if(request===previewRequest){fleetPreview=null;$('formationcomparison').innerHTML='';$('marchdetails').innerHTML='';$('stockcheck').textContent='Preview unavailable.';$('previewstatus').textContent=e.message}}
+}
+function renderMarchDetails(){if(!fleetPreview)return;const p=fleetPreview.plans.find(x=>x.formation===previewChosen)||fleetPreview.plans[0];$('marchdetails').innerHTML='<h3>'+esc(formationNames[p.formation])+'</h3>'+table(['March','Infantry','Cavalry','Archers','Total','Infantry / Cavalry / Archers'],p.marches.map((mix,i)=>{const total=troopTypes.reduce((n,t)=>n+mix[t],0);return [i+1,...troopTypes.map(t=>integer(mix[t])),integer(total),troopTypes.map(t=>pct(total?mix[t]/total:0)).join(' / ')]}))+'<p class="fine">Left at home: '+troopTypes.map(t=>integer(p.unused[t])+' '+typeNames[t]).join(', ')+'.</p>';}
+function renderIndividualTypes(name){if(!result)return;$('individualtypes').innerHTML='<p class="fine">Estimated damage by troop type, and average share of each type away from home during the event. The actual attack mix can change from rally to rally.</p>'+table(['Strategy','Infantry damage','Cavalry damage','Archer damage','Infantry busy','Cavalry busy','Archers busy'],result.runs.filter((r,i)=>visible.has(i)).map(r=>{const m=r.members.find(x=>x.name===name);return [esc(strategyTitle(r.strategy)),...troopTypes.map(t=>fmt(m.damage_by_type?.[t]||0)),...troopTypes.map(t=>pct(m.type_utilization?.[t]||0))]}));}
+function updateFormationHelp(){const s=strategy();$('formationhelp').textContent=formationExplanation(s);$('exponent').disabled=$('damagemodel').value==='sqrt';$('damagescope').disabled=$('damagemodel').value!=='sqrt';renderInventoryDiagnostics();}
+$('troopplayer').onchange=renderPlayerEditor;$('applystock').onclick=savePlayer;$('estimatepower').onclick=estimatePlayerStock;$('preview').onclick=previewFormations;
+$('spreadevenly').onclick=()=>{const m=roster.find(m=>m.name===$('troopplayer').value),count=num('previewcount');if(!m||count<1)return;$('previewsize').value=Math.min(m.march_capacity,Math.ceil(m.troops/count));previewFormations()};
+for(const id of ['formation','ratioinf','ratiocav','damagemodel','damagescope','counter','volley','bearbonus'])$(id).addEventListener('change',()=>{updateFormationHelp();$('status').textContent='Options changed. Compare strategies to refresh event results. Compare troop mixes to refresh the fleet preview.'});
+$('assignmentexport').onclick=()=>{if(!result)return;const r=result.runs[chosen];download('player-troop-assignments.csv',csv([['strategy','rally_id','host','member','role','sent_s','hit_s','infantry','cavalry','archers','troops','damage'],...r.rallies.flatMap(x=>x.participants.map(p=>[strategyTitle(r.strategy),x.id,x.host,result.roster[p.member_index].name,p.role,p.sent_s,x.hit_s,...troopTypes.map(t=>p.composition[t]),p.troops,r.contributions.find(c=>c.rally_id===x.id&&c.member===result.roster[p.member_index].name)?.damage||0]))]),'text/csv')};
+updateFormationHelp();generate();

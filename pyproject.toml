@@ -1,6 +1,6 @@
 [project]
 name = "kingshot-bear-optimizer"
-version = "0.1.0"
+version = "0.2.0"
 description = "Transparent Bear Trap scheduling and troop allocation simulator"
 requires-python = ">=3.10"
 dependencies = []

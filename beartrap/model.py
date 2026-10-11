@@ -1,4 +1,4 @@
-from dataclasses import dataclass, fields
+from dataclasses import dataclass, fields, replace
 import math
 
 
@@ -18,6 +18,21 @@ class Member:
     power_m: float = 50
     town_level: int = 26
     can_host: bool = True
+    infantry: int | None = None
+    cavalry: int | None = None
+    archers: int | None = None
+    infantry_tier: int = 8
+    cavalry_tier: int = 8
+    archers_tier: int = 8
+    infantry_quality: float = 1.0
+    cavalry_quality: float = 1.0
+    archers_quality: float = 1.0
+    infantry_attack_bonus: float = 0.0
+    cavalry_attack_bonus: float = 0.0
+    archers_attack_bonus: float = 0.0
+    infantry_lethality_bonus: float = 0.0
+    cavalry_lethality_bonus: float = 0.0
+    archers_lethality_bonus: float = 0.0
 
     @classmethod
     def parse(cls, row):
@@ -25,13 +40,21 @@ class Member:
         if set(row) - allowed:
             raise ValueError(f"Unknown member fields: {sorted(set(row) - allowed)}")
         values = dict(row)
-        for key in ("troops", "march_capacity", "join_slots", "rally_capacity", "outbound_s", "return_s", "join_travel_s", "town_level"):
+        inventory = ("infantry", "cavalry", "archers")
+        supplied = [values.get(k) is not None for k in inventory]
+        if any(supplied) and not all(supplied):
+            raise ValueError("Enter all three troop inventories, or leave all three empty")
+        if all(supplied):
+            values["troops"] = sum(float(values[k]) for k in inventory)
+        for key in ("troops", "march_capacity", "join_slots", "rally_capacity", "outbound_s", "return_s", "join_travel_s", "town_level", *inventory, "infantry_tier", "cavalry_tier", "archers_tier"):
             if key in values:
+                if values[key] is None and key in inventory:
+                    continue
                 x = float(values[key])
                 if not math.isfinite(x) or x != int(x):
                     raise ValueError(f"{key} must be a whole number")
                 values[key] = int(x)
-        for key in ("host_strength", "troop_quality", "historical_score", "power_m"):
+        for key in ("host_strength", "troop_quality", "historical_score", "power_m", *[f"{t}_{suffix}" for t in inventory for suffix in ("quality", "attack_bonus", "lethality_bonus")]):
             if key in values:
                 values[key] = float(values[key])
         if "can_host" in values and not isinstance(values["can_host"], bool):
@@ -58,6 +81,18 @@ class Member:
             raise ValueError("Host strength must be 0–100 and troop quality 0–20 (exclusive of zero)")
         if max(self.outbound_s, self.return_s, self.join_travel_s) > 300:
             raise ValueError("Travel times must be 0–300 seconds")
+        inv = [getattr(self, t) for t in ("infantry", "cavalry", "archers")]
+        if any(x is not None for x in inv):
+            if not all(isinstance(x, int) and not isinstance(x, bool) and x >= 0 for x in inv) or sum(inv) != self.troops:
+                raise ValueError("Three whole-number inventories must sum to usable troops")
+        for t in ("infantry", "cavalry", "archers"):
+            tier = getattr(self, f"{t}_tier")
+            if not isinstance(tier, int) or not 1 <= tier <= 10:
+                raise ValueError("Troop tiers must be T1–T10; use quality multipliers for TrueGold or mixed tiers")
+            if not 0 < getattr(self, f"{t}_quality") <= 20:
+                raise ValueError("Type quality must be >0 and <=20")
+            if max(getattr(self, f"{t}_attack_bonus"), getattr(self, f"{t}_lethality_bonus")) > 100000:
+                raise ValueError("Troop stat bonuses must be 0–100,000%")
 
 
 @dataclass(frozen=True)
@@ -69,6 +104,11 @@ class Mechanics:
     score_per_effective_troop: float = 100.0
     damage_exponent: float = 1.0
     deadline: str = "hit"
+    damage_model: str = "legacy"
+    damage_scope: str = "march"
+    archer_counter_bonus: float = 10.0
+    archer_volley_bonus: float = 0.0
+    bear_attack_bonus: float = 0.0
 
     @classmethod
     def parse(cls, row):
@@ -85,6 +125,11 @@ class Mechanics:
             raise ValueError("Damage exponent must be 0.7–1.3")
         if obj.deadline != "hit":
             raise ValueError("Bear Trap rallies must hit before the event ends; late-hit scoring is not supported")
+        if obj.damage_model not in ("legacy", "weighted", "sqrt") or obj.damage_scope not in ("march", "rally"):
+            raise ValueError("Invalid damage model or damage scope")
+        for k in ("archer_counter_bonus", "archer_volley_bonus", "bear_attack_bonus"):
+            if not math.isfinite(getattr(obj, k)) or not 0 <= getattr(obj, k) <= 1000:
+                raise ValueError("Damage bonuses must be 0–1,000%")
         return obj
 
 
@@ -100,6 +145,9 @@ class Strategy:
     small_host_fraction: float = .05
     final_push: bool = False
     host_names: tuple = ()
+    formation: str = "inventory"
+    infantry_pct: float = 10.0
+    cavalry_pct: float = 10.0
 
     @classmethod
     def parse(cls, row):
@@ -119,12 +167,16 @@ class Strategy:
             raise ValueError("Invalid spacing")
         if not math.isfinite(obj.small_host_fraction) or not .00001 <= obj.small_host_fraction <= 1:
             raise ValueError("Small host fraction must be >0 and <=1")
+        if obj.formation not in ("inventory", "strict", "adaptive", "optimized"):
+            raise ValueError("Invalid formation policy")
+        if not all(math.isfinite(x) and 0 <= x <= 100 for x in (obj.infantry_pct, obj.cavalry_pct)) or obj.infantry_pct + obj.cavalry_pct > 100:
+            raise ValueError("Infantry and cavalry percentages must total at most 100")
         return obj
 
 
 def synthetic_roster(n=32, minimum_m=3, maximum_m=224, power_min_m=20, power_max_m=200,
                      troops_min=45000, troops_max=450000, strength_min=.5, strength_max=3,
-                     join_slots=5, target_total=2e9):
+                     join_slots=5, target_total=2e9, inventory_infantry_pct=40, inventory_cavalry_pct=25):
     """Illustrative correlations only. Historical scores never enter combat math."""
     if not 2 <= n <= 100:
         raise ValueError("Synthetic roster size must be 2–100")
@@ -134,6 +186,8 @@ def synthetic_roster(n=32, minimum_m=3, maximum_m=224, power_min_m=20, power_max
         raise ValueError("Invalid power/troop range")
     if not 0 < strength_min <= strength_max:
         raise ValueError("Invalid host strength range")
+    if not all(math.isfinite(x) and 0 <= x <= 100 for x in (inventory_infantry_pct, inventory_cavalry_pct)) or inventory_infantry_pct + inventory_cavalry_pct > 100:
+        raise ValueError("Invalid inventory percentages")
     lo, hi = .03, 30.
     total_m = min(n * maximum_m - maximum_m + minimum_m,
                   max(n * minimum_m - minimum_m + maximum_m, target_total / 1e6))
@@ -156,6 +210,11 @@ def synthetic_roster(n=32, minimum_m=3, maximum_m=224, power_min_m=20, power_max
             troop_quality=.8+.4*x, outbound_s=round(20-12*x), return_s=round(20-12*x),
             join_travel_s=round(20-12*x), historical_score=score*1e6,
             power_m=power_min_m+(power_max_m-power_min_m)*x, town_level=round(22+8*x)))
+        # Explicit illustrative stock, not a claim that account power predicts a troop mix.
+        total = roster[-1].troops
+        inf = int(total * inventory_infantry_pct / 100)
+        cav = int(total * inventory_cavalry_pct / 100)
+        roster[-1] = replace(roster[-1], infantry=inf, cavalry=cav, archers=total-inf-cav)
     for m in roster:
         m.validate()
     return roster

@@ -1,4 +1,4 @@
-host,troops,damage,troop_quality
-Member 32,50000,15000000,1
-Member 32,50000,14700000,1
-Member 31,50000,14200000,1
+host,troops,damage,troop_quality,infantry,cavalry,archers,infantry_tier,cavalry_tier,archers_tier
+Member 32,50000,15000000,1,5000,5000,40000,8,8,8
+Member 32,50000,14700000,1,5000,5000,40000,8,8,8
+Member 31,50000,14200000,1,5000,5000,40000,8,8,8

@@ -1,10 +1,12 @@
-# Validation of version 0.1.0
+# Validation of version 0.2.0
 
-- Python unittest suite: 17 tests passing, including HTTP integration and invalid-input handling.
-- Audited simulated cases reconstruct every troop reservation and assert conservation, slot bounds, rally capacity and unique membership each second.
-- Browser/Python parity: 40 complete-output comparison cases pass, including a 25:01 launch being excluded, generation, contribution calibration and all scheduling/allocation/joining modes.
-- JavaScript parses successfully. All referenced fixed DOM IDs exist and are unique.
-- Dashboard logic smoke checks with a DOM stub: initial comparison, individual selection, disabling normalization, report calibration and applying coefficients, CSV import, custom cadence, search and generated chart/table markup. The earlier server-backed version completed ten real API requests. The current static app also passed these logic checks using the browser engine through a worker stub; this does not validate the browser Worker implementation.
-- Default search completes 108 candidate settings, retaining the directly compared scenarios as candidates, in roughly 1.4 seconds in Node for the browser engine and 11 seconds for the Python reference in the development environment. This is not a runtime guarantee for every roster size.
-- A real browser visual/interaction check was not completed: the browser engine was unavailable and its download failed in the execution environment. The DOM-stub checks do not verify layout, pointer interactions or actual browser download behavior.
-- Actual Kingshot event validation has not occurred. Synthetic scenario gains are not evidence of gains for the alliance.
+- Python suite: 28 tests pass, including HTTP integration, conserved type inventories, troop-aware calibration, host-stat selection and the strict event cutoff.
+- Browser/Python parity: 72 complete-output cases pass. Added cases cover every formation policy, both scoring scopes, linear/square-root models, tier and host bonuses, six-march previews and troop-aware report fitting.
+- The integer square-root allocator is compared against brute-force maxima for small stock budgets. Fleet rounding is checked for capacity overflow and exact type-count conservation.
+- The published T6 worked example produces the documented rounded 16,797 under its stated assumptions. This tests arithmetic, not Kingshot server accuracy.
+- The sample with 226,505 troops and limited archers can use all troops across five 45,301-sized inventory/adaptive marches, while strict 10/10/80 leaves troops unused. A 1.5M stock can supply five full 90k target-ratio marches.
+- JavaScript syntax and unique static DOM IDs checked. A DOM-stub smoke run checked rendering, fleet preview, saving stocks, importing CSV, custom cadence and search. A stub cannot verify visual layout or real browser behaviour.
+- A 32-member square-root search tested 432 configurations in about 34 seconds in Node in this environment. A Web Worker keeps the interface responsive; larger rosters and pooled damage can take longer.
+- In-game validation has not occurred. All demo gains and power-stock correlations are estimates, not real alliance forecasts.
+
+Live browser verification will be recorded after deployment.
