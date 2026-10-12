@@ -6,22 +6,23 @@ planner preview into the published dashboard.
 
 ## Activation
 
+The configured target is **CNQ in Kingdom 2399**. The alliance and kingdom
+cannot be changed through workflow inputs or the public app.
+
 1. Merge the implementation into the repository's main branch.
-2. Set the exact, case-sensitive alliance_tag in scripts/mightpulse-policy.json.
-   Kingdom 2399 and owner identity are fixed. The default null tag disables
-   all provider traffic.
-3. In GitHub Settings → Secrets and variables → Actions, create the repository
+2. In GitHub Settings → Secrets and variables → Actions, create the repository
    secret MIGHTPULSE_API_KEY. Enter the key there, never in chat, source,
    frontend settings, exported plans or URLs.
-4. In Actions, run **Owner-only alliance refresh** on main.
+3. In Actions, run **Owner-only alliance refresh** on main.
    Only Erross (GitHub actor ID 33665337) is accepted. Initial setup requires
    the repository's workflow token to be allowed to write repository contents.
-5. Later, enter comma-separated governor IDs to update selected members.
+4. Later, enter comma-separated governor IDs to update selected members.
    IDs must exist in the saved roster and the provider's current response.
 
 ## Bounded traffic
 
-- Public visitors load a saved JSON snapshot; no public refresh endpoint exists.
+- The saved JSON snapshot will supply the public planner after dashboard
+  integration; no public refresh endpoint exists.
 - No refresh occurs on page load, push, pull request, slider change or simulation.
 - The workflow and Python importer both check owner, repository and main branch.
 - Full refresh reserves at most 102 requests for 100 profiles and one board.
@@ -79,5 +80,5 @@ explicit revoke/delete controls. API keys must not be exported with plans.
 Direct browser-to-MightPulse access is an alternative only if the provider
 supports browser CORS; this has not been verified.
 
-Live provider access has not been tested because no alliance tag or key has
-been supplied. Local tests mock HTTP and exercise the security and budget gates.
+Live provider access has not been tested because the API key has not been
+supplied. Local tests mock HTTP and exercise the security and budget gates.

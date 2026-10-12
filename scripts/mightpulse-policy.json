@@ -1,6 +1,6 @@
 {
   "kingdom_id": 2399,
-  "alliance_tag": null,
+  "alliance_tag": "CNQ",
   "max_members": 100,
   "daily_call_budget": 500,
   "refresh_cooldown_seconds": 3600,
