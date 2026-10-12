@@ -30,3 +30,5 @@
 - Balanced recommendations are checked to meet the opening window and retain at least95% of the highest feasible tested score. Search comparison uses one common scale.
 - A40-player example using450k–1M rally capacities, T8–T10, 50–250% Attack/Lethality and45,301–140k march capacities tested226 plans in about40seconds in Node. Its recommendation selected groups of10 at30s intervals, all first starts by1:30. This is an assumed scenario, not a Kingdom2399 measurement or a universal rule.
 - Browser worker, engine and UI assets are versioned together to avoid stale mixed-model resources on GitHubPages.
+- Live Chrome verification passed for automatic32-player and40-player recommendations, grouped first starts, practical troop instructions, the travel-aware cutoff and the ready-wait graph. A1M capacity floor selected only the1M leader and reported39 join-only players with80.4% waiting, demonstrating the cost of excluding all smaller rallies. These are demo outcomes, not alliance measurements.
+- All five tabs fit within the360-pixel usable width of a375-pixel Chrome frame, without page-level horizontal overflow. This does not validate a physical touch device.
