@@ -8,7 +8,7 @@ import sys
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
 from beartrap.model import Member, Mechanics, Strategy, synthetic_roster
 from beartrap.simulator import simulate
-from beartrap.analysis import compare, calibrate
+from beartrap.analysis import compare, calibrate, search
 from beartrap.combat import formation_plan, effective_components
 
 ROOT=Path(__file__).resolve().parents[1]
@@ -83,6 +83,20 @@ def main():
        'reports':[dict(host=typed[0].name,troops=50000,damage=damage,**mix)]}
     fit=calibrate(p);fit.pop('note')
     cases.append({'method':'calibrate','args':[p],'expected':fit})
+    for repeat in ('ready','fixed'):
+        for formation in ('inventory','strict','adaptive','optimized'):
+            s=Strategy(host_count=4,cadence='groups',group_size=2,wave_interval_s=30,group_repeat=repeat,
+                       host_allocation='small',reserve_lead_troops=True,formation=formation,
+                       host_min_relative_score=20,host_min_rally_capacity=350000,final_push=True)
+            cfg=replace(c,damage_model='sqrt',duration_s=240)
+            cases.append({'method':'simulate','args':[[asdict(m) for m in typed],asdict(cfg),asdict(s)],'expected':simulate(typed,cfg,s,audit=True)})
+    spread={'n':8,'rally_capacity_min':450000,'rally_capacity_max':1000000,'march_capacity_min':45301,'march_capacity_max':140000,
+            'town_level_min':24,'town_level_max':30,'tier_min':8,'tier_max':10,'attack_min':50,'attack_max':250,'lethality_min':25,'lethality_max':200}
+    cases.append({'method':'synthetic','args':[spread],'expected':[asdict(m) for m in synthetic_roster(**spread)]})
+    for goal in ('damage','flow','balanced'):
+        p={'synthetic':{'n':4},'mechanics':{'duration_s':120,'countdown_s':30,'damage_model':'sqrt'},
+           'strategy':{'reserve_lead_troops':True},'search_goal':goal,'opening_limit_s':60}
+        cases.append({'method':'search','args':[p],'expected':search(p)})
     js="const fs=require('fs'),e=require('./web/engine.js');const cases=JSON.parse(fs.readFileSync(0,'utf8'));console.log(JSON.stringify(cases.map(c=>e[c.method](...c.args))));"
     result=subprocess.run(['node','-e',js],input=json.dumps([{k:v for k,v in c.items() if k!='expected'} for c in cases]),
                           text=True,capture_output=True,cwd=ROOT,check=True)

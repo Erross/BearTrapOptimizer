@@ -1,12 +1,30 @@
-/* Presentation and interaction state. The simulation engines remain unchanged. */
+/* Presentation and interaction state. Automatic planning and presentation state. */
 'use strict';
 let resultsDirty=false, stockDraft=false, memberDraft=false, running=false, dirtyReason='Inputs changed.';
 let editingMember=null, editingTroops=null, activePage='comparetab';
 const changeText=n=>!Number.isFinite(n)?'No baseline':(n>0?'+':'')+pct(n);
 const exactNumber=n=>Number(n).toLocaleString('en-US',{maximumFractionDigits:1});
-const demoControlIds=new Set(['n','minscore','maxscore','minpower','maxpower','mintroops','maxtroops','minstrength','maxstrength','stockinf','stockcav','slots']);
+const demoControlIds=new Set(['n','minscore','maxscore','minpower','maxpower','mintroops','maxtroops','minstrength','maxstrength','stockinf','stockcav','slots','mintown','maxtown','minrally','maxrally','minmarch','maxmarch','mintier','maxtier','minattack','maxattack','minlethality','maxlethality']);
 const originalPlan=renderPlan, originalTroopEditor=renderPlayerEditor;
 
+function patternText(s){return s.cadence==='groups'?'Up to '+s.group_size+' starters every '+s.wave_interval_s+'s':s.cadence==='synchronized'?'All starters together':s.cadence==='staggered'?'Individual starts across one cycle':s.cadence==='waves'?'Groups at 0:00 / 1:30 / 3:00':'One starter every '+s.spacing_s+'s';}
+function renderAdvisor(){
+ if(!result)return;const r=result.runs[chosen],s=r.strategy,summary=r.summary,regular=new Set(r.selected_hosts),byStart=new Map();
+ for(const name of r.selected_hosts){const start=r.initial_starts[name];if(!byStart.has(start))byStart.set(start,[]);byStart.get(start).push(name);}
+ const joinOnly=result.roster.filter(m=>!regular.has(m.name));
+ const lowerSlots=Math.ceil(result.roster.reduce((n,m)=>n+Math.min(m.join_slots,result.roster.length-1),0)/result.mechanics.joiner_cap);
+ const best=searchData?.best_damage,minimum=searchData?.best_flow;
+ const capacityHits=r.rallies.filter(x=>x.troops>=result.roster[x.host_index].rally_capacity).length,slotHits=r.rallies.filter(x=>x.participants.length-1>=result.mechanics.joiner_cap).length;
+ const groups=[...byStart.entries()].sort((a,b)=>(a[0]??Infinity)-(b[0]??Infinity));
+ $('recommendation').innerHTML='<div class="eyebrow">'+(s.name==='Recommended plan'?'Automatic recommendation · best tested under your assumptions':'Currently selected comparison')+'</div><h3>'+r.selected_hosts.length+' players start rallies. '+joinOnly.length+' join only.</h3><p class="recommend-pattern"><b>'+esc(patternText(s))+'</b></p><div class="advisor-metrics"><div><strong>'+fmt(r.total_damage)+'</strong><span>Estimated alliance score</span></div><div><strong>'+pct(summary.ready_wait_fraction)+'</strong><span>Ready-troop waiting</span></div><div><strong>'+time(summary.opening_last_start_s)+'</strong><span>Last first rally starts</span></div></div>'+
+ '<p><b>After the opening:</b> '+(r.group_cycle_s?'Repeat each group every '+time(r.group_cycle_s)+' on the shared clock.':s.cadence==='groups'?'Restart your own rally after its troops return, plus '+result.mechanics.reaction_s+'s sending delay.':'Follow the selected start schedule below.')+' <b>Troops:</b> '+esc(ownNames[s.host_allocation])+'. '+esc(splitNames[s.troop_split])+'. '+esc(joinNames[s.join_policy])+'. '+esc(formationNames[s.formation])+'.</p>'+
+ '<p class="fine">Ready waiting = '+Math.round(summary.ready_wait_equivalent_s)+' equivalent seconds across deployable troops over the event. It excludes deliberately reserved own-rally troops ('+Math.round(summary.reserved_troop_seconds/Math.max(1,r.deployable_troops))+' equivalent seconds). '+fmt(summary.committed_at_60s)+' troops are away at 1:00 and '+fmt(summary.committed_at_240s)+' at 4:00. Full stock may exceed all march slots.</p>'+
+ (searchData?'<p>Tested '+searchData.tested.length+' plans. Highest tested score: '+fmt(best.total_damage)+', with '+pct(best.ready_wait_fraction)+' ready waiting. Lowest-waiting tested plan: '+pct(minimum.ready_wait_fraction)+', scoring '+fmt(minimum.total_damage)+'. '+(searchData.search_goal==='balanced'?'This recommendation keeps at least 95% of the highest tested score.':'Priority: '+(searchData.search_goal==='damage'?'highest score.':'least ready waiting, even if damage falls.'))+'</p>':'<p class="fine">Choose Recommend my rally plan to test starter pools and opening groups for these players.</p>')+
+ '<details open><summary>Who starts, and when?</summary>'+table(['First start (event time)','Players','Rally starters'],groups.map(([start,names])=>[start===null?'No start':time(start),names.length,names.map(esc).join(', ')]))+'</details>'+
+ '<details><summary>Who should only join? ('+joinOnly.length+')</summary>'+table(['Player','Rally capacity','Leader score (% of best)','Why join only in this plan?'],joinOnly.map(m=>{const row=r.host_eligibility.find(x=>x.name===m.name);return [esc(m.name),fmt(m.rally_capacity),row.relative_score.toFixed(1)+'%',esc(row.reason)];}))+'<p class="fine">These roles apply to this roster and plan. A player excluded by starter count is not permanently too weak to lead. A smaller capacity can still be useful when troops otherwise have nowhere to go.</p></details>'+
+ '<details><summary>Why capacity matters</summary><p>With these joining slots, at least '+lowerSlots+' simultaneously open rallies would be needed just for every possible joining march, before troop capacity and the rule that you cannot join your own rally. This is an optimistic slot bound, not the recommended starter count. Actual capacities are enforced per rally. For example, a 450k rally has room for at most nine full 45,301-troop joiners when its leader sends 4,500 troops; the tenth must send fewer. A 1M rally with the same packets reaches the 14-joiner limit first.</p><p>In this plan, '+capacityHits+' rallies reach their troop capacity and '+slotHits+' reach the joiner limit; these counts can overlap. Leader-score floor: '+s.host_min_relative_score+'% of strongest; capacity floor: '+fmt(s.host_min_rally_capacity)+'. The search also varies the starter count. There is no universal Town Center or Lethality cutoff proven by this model.</p></details><div class="toolbar"><button id="advisorSchedule" class="primary">View rally schedule and player results</button></div>';
+ $('advisorSchedule').onclick=()=>activatePage('plantab');
+}
 function activatePage(id){
  activePage=id;
  for(const button of document.querySelectorAll('[data-tab]')){
@@ -37,10 +55,10 @@ function updateActionAvailability(){
 }
 busy=function(on,text=''){
  running=on;
- const selectors='aside input, aside select, #modeltab input, #modeltab select, #rostertable input, #membereditor input, #stockeditor input, #typeeditor input, #typeeditor select, #troopplayer, #previewhost, #previewcount, #previewsize, #reports';
+ const selectors='aside input, aside select, #modeltab input, #modeltab select, #rostertable input, #membereditor input, #stockeditor input, #typeeditor input, #typeeditor select, #troopplayer, #previewhost, #previewcount, #previewsize, #reports, #advisorinput input, #advisorinput select';
  for(const input of document.querySelectorAll(selectors))input.disabled=on;
- for(const id of ['run','generate','search','fit','applyfit','load','rosterimport','applystock','estimatepower'])$(id).disabled=on;
- if(!on){$('applyfit').disabled=!fitted;updateFormationHelp();}
+ for(const id of ['recommend','reviewassumptions','run','generate','search','fit','applyfit','load','rosterimport','applystock','estimatepower'])$(id).disabled=on;
+ if(!on){$('applyfit').disabled=!fitted;updateFormationHelp();updateBadge();}
  $('busybar').style.display=on?'block':'none';$('main').setAttribute('aria-busy',String(on));
  $('status').textContent=text;$('error').style.display='none';updateActionAvailability();
  for(const el of document.querySelectorAll('#membereditor button, #rostertable button'))el.disabled=on;
@@ -71,16 +89,16 @@ search=async function(){
  busy(true,'Searching plan combinations. This can take a minute or longer; you can browse other pages.');
  try{
   const request=JSON.parse(JSON.stringify(payload()));searchData=await api('search',request);result=await api('compare',request);
-  result.runs.push(searchData.best);chosen=result.runs.length-1;result.runs[chosen].strategy.name='Search winner (sampled)';
+  result.runs.push(searchData.best);chosen=result.runs.length-1;result.runs[chosen].strategy.name='Recommended plan';
   visible=new Set([0,chosen]);resultsDirty=false;$('stale').hidden=true;renderResults();$('searchpanel').hidden=false;
-  $('searchnote').textContent=searchData.note+' Tested '+searchData.tested.length+' settings. The first row below has the highest estimated score.';
-  $('searchtable').innerHTML=table(['Regular starters','Troops in own rally','Joining troop amount','Troop mix','Estimated score','Capacity used','Longest time with no hits'],searchData.tested.slice(0,12).map(r=>[r.strategy.host_count,ownNames[r.strategy.host_allocation],splitNames[r.strategy.troop_split],formationNames[r.strategy.formation],fmt(r.total_damage),pct(r.mean_fill),time(r.max_gap_s)]));
-  busy(false,'Search finished. Selected the highest-scoring tested plan. This is not a guaranteed optimum.');
+  $('searchnote').textContent=searchData.note+' Tested '+searchData.tested.length+' settings. Rows are sorted by the selected search priority. The balanced recommendation may choose a lower-waiting row within 5% of the highest score.';
+  $('searchtable').innerHTML=table(['Starters','Initial pattern','Troops in own rally','Troop mix','Estimated score','Ready-troop waiting','All starters begin by'],searchData.tested.slice(0,12).map(r=>[r.selected_hosts.length,esc(patternText(r.strategy)),ownNames[r.strategy.host_allocation],formationNames[r.strategy.formation],fmt(r.total_damage),pct(r.ready_wait_fraction),r.opening_feasible?time(r.opening_last_start_s):'Outside opening limit']));
+  busy(false,'Recommendation ready. Starter roles and launch groups are shown above; open Rally schedule for exact times.');
  }catch(e){busy(false);showError(e);}
 };
 function selectPlan(index,openSchedule=false){
  chosen=Number(index);$('planselect').value=chosen;visible.add(chosen);
- renderSelectedSummary();renderLegend();renderCharts();renderPlan();renderComparison();
+ renderSelectedSummary();renderLegend();renderCharts();renderPlan();renderComparison();renderAdvisor();
  if(openSchedule)activatePage('plantab');
 }
 function renderSelectedSummary(){
@@ -108,9 +126,9 @@ function renderLegend(){
 }
 function renderComparison(){
  if(!result)return;const base=result.runs[0];
- $('comparisontable').innerHTML='<table><thead><tr>'+['Plan','Estimated score','Change from baseline','Hits','Capacity used','Longest quiet time','Troops away from home','Action'].map(h=>'<th scope="col">'+h+'</th>').join('')+'</tr></thead><tbody>'+result.runs.map((r,i)=>{
+ $('comparisontable').innerHTML='<table><thead><tr>'+['Plan','Estimated score','Change from baseline','Hits','Capacity used','Longest quiet time','Ready-troop waiting','Troops away from home','Action'].map(h=>'<th scope="col">'+h+'</th>').join('')+'</tr></thead><tbody>'+result.runs.map((r,i)=>{
   const delta=base.total_damage?r.total_damage/base.total_damage-1:null;
-  return '<tr class="'+(i===chosen?'selected':'')+'"><td><b>'+esc(strategyTitle(r.strategy))+'</b>'+(i===chosen?'<span class="pill">Selected</span>':'')+'<div class="fine">'+strategyShort(r.strategy)+'</div></td><td>'+fmt(r.total_damage)+'</td><td class="'+(delta>=0?'positive':'negative')+'">'+(delta===null?'No baseline':changeText(delta))+'</td><td>'+r.summary.rallies+'</td><td>'+pct(r.summary.mean_fill)+'</td><td>'+time(r.summary.max_gap_s)+'</td><td>'+pct(r.summary.troop_utilization)+'</td><td class="comparison-actions"><button data-view-plan="'+i+'" aria-label="View plan: '+esc(strategyTitle(r.strategy))+'">View plan</button></td></tr>';
+  return '<tr class="'+(i===chosen?'selected':'')+'"><td><b>'+esc(strategyTitle(r.strategy))+'</b>'+(i===chosen?'<span class="pill">Selected</span>':'')+'<div class="fine">'+strategyShort(r.strategy)+'</div></td><td>'+fmt(r.total_damage)+'</td><td class="'+(delta>=0?'positive':'negative')+'">'+(delta===null?'No baseline':changeText(delta))+'</td><td>'+r.summary.rallies+'</td><td>'+pct(r.summary.mean_fill)+'</td><td>'+time(r.summary.max_gap_s)+'</td><td>'+pct(r.summary.ready_wait_fraction)+'</td><td>'+pct(r.summary.troop_utilization)+'</td><td class="comparison-actions"><button data-view-plan="'+i+'" aria-label="View plan: '+esc(strategyTitle(r.strategy))+'">View plan</button></td></tr>';
  }).join('')+'</tbody></table>';
  for(const button of $('comparisontable').querySelectorAll('[data-view-plan]'))button.onclick=()=>selectPlan(button.dataset.viewPlan,true);
 }
@@ -120,13 +138,13 @@ renderResults=function(){
  $('individual').innerHTML=result.roster.slice().sort((a,b)=>b.historical_score-a.historical_score).map(m=>'<option>'+esc(m.name)+'</option>').join('');
  if(result.roster.some(m=>m.name===old))$('individual').value=old;
  $('planselect').innerHTML=result.runs.map((r,i)=>'<option value="'+i+'">'+esc(strategyTitle(r.strategy))+'</option>').join('');$('planselect').value=chosen;
- renderCharts();renderPlan();renderTroopProfiles();renderInventoryDiagnostics();updateActionAvailability();
+ renderCharts();renderPlan();renderTroopProfiles();renderInventoryDiagnostics();renderAdvisor();updateActionAvailability();
 };
 
 // Every time chart has a labelled axis, an exact readout and a keyboard-operable time input.
 chart=function(id,lines,{bar=false,unit='damage'}={}){
  const el=$(id),duration=result?.mechanics.duration_s||num('duration')*60;
- const names={alliancechart:'Alliance cumulative score',individualchart:'Player cumulative score',minutechart:'Score in each minute',usagechart:'Troops away from home'};
+ const names={alliancechart:'Alliance cumulative score',individualchart:'Player cumulative score',minutechart:'Score in each minute',usagechart:'Troops away from home',waitingchart:'Troops ready to join but waiting'};
  const unitLabel=unit==='troops'?'Troops':'Estimated score';
  if(!lines.length){el.innerHTML='<div class="empty">No plans selected. Tick a plan above, or choose “Show baseline + selected plan”.</div>';return;}
  const W=Math.max(320,Math.min(960,el.clientWidth||$('main').clientWidth-44)),H=W<500?290:320,L=65,R=20,T=35,B=60;
@@ -179,13 +197,14 @@ renderPlan=function(){
  $('cutoffhelp').innerHTML='<b>Only rallies that hit before '+time(duration)+' score.</b> '+(latest===null?'No player is currently allowed to start rallies.':latest<0?'No eligible player can hit in time with this countdown and travel.':'With these inputs, even the fastest eligible starter must begin by '+time(latest)+'. Each player’s exact latest safe start is shown below.')+' A 25:01 start is wasted in a 30-minute event with a five-minute countdown.';
  if(!r.hits.length)$('timelinechart').innerHTML='<div class="empty">No rallies hit before the event ended. Check countdown, travel, starter eligibility and troop stock.</div>';
  $('timelinecaption').textContent=r.hits.length+' scored hits, from '+(r.hits.length?time(r.hits[0].second):'—')+' to '+(r.hits.length?time(r.hits.at(-1).second):'—')+'. Read exact start times in the table below. On narrow screens, scroll sideways within the timeline to read all hit times.';
+ chart('waitingchart',[{name:'Ready but waiting',color:'#b95544',points:r.utilization.map(p=>({x:p.second,y:p.ready_waiting_troops}))},{name:'Reserved for own rally',color:'#c18730',points:r.utilization.map(p=>({x:p.second,y:p.reserved_for_own_rallies}))}],{unit:'troops'});
  const hosts=[...new Set(r.rallies.map(x=>x.host))];
  $('scheduletable').innerHTML=table(['Rally starter','Rally troop capacity','Latest safe start','Actual start times (elapsed)','Hits','Whole-rally score'],hosts.map(name=>{
   const m=result.roster.find(x=>x.name===name),rr=r.rallies.filter(x=>x.host===name);
   const safe=duration-result.mechanics.countdown_s-m.outbound_s-1;
   return [esc(name),exactNumber(m.rally_capacity),safe<0?'Cannot hit in time':time(safe),rr.map(x=>time(x.start_s)).join(' / '),rr.filter(x=>x.hit_s<duration).length,fmt(rr.reduce((n,x)=>n+(x.damage||0),0))];
  }));
- $('memberresults').innerHTML=table(['Player','Personal estimated score','Change from baseline','Total attacks','Own rally hits','Joining hits','Troops away from home'],r.members.slice().sort((a,b)=>b.damage-a.damage).map(m=>{const b=baseline.members.find(x=>x.name===m.name);return [esc(m.name),fmt(m.damage),b.damage?changeText(m.damage/b.damage-1):'No baseline',m.attacks,m.rallies_led,m.joins,pct(m.troop_utilization)];}));
+ $('memberresults').innerHTML=table(['Player','Role','Personal estimated score','Change from baseline','Total attacks','Own rally hits','Joining hits','Ready waiting (equivalent seconds)','Troops away from home'],r.members.slice().sort((a,b)=>b.damage-a.damage).map(m=>{const b=baseline.members.find(x=>x.name===m.name);return [esc(m.name),r.selected_hosts.includes(m.name)?'Start + join':'Join only',fmt(m.damage),b.damage?changeText(m.damage/b.damage-1):'No baseline',m.attacks,m.rallies_led,m.joins,Math.round(m.ready_wait_equivalent_s),pct(m.troop_utilization)];}));
 };
 
 function renderMemberEditor(){
@@ -263,9 +282,9 @@ updateFormationHelp=function(){
  $('formationhelp').textContent=formationExplanation(s);
  $('ratioreadout').innerHTML='<b>'+esc(ratioText(s))+'</b>Ratios always mean infantry / cavalry / archers.';
  $('exponent').disabled=running||sqrt;$('damagescope').disabled=running||!sqrt;
- $('spacing').disabled=running||s.cadence!=='custom';$('small').disabled=running||s.host_allocation!=='small';
+ for(const id of ['groupsize','waveinterval','waverepeat'])$(id).disabled=running||s.cadence!=='groups';$('wavecycle').disabled=running||s.cadence!=='groups'||s.group_repeat!=='fixed';$('spacing').disabled=running||s.cadence!=='custom';$('small').disabled=running||s.host_allocation!=='small';
  $('scale').disabled=running||$('normalize').checked;$('target').disabled=running||!$('normalize').checked;
- $('customhelp').textContent=s.cadence==='staggered'?'Initial starts are spread across one countdown + travel + return cycle. Each starter then repeats independently.':s.cadence==='waves'?'First starts are grouped at 0:00, 1:30 and 3:00. Each starter then repeats independently.':s.cadence==='custom'?'Each initial starter begins '+s.spacing_s+' seconds after the previous one. Later cycles repeat independently.':'All eligible selected starters begin at 0:00. Each restarts after its own troops return.';
+ $('customhelp').textContent=s.cadence==='groups'?patternText(s)+'. '+(s.group_repeat==='fixed'?'Groups repeat on a shared cycle long enough for all starters to return.':'Each starter restarts independently as soon as its own troops return.')+' '+(s.reserve_lead_troops?'Own-rally troops are held back from joining marches.':'Joining marches may consume the stock needed for a later own rally.'):s.cadence==='staggered'?'Initial starts are spread across one countdown + travel + return cycle. Each starter then repeats independently.':s.cadence==='waves'?'First starts are grouped at 0:00, 1:30 and 3:00. Each starter then repeats independently.':s.cadence==='custom'?'Each initial starter begins '+s.spacing_s+' seconds after the previous one. Later cycles repeat independently.':'All eligible selected starters begin at 0:00. Each restarts after its own troops return.';
  renderInventoryDiagnostics();
 };
 
@@ -274,7 +293,7 @@ formationNames.inventory='Use available troop types';formationNames.strict='Keep
 const oldTitle=strategyTitle;
 strategyTitle=function(s){
  const names={'All hosts · synchronized baseline':'Everyone starts together (baseline)','All hosts · evenly staggered':'Everyone spreads rally starts','Selected hosts · next impact':'Selected starters; join the first hit','Selected hosts · efficient joins':'Selected starters; score per time away','Selected hosts · small host marches':'Selected starters; small own marches','Selected hosts · concentrated troops':'Selected starters; fill joining marches','Three waves · efficient joins':'Selected starters; three start groups','Your custom strategy':'Your plan settings','Search winner (sampled)':'Best plan found in the search'};
- return names[s.name]||(s.name.startsWith('Formation test')?'Your settings + '+formationNames[s.formation].toLowerCase():oldTitle(s));
+ if(s.name==='Recommended plan')return 'Recommended · '+patternText(s);if(s.cadence==='groups')return s.host_count+' starters · '+patternText(s);return names[s.name]||(s.name.startsWith('Formation test')?'Your settings + '+formationNames[s.formation].toLowerCase():oldTitle(s));
 };
 
 for(const button of document.querySelectorAll('[data-tab]')){
@@ -305,7 +324,7 @@ function invalidatePreview(){
  $('previewstatus').textContent='Troop-mix or damage settings changed. Choose Compare troop mixes to update the preview.';
  $('stockcheck').textContent='Compare troop mixes to check the current target and damage settings.';
 }
-for(const id of controls)$(id).addEventListener('change',()=>{updateFormationHelp();if(!demoControlIds.has(id))markResultsDirty('Rally-plan or model settings changed.');if(['formation','ratioinf','ratiocav','damagemodel','damagescope','counter','volley','bearbonus'].includes(id))invalidatePreview();});
+for(const id of controls)$(id).addEventListener('change',()=>{updateFormationHelp();markResultsDirty(demoControlIds.has(id)?'Example spread changed; Recommend my rally plan rebuilds the demo.':'Rally-plan or model settings changed.');if(['formation','ratioinf','ratiocav','damagemodel','damagescope','counter','volley','bearbonus'].includes(id))invalidatePreview();});
 for(const id of ['previewcount','previewsize','previewhost'])$(id).addEventListener('change',()=>{$('previewstatus').textContent='Wave settings changed. Choose Compare troop mixes to update this preview.';$('formationcomparison').innerHTML='';$('marchdetails').innerHTML='';fleetPreview=null;$('stockcheck').textContent='Compare troop mixes to check these wave settings.';});
 const generateDemo=generate;
 generate=async function(){
@@ -339,4 +358,8 @@ for(const id of ['projectfile','rosterfile']){
  };
 }
 let resizeTimer;window.addEventListener('resize',()=>{clearTimeout(resizeTimer);resizeTimer=setTimeout(()=>{if(!result)return;if(activePage==='comparetab')renderCharts();if(activePage==='plantab')renderPlan();},100);});
+$('recommend').onclick=async()=>{if(!ensureSavedDrafts())return;if(synthetic)await generate();else await search();};
+$('reviewassumptions').onclick=()=>{$('demosettings').open=true;document.body.classList.add('settings-open');$('toggleSettings').setAttribute('aria-expanded','true');$('demosettings').scrollIntoView({block:'start'});};
+const advisorBadge=updateBadge;
+updateBadge=function(){advisorBadge();for(const id of ['n','mintown','maxtown','minrally','maxrally'])$(id).disabled=running||!synthetic;$('advisorassumptions').textContent=synthetic?'Example roster, not a measured Kingdom 2399 census. Capacity range comes from your report; troop stocks, march sizes, tiers and Attack/Lethality bonuses are editable assumptions. Town level and power do not directly multiply damage.':'Using '+roster.filter(m=>!absent.has(m.name)).length+' attending players from your entered roster. Edit attendance on Alliance setup. Example range controls do not replace these players; the recommendation uses their actual inputs.';};
 activatePage('comparetab');updateFormationHelp();generate();

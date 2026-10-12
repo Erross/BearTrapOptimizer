@@ -148,6 +148,13 @@ class Strategy:
     formation: str = "inventory"
     infantry_pct: float = 10.0
     cavalry_pct: float = 10.0
+    group_size: int = 10
+    wave_interval_s: int = 60
+    group_repeat: str = "ready"
+    wave_cycle_s: int = 0
+    reserve_lead_troops: bool = False
+    host_min_relative_score: float = 0.0
+    host_min_rally_capacity: int = 0
 
     @classmethod
     def parse(cls, row):
@@ -157,7 +164,7 @@ class Strategy:
         obj = cls(**row)
         if not isinstance(obj.host_count, int) or not 0 <= obj.host_count <= 100:
             raise ValueError("Invalid host count")
-        if obj.cadence not in ("synchronized", "staggered", "waves", "custom"):
+        if obj.cadence not in ("synchronized", "staggered", "waves", "custom", "groups"):
             raise ValueError("Invalid cadence")
         if obj.join_policy not in ("next", "strength", "rate"):
             raise ValueError("Invalid join policy")
@@ -171,12 +178,28 @@ class Strategy:
             raise ValueError("Invalid formation policy")
         if not all(math.isfinite(x) and 0 <= x <= 100 for x in (obj.infantry_pct, obj.cavalry_pct)) or obj.infantry_pct + obj.cavalry_pct > 100:
             raise ValueError("Infantry and cavalry percentages must total at most 100")
+        if not isinstance(obj.group_size, int) or not 1 <= obj.group_size <= 100:
+            raise ValueError("Group size must be 1–100")
+        if not isinstance(obj.wave_interval_s, int) or not 0 <= obj.wave_interval_s <= 600:
+            raise ValueError("Wave interval must be 0–600 seconds")
+        if obj.group_repeat not in ("ready", "fixed") or not isinstance(obj.reserve_lead_troops, bool):
+            raise ValueError("Invalid group repeat or reservation setting")
+        if not isinstance(obj.wave_cycle_s, int) or not 0 <= obj.wave_cycle_s <= 3600:
+            raise ValueError("Group cycle must be 0 (automatic) or at most 3600 seconds")
+        if not math.isfinite(obj.host_min_relative_score) or not 0 <= obj.host_min_relative_score <= 100:
+            raise ValueError("Minimum leader score must be 0–100% of the strongest eligible player")
+        if not isinstance(obj.host_min_rally_capacity, int) or not 0 <= obj.host_min_rally_capacity <= 20000000:
+            raise ValueError("Minimum rally capacity must be 0–20M")
         return obj
 
 
 def synthetic_roster(n=32, minimum_m=3, maximum_m=224, power_min_m=20, power_max_m=200,
                      troops_min=45000, troops_max=450000, strength_min=.5, strength_max=3,
-                     join_slots=5, target_total=2e9, inventory_infantry_pct=40, inventory_cavalry_pct=25):
+                     join_slots=5, target_total=2e9, inventory_infantry_pct=40, inventory_cavalry_pct=25,
+                     rally_capacity_min=350000,rally_capacity_max=1100000,
+                     march_capacity_min=90000,march_capacity_max=90000,
+                     town_level_min=22,town_level_max=30,tier_min=8,tier_max=8,
+                     attack_min=0,attack_max=0,lethality_min=0,lethality_max=0):
     """Illustrative correlations only. Historical scores never enter combat math."""
     if not 2 <= n <= 100:
         raise ValueError("Synthetic roster size must be 2–100")
@@ -188,6 +211,12 @@ def synthetic_roster(n=32, minimum_m=3, maximum_m=224, power_min_m=20, power_max
         raise ValueError("Invalid host strength range")
     if not all(math.isfinite(x) and 0 <= x <= 100 for x in (inventory_infantry_pct, inventory_cavalry_pct)) or inventory_infantry_pct + inventory_cavalry_pct > 100:
         raise ValueError("Invalid inventory percentages")
+    for low,high,bound in ((rally_capacity_min,rally_capacity_max,20000000),(march_capacity_min,march_capacity_max,2000000),
+                           (town_level_min,town_level_max,100),(tier_min,tier_max,10)):
+        if not all(isinstance(v,int) for v in (low,high)) or not 1<=low<=high<=bound:
+            raise ValueError("Invalid capacity, town level or troop tier range")
+    if not all(math.isfinite(v) for v in (attack_min,attack_max,lethality_min,lethality_max)) or not 0<=attack_min<=attack_max<=100000 or not 0<=lethality_min<=lethality_max<=100000:
+        raise ValueError("Invalid Attack or Lethality range")
     lo, hi = .03, 30.
     total_m = min(n * maximum_m - maximum_m + minimum_m,
                   max(n * minimum_m - minimum_m + maximum_m, target_total / 1e6))
@@ -204,17 +233,21 @@ def synthetic_roster(n=32, minimum_m=3, maximum_m=224, power_min_m=20, power_max
         example = i == n//2 and troops_min <= 226505 <= troops_max
         roster.append(Member(name="Example · 5 × 45,301" if example else f"Member {i+1:02d}",
             troops=226505 if example else round(troops_min + (troops_max-troops_min) * x),
-            march_capacity=90000, join_slots=join_slots,
-            rally_capacity=round(350000 + 750000 * x),
+            march_capacity=round(march_capacity_min+(march_capacity_max-march_capacity_min)*x), join_slots=join_slots,
+            rally_capacity=round(rally_capacity_min+(rally_capacity_max-rally_capacity_min)*x),
             host_strength=strength_min + (strength_max-strength_min)*x*x,
             troop_quality=.8+.4*x, outbound_s=round(20-12*x), return_s=round(20-12*x),
             join_travel_s=round(20-12*x), historical_score=score*1e6,
-            power_m=power_min_m+(power_max_m-power_min_m)*x, town_level=round(22+8*x)))
+            power_m=power_min_m+(power_max_m-power_min_m)*x, town_level=round(town_level_min+(town_level_max-town_level_min)*x)))
         # Explicit illustrative stock, not a claim that account power predicts a troop mix.
         total = roster[-1].troops
         inf = int(total * inventory_infantry_pct / 100)
         cav = int(total * inventory_cavalry_pct / 100)
-        roster[-1] = replace(roster[-1], infantry=inf, cavalry=cav, archers=total-inf-cav)
+        roster[-1] = replace(roster[-1], infantry=inf, cavalry=cav, archers=total-inf-cav,
+                            **{t+suffix:value for t in ("infantry","cavalry","archers") for suffix,value in
+                               (("_tier",round(tier_min+(tier_max-tier_min)*x)),
+                                ("_attack_bonus",attack_min+(attack_max-attack_min)*x),
+                                ("_lethality_bonus",lethality_min+(lethality_max-lethality_min)*x))})
     for m in roster:
         m.validate()
     return roster

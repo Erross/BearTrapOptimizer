@@ -6,6 +6,17 @@ from .model import Mechanics, Strategy
 from .combat import TYPES, inventory, allocate, effective_components, rally_components, host_rating
 
 
+def starter_pool(members, mechanics, strategy):
+    ratings = [host_rating(m, mechanics) for m in members]
+    strongest = max((ratings[i] for i,m in enumerate(members) if m.can_host),default=1)
+    relative = [100*r/strongest for r in ratings]
+    eligible = sorted((i for i,m in enumerate(members) if m.can_host
+                       and relative[i]+1e-9 >= strategy.host_min_relative_score
+                       and m.rally_capacity >= strategy.host_min_rally_capacity),
+                      key=lambda i:(-ratings[i],-members[i].rally_capacity,members[i].name))
+    return ratings, relative, eligible
+
+
 def simulate(members, mechanics=Mechanics(), strategy=Strategy(), audit=False):
     if not members or len(members) > 100:
         raise ValueError("Roster must contain 1–100 members")
@@ -18,9 +29,7 @@ def simulate(members, mechanics=Mechanics(), strategy=Strategy(), audit=False):
         raise ValueError("Member names must be unique")
     if set(strategy.host_names) - set(names):
         raise ValueError("Selected host does not exist in the roster")
-    ratings = [host_rating(m, mechanics) for m in members]
-    eligible = sorted((i for i,m in enumerate(members) if m.can_host),
-                      key=lambda i:(-ratings[i],-members[i].rally_capacity,members[i].name))
+    ratings, relative_scores, eligible = starter_pool(members,mechanics,strategy)
     hosts = [i for i in eligible if names[i] in strategy.host_names] if strategy.host_names else eligible[:strategy.host_count]
     host_set = set(hosts)
     n = len(members)
@@ -37,8 +46,15 @@ def simulate(members, mechanics=Mechanics(), strategy=Strategy(), audit=False):
     for rank,i in enumerate(hosts):
         phases[i] = (0 if strategy.cadence == "synchronized" else
                      int(rank*reference_cycle/max(1,len(hosts))) if strategy.cadence == "staggered" else
-                     (rank%3)*90 if strategy.cadence == "waves" else rank*strategy.spacing_s)
+                     (rank%3)*90 if strategy.cadence == "waves" else
+                     (rank//strategy.group_size)*strategy.wave_interval_s if strategy.cadence == "groups" else rank*strategy.spacing_s)
         next_start[i] = phases[i]
+    group_cycle = 0
+    if strategy.cadence == "groups" and strategy.group_repeat == "fixed":
+        minimum_cycle = max(reference_cycle, math.ceil(len(hosts)/strategy.group_size)*strategy.wave_interval_s)
+        group_cycle = strategy.wave_cycle_s or (math.ceil(minimum_cycle/strategy.wave_interval_s)*strategy.wave_interval_s if strategy.wave_interval_s else minimum_cycle)
+        if group_cycle < minimum_cycle:
+            raise ValueError(f"Shared group cycle must be at least {minimum_cycle}s for these starters and travel times")
     rallies, open_rallies, events, hits, contributions = [], [], [], [], []
     series = [{"second":0,"damage":0.0}]
     individual_series = {m.name:[{"second":0,"damage":0.0}] for m in members}
@@ -53,6 +69,17 @@ def simulate(members, mechanics=Mechanics(), strategy=Strategy(), audit=False):
     type_damage = [dict.fromkeys(TYPES, 0.0) for m in members]
     type_hits = [dict.fromkeys(TYPES, 0) for m in members]
     utilization = []
+    ready_wait = [0]*n
+    held_seconds = [0]*n
+    missed_waves = [0]*n
+    deployable = sum(min(m.troops,m.march_capacity*(m.join_slots+(1 if m.can_host else 0))) for m in members)
+    max_departure = mechanics.duration_s-min((members[i].outbound_s for i in eligible),default=0)-1
+    def own_quota(i):
+        m=members[i]
+        desired = (m.march_capacity if strategy.host_allocation=="full" else
+                   max(1,round(m.march_capacity*strategy.small_host_fraction)) if strategy.host_allocation=="small" else
+                   max(1,math.ceil(m.troops/(m.join_slots+1))))
+        return min(m.troops,m.march_capacity,m.rally_capacity,desired)
     serial = 0
     def enqueue(t, kind, data):
         nonlocal serial
@@ -110,7 +137,18 @@ def simulate(members, mechanics=Mechanics(), strategy=Strategy(), audit=False):
                 if i not in host_set:
                     active_hosts.append(i)
         for i in active_hosts:
-            if lead_busy[i] or now < next_start[i] or available[i] == 0:
+            if group_cycle and i in host_set and now >= next_start[i]:
+                if now > next_start[i]:
+                    missed = math.ceil((now-next_start[i])/group_cycle)
+                    missed_waves[i] += missed
+                    next_start[i] += missed*group_cycle
+                if now != next_start[i]:
+                    continue
+                next_start[i] += group_cycle
+                if lead_busy[i] or now < phases[i] or not available[i]:
+                    missed_waves[i] += 1
+                    continue
+            elif lead_busy[i] or now < next_start[i] or available[i] == 0:
                 continue
             departure = now+mechanics.countdown_s
             if not permitted(departure,i):
@@ -126,6 +164,8 @@ def simulate(members, mechanics=Mechanics(), strategy=Strategy(), audit=False):
             mix = allocate(available_types[i], amount, m, m, mechanics, strategy)
             amount = sum(mix.values())
             if not amount:
+                if group_cycle and i in host_set:
+                    missed_waves[i] += 1
                 continue
             available[i] -= amount
             for t in TYPES:
@@ -141,15 +181,28 @@ def simulate(members, mechanics=Mechanics(), strategy=Strategy(), audit=False):
             enqueue(departure,"depart",rally)
             enqueue(hit,"hit",rally)
             enqueue(hit+m.return_s,"release",(i,amount,True,mix))
-            if strategy.cadence == "synchronized":
+            if group_cycle and i in host_set:
+                pass
+            elif strategy.cadence == "synchronized" or (strategy.cadence == "groups" and strategy.group_repeat == "ready"):
                 next_start[i] = hit+m.return_s+mechanics.reaction_s
             else:
                 next_start[i] = phases.get(i,now)+((now-phases.get(i,now))//cycles[i]+1)*cycles[i]
         # Rotate the order each second: avoids permanent first-row privilege.
         order = [(now+j)%n for j in range(n)]
+        waiting_now = 0
+        held_now = 0
         for i in order:
             m = members[i]
-            if slots[i] >= m.join_slots or not available[i] or now < next_dispatch[i] or now >= mechanics.duration_s:
+            reserve = dict.fromkeys(TYPES,0)
+            if strategy.reserve_lead_troops and i in active_hosts and not lead_busy[i] and permitted(max(now,next_start[i])+mechanics.countdown_s,i):
+                reserve = allocate(available_types[i], min(available[i],own_quota(i)),m,m,mechanics,strategy)
+            reserve_amount = sum(reserve.values())
+            held_now += reserve_amount
+            if now < mechanics.duration_s:
+                held_seconds[i] += reserve_amount
+            join_available = {t:available_types[i][t]-reserve[t] for t in TYPES}
+            join_total = sum(join_available.values())
+            if slots[i] >= m.join_slots or not join_total or now < next_dispatch[i] or now >= mechanics.duration_s:
                 continue
             candidates = []
             for r in open_rallies:
@@ -160,9 +213,11 @@ def simulate(members, mechanics=Mechanics(), strategy=Strategy(), audit=False):
                 remaining = members[r["host_index"]].rally_capacity-r["troops"]
                 if remaining < 1:
                     continue
-                desired = m.march_capacity if strategy.troop_split == "concentrated" else max(1,math.ceil(m.troops/(m.join_slots+(1 if i in active_hosts else 0))))
-                amount = min(desired,m.march_capacity,available[i],remaining)
-                mix = allocate(available_types[i], amount, m, members[r["host_index"]], mechanics, strategy)
+                desired = (m.march_capacity if strategy.troop_split == "concentrated" else
+                           max(1,math.ceil(max(0,m.troops-(own_quota(i) if i in active_hosts else 0))/max(1,m.join_slots))) if strategy.reserve_lead_troops else
+                           max(1,math.ceil(m.troops/(m.join_slots+(1 if i in active_hosts else 0)))))
+                amount = min(desired,m.march_capacity,join_total,remaining)
+                mix = allocate(join_available, amount, m, members[r["host_index"]], mechanics, strategy)
                 amount = sum(mix.values())
                 if not amount:
                     continue
@@ -178,6 +233,10 @@ def simulate(members, mechanics=Mechanics(), strategy=Strategy(), audit=False):
                             d/(amount*max(1,r["hit_s"]+m.return_s-now)))
                 candidates.append((priority,-r["hit_s"],-r["id"],amount,r,mix))
             if not candidates:
+                if now+m.join_travel_s < max_departure:
+                    ready = min(join_total,(m.join_slots-slots[i])*m.march_capacity)
+                    ready_wait[i] += ready
+                    waiting_now += ready
                 continue
             _,_,_,amount,r,mix = max(candidates,key=lambda x:x[:3])
             available[i] -= amount
@@ -197,7 +256,8 @@ def simulate(members, mechanics=Mechanics(), strategy=Strategy(), audit=False):
                     type_busy_seconds[i][t] += original_types[i][t]-available_types[i][t]
         if now%15 == 0:
             utilization.append({"second":now,"committed_troops":sum(m.troops for m in members)-sum(available),
-                                "free_troops":sum(available),"forming_rallies":len(open_rallies)})
+                                "free_troops":sum(available),"forming_rallies":len(open_rallies),
+                                "ready_waiting_troops":waiting_now,"reserved_for_own_rallies":held_now})
         if audit:
             committed = [0]*n
             committed_types = [dict.fromkeys(TYPES, 0) for m in members]
@@ -232,18 +292,37 @@ def simulate(members, mechanics=Mechanics(), strategy=Strategy(), audit=False):
     by_minute = [0.0]*(math.ceil(last_t/60)+1)
     for h in hits:
         by_minute[min(len(by_minute)-1,h["second"]//60)] += h["damage"]
+    initial_starts = {names[i]:next((r["start_s"] for r in rallies if r["host_index"]==i),None) for i in hosts}
+    role_rows=[]
+    for i,m in enumerate(members):
+        reason = ("Not permitted to start" if not m.can_host else
+                  "Below minimum rally capacity" if m.rally_capacity < strategy.host_min_rally_capacity else
+                  "Below minimum leader score" if relative_scores[i]+1e-9 < strategy.host_min_relative_score else
+                  "Regular starter" if i in host_set else "Eligible, outside selected starter count")
+        role_rows.append({"name":m.name,"relative_score":relative_scores[i],"rally_capacity":m.rally_capacity,
+                          "regular_starter":i in host_set,"eligible":i in eligible,"reason":reason})
     return {"strategy":asdict(strategy),"total_damage":total,"series":series,"individual_series":individual_series,
         "hits":hits,"rallies":rallies,"contributions":contributions,"utilization":utilization,
         "minute_damage":by_minute,"selected_hosts":[names[i] for i in hosts],
         "host_ratings":dict(zip(names, ratings)),
+        "host_eligibility":role_rows,"initial_starts":initial_starts,"planned_initial_starts":{names[i]:phases[i] for i in hosts},
+        "group_cycle_s":group_cycle,"deployable_troops":deployable,
         "damage_by_type": {t:sum(x[t] for x in type_damage) for t in TYPES},
         "summary":{"rallies":len(hits),"mean_fill":sum(h["fill"] for h in hits)/max(1,len(hits)),
                    "max_gap_s":max(gaps+[tail_gap],default=0),"opening_wait_s":unique_hit_times[0] if unique_hit_times else mechanics.duration_s,
-                   "troop_utilization":sum(troop_busy_seconds)/(mechanics.duration_s*sum(m.troops for m in members))},
+                   "troop_utilization":sum(troop_busy_seconds)/(mechanics.duration_s*sum(m.troops for m in members)),
+                   "ready_wait_troop_seconds":sum(ready_wait),"ready_wait_fraction":sum(ready_wait)/max(1,mechanics.duration_s*deployable),
+                   "ready_wait_equivalent_s":sum(ready_wait)/max(1,deployable),"reserved_troop_seconds":sum(held_seconds),
+                   "missed_group_starts":sum(missed_waves),"starters_without_first_rally":sum(t is None for t in initial_starts.values()),
+                   "opening_last_start_s":max((t for t in initial_starts.values() if t is not None),default=0),
+                   "committed_at_60s":next((p["committed_troops"] for p in utilization if p["second"]==60),0),
+                   "committed_at_240s":next((p["committed_troops"] for p in utilization if p["second"]==240),0)},
         "members":[{"name":names[i],"damage":totals[i],"historical_score":m.historical_score,
                     "damage_by_type":type_damage[i],"troop_hits_by_type":type_hits[i],
                     "inventory_estimated":m.infantry is None,
                     "type_utilization":{t:type_busy_seconds[i][t]/max(1,mechanics.duration_s*original_types[i][t]) for t in TYPES},
                     "attacks":attacks[i],"rallies_led":led[i],"joins":join_count[i],"troop_hits":troops_used[i],
                     "troop_utilization":troop_busy_seconds[i]/(mechanics.duration_s*m.troops),
+                    "ready_wait_equivalent_s":ready_wait[i]/max(1,min(m.troops,m.march_capacity*(m.join_slots+(1 if m.can_host else 0)))),
+                    "reserved_troop_seconds":held_seconds[i],
                     "join_slot_utilization":slot_busy_seconds[i]/max(1,mechanics.duration_s*m.join_slots)} for i,m in enumerate(members)]}

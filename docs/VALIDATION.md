@@ -23,3 +23,10 @@
 - Tests and Pages deployment succeeded for both UX implementation commits `1aa0b2516a2c39c26be838f930a1325f3988155a` and `d187cb1129e398eba1d3a2d6324e36e90c80fa10`. Further visual refinements are committed with the final revision.
 - Final live narrow-viewport checks covered all five tabs: each document width equalled its 360-pixel usable viewport, and the score chart used a readable 320 × 290 SVG coordinate system. Exact 15:00 values were inspected. These checks use a 375-pixel Chrome frame with scrollbar space.
 - The final live search completed, selected its winner, and kept summary/schedule selection consistent. Changing custom-plan controls followed by Compare selected “Your plan settings”. Tests and Pages deployment succeeded for revision `35d4b015e14385077ce53c94b036dddb2cd717e1`.
+
+## Automatic group planner revision · 12 October 2026
+
+- 35 Python tests and84 full-output Python/browser parity cases pass. New cases cover exact10/10/10/2 opening waves, reserved troops, fixed360-second cycles, rejected short cycles, hard starter floors including final push, blocked-troop waiting, per-type conservation under three formation policies and unequal capacities, configurable roster bonuses and all three search objectives.
+- Balanced recommendations are checked to meet the opening window and retain at least95% of the highest feasible tested score. Search comparison uses one common scale.
+- A40-player example using450k–1M rally capacities, T8–T10, 50–250% Attack/Lethality and45,301–140k march capacities tested226 plans in about40seconds in Node. Its recommendation selected groups of10 at30s intervals, all first starts by1:30. This is an assumed scenario, not a Kingdom2399 measurement or a universal rule.
+- Browser worker, engine and UI assets are versioned together to avoid stale mixed-model resources on GitHubPages.

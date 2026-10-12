@@ -38,7 +38,8 @@ class HTTPTests(unittest.TestCase):
                 self.assertGreater(len(asset.read()),0)
         with self.post('/api/compare',{'synthetic':{'n':4},'host_count':2}) as r:
             data=json.load(r)
-        self.assertEqual(len(data['runs']),11)
+        self.assertEqual(len(data['runs']),14)
+        self.assertTrue(any(r['strategy']['cadence']=='groups' for r in data['runs']))
         self.assertAlmostEqual(data['runs'][0]['total_damage'],2e9,delta=.001)
 
     def test_invalid_input_is_400(self):

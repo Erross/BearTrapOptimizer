@@ -12,3 +12,5 @@ body{font-size:15px}p,.fine,.help{line-height:1.6}.fine{font-size:12px}button,in
 
 /* Let the page tabs stick to the window; nested tables own their overflow. */
 .main{overflow:visible;min-width:0}
+
+.advisor-fields{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:14px}.recommendation{border:2px solid #2a7254;background:#f7fbf7}.advisor-metrics{display:flex;gap:34px;flex-wrap:wrap;margin:18px 0}.advisor-metrics strong{display:block;font-size:28px}.advisor-metrics span{display:block;font-size:13px;color:#53665c}.recommend-pattern{font-size:20px}.recommendation details{margin-top:14px}.recommendation table{min-width:0}.recommendation td{white-space:normal;overflow-wrap:anywhere}.recommendation details{overflow:auto}#advisorinput .control input,#advisorinput .control select{width:100%;min-width:0}.advisor-input h3{font-size:26px}.advisor-input .two{margin-top:12px}@media(max-width:1050px){.advisor-fields{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:560px){.advisor-metrics{gap:20px}.advisor-metrics strong{font-size:23px}.advisor-fields{gap:8px}.advisor-input .two{grid-template-columns:1fr}.recommendation h3{font-size:21px}}
