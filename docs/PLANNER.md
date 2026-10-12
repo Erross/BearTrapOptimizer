@@ -2,7 +2,15 @@
 
 The default page compares six complete approaches on one damage graph. It does not launch a broad search on first visit. Its five variables are attending players, alliance strength profile, selected starter count, opening wave count, and seconds between waves. Setup, real rosters, troop details, calibration, custom approaches and the larger search are available in an optional dialog. Entered players and attendance are preserved when updating the comparison.
 
-A front-page slider and exact number entry set the per-player joining-march limit for both capped approaches. Changes automatically update the comparison after a short pause, preserving the current line selection and custom comparison. If the limit changes while a worker calculation runs, that result stays marked stale and a follow-up calculation applies the latest value. The slider starts at 1k–150k and expands for larger entered limits or march capacities; it never changes a leader's own packet.
+A front-page slider and exact number entry set the per-player joining-march limit for both capped starter approaches and any added strategy set to follow the dial. Changes automatically update the comparison after a short pause, preserving the current line selection and added comparisons. If the limit changes while a worker calculation runs, that result stays marked stale and a follow-up calculation applies the latest value. The slider starts at 1k–150k and expands for larger entered limits or march capacities; it never changes a leader's own packet.
+
+## Named strategies at the top of the page
+
+The optional **Add strategy** editor starts from the selected approach and saves an independent snapshot. It supports starter count, opening pattern, waves, interval, troop-mix policy, target percentages and joining cap. Extra settings include own-rally packet size, joining troop allocation, rally priority, fixed start spacing and shared-clock restarts. The six starter comparisons plus six added strategies use the existing 12-run comparison API and one common baseline scale.
+
+Named strategies can be edited, duplicated and removed. A duplicate produces the same curve until its settings change. Fixed caps stay fixed; dial-linked caps follow the front control. Target ratios describe requests: strict mode reduces a march when stock is insufficient, while adaptive mode fills spare capacity with remaining troop types. Cards and plan details display the applied mix policy.
+
+Alliance-file version 2 now includes `addedStrategies`, an array of `{strategy, capMode}` snapshots. Files without that field still load. Names must be unique, with 1–64 characters. Invalid settings are rejected by the same simulation parser; failed file imports restore the prior alliance, controls and added comparisons. Results are recalculated on load. The legacy custom-plan button adds another named snapshot rather than replacing an earlier custom result.
 
 ## Six default approaches
 

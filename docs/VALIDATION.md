@@ -62,3 +62,10 @@
 - The front-page slider and exact number entry control both capped approaches and automatically refresh the comparison. Chosen graph lines and a custom comparison are preserved. Mid-calculation cap changes queue the latest value and keep the older result marked stale.
 - Dashboard regression checks cover six visible approaches, the matching settings, the new plan's leader instructions and cap, slider/number synchronization, automatic updates, selected graph lines, unchanged roster, and changing the cap during a worker request. Capped selected/everyone curves agree when all starters are selected, and a cap above every march capacity has no effect. Existing one-wave and zero-gap checks still pass.
 - Local checks passed: dashboard regression, JavaScript syntax, static HTTP/API tests and whitespace validation. The Python simulation and browser engine are unchanged.
+
+## Multiple named strategy comparisons · 12 October 2026
+
+- Added a front-page strategy editor with independent troop mixes, starter counts, opening timing, troop caps and optional own/joining-march rules. Users can copy existing settings, name a plan, add it to the shared comparison, then edit, duplicate or remove it. Up to six added plans join the six starter approaches.
+- Named plans use the same roster and one normalization denominator. Cards, plan instructions, graph labels and exports show the user name and actual troop-mix policy. Fixed caps stay independent; dial-linked plans update with the shared cap control.
+- Saved alliance files include the added strategy snapshots. Old files still load; imports with invalid simulation settings restore the previous comparisons and roster. The background custom-plan button now retains each added plan.
+- Dashboard regression passed for two independently calculated mixes, identical duplicate curves, editing without changing a copy, removing a graph line, fixed versus dial-linked caps, unchanged roster and reference scale, save/load through the actual handlers, invalid-import rollback and invalid target percentages. Existing cap-dial, one-wave equivalence and player-edit checks still pass. Simulation algorithms are unchanged.

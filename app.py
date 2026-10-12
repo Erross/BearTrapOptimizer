@@ -31,7 +31,7 @@ class Handler(BaseHTTPRequestHandler):
         if path in ("/","/index.html","/responsive-check.html"):
             page="index.html" if path=="/" else path[1:]
             self.send(200,(ROOT/"web"/page).read_bytes(),"text/html; charset=utf-8")
-        elif path in ("/engine.js","/worker.js","/combat.js","/formations-ui.js","/app.js","/ux.js","/approaches.js","/profile-model.js"):
+        elif path in ("/engine.js","/worker.js","/combat.js","/formations-ui.js","/app.js","/ux.js","/approaches.js","/strategy-builder.js","/profile-model.js"):
             self.send(200,(ROOT/"web"/path[1:]).read_bytes(),"text/javascript; charset=utf-8")
         elif path in ("/styles.css","/ux.css","/approaches.css"):
             self.send(200,(ROOT/"web"/path[1:]).read_bytes(),"text/css; charset=utf-8")

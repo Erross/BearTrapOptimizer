@@ -10,6 +10,7 @@ The user found the first revision confusing and overwhelming: a long recommendat
 | Too many variables | Five main inputs: attendance, strength profile, selected starters, waves, interval. The requested troop-cap dial sits below them and automatically updates both capped wave plans. |
 | Approach names do not describe a usable plan | Six named complete approaches; each card gives starter count, waves, interval, troop limit and join-only count. Both selected-leader and everyone-wave plans have matching capped counterparts. |
 | Damage curves are hidden under a long plan | All six damage lines are displayed immediately, followed by the approach cards. |
+| Comparing another troop mix requires changing shared setup | The front-page Add strategy editor saves independent named settings, graphs each plan, and provides edit, duplicate and remove actions. Ratios and cap policies are shown with each result. |
 | Arbitrary billions suggest a forecast | Relative damage graph: 100 is the together baseline's final total; all curves use the same roster and denominator. |
 | "Troop caps" can mean game capacity or an alliance rule | The capped approach limits each joining march. Physical rally capacities and joiner caps remain enforced everywhere. |
 | Everyone in one wave differs from everyone together | All six use the same leader and joining-march allocation. Uncapped all-player one-wave and zero-spacing waves exactly reproduce the together baseline; matching capped counterparts also agree. |
