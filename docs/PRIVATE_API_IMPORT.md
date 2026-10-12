@@ -32,6 +32,11 @@ cannot be changed through workflow inputs or the public app.
   provider request. If that durable write fails, no provider request occurs.
 - The same workflow attempt cannot reuse its reservation. Failures still consume
   the reserved budget. There are no automatic provider retries.
+- A source-controlled recovery_attempt may authorize one exact rerun of a known
+  failed first attempt during the cooldown. It requires that first attempt to be
+  the latest recorded run on the same UTC day, and charges another complete
+  reservation. Other runs and attempts remain blocked. Clear the grant after
+  recovery; there is no workflow input or public control for it.
 - A fixed Actions concurrency group serializes imports. Quota reservation remains
   durable if the runner fails or is terminated.
 - A successful refresh is published at web/data/alliance-api.json.
@@ -49,7 +54,9 @@ in-game roster/profile observations, including city coordinates. This is an
 API-usage gate, not private alliance-data hosting. Keys and HTTP authentication
 headers are never published. Unknown top-level profile fields are omitted;
 credential-shaped fields and occurrences of the actual key are stripped from
-the saved output. Redirects are refused.
+the saved output. Redirects are refused. Requests identify the application with
+a BearTrapOptimizer User-Agent; MightPulse rejected Python's default client
+header with HTTP 403 during integration testing.
 
 The importer rejects unexpected kingdoms/tags, oversized or duplicate rosters,
 unknown selected IDs and mismatched governor profiles. Governor IDs are used
@@ -80,5 +87,6 @@ explicit revoke/delete controls. API keys must not be exported with plans.
 Direct browser-to-MightPulse access is an alternative only if the provider
 supports browser CORS; this has not been verified.
 
-Live provider access has not been tested because the API key has not been
-supplied. Local tests mock HTTP and exercise the security and budget gates.
+Local tests use a dummy key and exercise the security and budget gates. Live
+provider requests run only through the owner-gated Actions workflow, with the
+real key retained in the private Actions secret.

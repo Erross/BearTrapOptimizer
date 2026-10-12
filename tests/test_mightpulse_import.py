@@ -1,13 +1,16 @@
 from copy import deepcopy
 from datetime import datetime, timedelta, timezone
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
 from pathlib import Path
+import threading
 import unittest
+from unittest.mock import patch
 from urllib.request import Request
 
 from scripts.mightpulse_import import (
     Client, ImportBlocked, NoRedirect, Policy, ProviderError, authorize,
-    execute, redact, reserve_budget,
+    execute, http_json, redact, reserve_budget,
 )
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -217,6 +220,93 @@ class OwnerImportTests(unittest.TestCase):
         with self.assertRaisesRegex(ImportBlocked, "Daily"):
             reserve_budget(ledger, p, env, start + timedelta(hours=4), 102)
 
+    def test_explicit_recovery_charges_again_and_cannot_be_reused(self):
+        raw = policy()
+        raw["recovery_attempt"] = "100:2"
+        self.run_import(raw=raw)
+        ledger = self.reservations[-1]
+        before = deepcopy(ledger)
+        env = owner_env()
+        env["GITHUB_RUN_ATTEMPT"] = "2"
+        self.provider.paths.clear()
+        self.run_import(raw=raw, env=env, ledger=ledger, now=NOW + timedelta(minutes=5))
+        updated = self.reservations[-1]
+        self.assertEqual(updated["reserved_calls"], 204)
+        self.assertEqual(updated["runs"], ["100:1", "100:2"])
+        self.assertEqual(ledger, before)
+        self.provider.paths.clear()
+        with self.assertRaisesRegex(ImportBlocked, "already reserved"):
+            self.run_import(raw=raw, env=env, ledger=updated, now=NOW + timedelta(minutes=6))
+        env["GITHUB_RUN_ATTEMPT"] = "3"
+        with self.assertRaisesRegex(ImportBlocked, "cooldown"):
+            self.run_import(raw=raw, env=env, ledger=updated, now=NOW + timedelta(minutes=6))
+        self.assertEqual(self.provider.paths, [])
+
+    def test_recovery_cannot_authorize_another_run_attempt_or_previous_run(self):
+        raw = policy()
+        raw["recovery_attempt"] = "100:2"
+        self.run_import(raw=raw)
+        ledger = self.reservations[-1]
+        self.provider.paths.clear()
+        for run_id, attempt, last_run in (("101", "2", "100:1"),
+                                          ("100", "3", "100:1"),
+                                          ("100", "2", "99:1")):
+            with self.subTest(run=run_id, attempt=attempt, previous=last_run):
+                env = owner_env()
+                env.update(GITHUB_RUN_ID=run_id, GITHUB_RUN_ATTEMPT=attempt)
+                saved = {**ledger, "last_run": last_run}
+                with self.assertRaisesRegex(ImportBlocked, "cooldown"):
+                    self.run_import(raw=raw, env=env, ledger=saved,
+                                    now=NOW + timedelta(minutes=5))
+        self.assertEqual(self.provider.paths, [])
+
+    def test_recovery_cannot_bypass_daily_budget(self):
+        raw = policy()
+        raw["recovery_attempt"] = "100:2"
+        self.run_import(raw=raw)
+        ledger = {**self.reservations[-1], "reserved_calls": 450}
+        env = owner_env()
+        env["GITHUB_RUN_ATTEMPT"] = "2"
+        self.provider.paths.clear()
+        with self.assertRaisesRegex(ImportBlocked, "Daily"):
+            self.run_import(raw=raw, env=env, ledger=ledger, now=NOW + timedelta(minutes=5))
+        self.assertEqual(self.provider.paths, [])
+
+    def test_recovery_cannot_cross_utc_day_during_cooldown(self):
+        raw = policy()
+        raw["recovery_attempt"] = "100:2"
+        start = NOW.replace(hour=23, minute=50)
+        self.run_import(raw=raw, now=start)
+        ledger = self.reservations[-1]
+        env = owner_env()
+        env["GITHUB_RUN_ATTEMPT"] = "2"
+        self.provider.paths.clear()
+        with self.assertRaisesRegex(ImportBlocked, "cooldown"):
+            self.run_import(raw=raw, env=env, ledger=ledger, now=start + timedelta(minutes=20))
+        self.assertEqual(self.provider.paths, [])
+
+    def test_recovery_remains_owner_only(self):
+        raw = policy()
+        raw["recovery_attempt"] = "100:2"
+        self.run_import(raw=raw)
+        ledger = self.reservations[-1]
+        env = owner_env()
+        env.update(GITHUB_RUN_ATTEMPT="2", GITHUB_ACTOR="SomeoneElse")
+        self.provider.paths.clear()
+        with self.assertRaisesRegex(ImportBlocked, "owner"):
+            self.run_import(raw=raw, env=env, ledger=ledger, now=NOW + timedelta(minutes=5))
+        self.assertEqual(self.provider.paths, [])
+        self.assertEqual(len(self.reservations), 1)
+
+    def test_recovery_policy_rejects_malformed_or_first_attempt_grants(self):
+        for grant in ("100:1", "100:0", "100:02", "0:2", "100:2\n", {}, 100):
+            with self.subTest(grant=grant):
+                raw = policy()
+                raw["recovery_attempt"] = grant
+                with self.assertRaisesRegex(ImportBlocked, "recovery policy"):
+                    self.run_import(raw=raw)
+        self.assertEqual(self.provider.paths, [])
+
     def test_utc_day_reset_retains_cross_midnight_cooldown(self):
         p, env = Policy.read(policy()), owner_env()
         start = NOW.replace(hour=23, minute=50)
@@ -336,6 +426,46 @@ class OwnerImportTests(unittest.TestCase):
         self.assertIn("github.ref == 'refs/heads/main'", text)
         self.assertIn("cancel-in-progress: false", text)
         self.assertIn("secrets.MIGHTPULSE_API_KEY", text)
+
+
+class IdentifiedHTTPClientTests(unittest.TestCase):
+    def test_provider_accepts_identified_app_instead_of_default_python_agent(self):
+        requests = []
+
+        class Handler(BaseHTTPRequestHandler):
+            def do_GET(self):
+                agent = self.headers.get("User-Agent", "")
+                authorization = self.headers.get("Authorization", "")
+                requests.append((self.path, agent, authorization))
+                if agent.startswith("Python-urllib") or not agent:
+                    status, body = 403, {"ok": False}
+                elif authorization != "Bearer " + KEY:
+                    status, body = 401, {"ok": False}
+                else:
+                    status, body = 200, {"ok": True}
+                self.send_response(status)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps(body).encode())
+
+            def log_message(self, *args):
+                pass
+
+        server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        try:
+            base = "http://127.0.0.1:" + str(server.server_port)
+            with patch("scripts.mightpulse_import.API_BASE", base):
+                result = http_json("/alliances/2399/CNQ?include=info,roster", KEY)
+            self.assertEqual(result, {"ok": True})
+            self.assertEqual(len(requests), 1)
+            self.assertIn("BearTrapOptimizer", requests[0][1])
+            self.assertEqual(requests[0][2], "Bearer " + KEY)
+        finally:
+            server.shutdown()
+            thread.join(timeout=2)
+            server.server_close()
 
 
 if __name__ == "__main__":

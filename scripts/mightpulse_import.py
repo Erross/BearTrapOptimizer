@@ -25,6 +25,7 @@ REPOSITORY = "Erross/BearTrapOptimizer"
 OWNER_LOGIN = "Erross"
 OWNER_ACTOR_ID = "33665337"
 API_BASE = "https://api.mightpulse.com/v1"
+API_USER_AGENT = "BearTrapOptimizer/1.0 (+https://github.com/Erross/BearTrapOptimizer)"
 MAX_RESPONSE_BYTES = 2_000_000
 MEMBER_FIELDS = (
     "uid", "governor_id", "fid", "nick_name", "power", "town_center_level",
@@ -82,6 +83,7 @@ class Policy:
     refresh_cooldown_seconds: int
     calls_per_minute: int
     include_troop_power_board: bool
+    recovery_attempt: str | None = None
 
     @classmethod
     def read(cls, raw: dict) -> "Policy":
@@ -102,7 +104,18 @@ class Policy:
                 raise ImportBlocked("Invalid fixed-alliance import policy.")
         if type(raw.get("include_troop_power_board")) is not bool:
             raise ImportBlocked("Invalid leaderboard policy.")
-        return cls(**{key: raw[key] for key in cls.__dataclass_fields__})
+        recovery = raw.get("recovery_attempt")
+        if recovery is not None and (
+            not isinstance(recovery, str)
+            or not re.fullmatch(r"[1-9]\d{0,19}:[1-9]\d{0,2}", recovery)
+            or int(recovery.split(":")[1]) < 2
+        ):
+            raise ImportBlocked("Invalid single-run recovery policy.")
+        return cls(
+            **{key: raw[key] for key in bounds}, alliance_tag=tag,
+            include_troop_power_board=raw["include_troop_power_board"],
+            recovery_attempt=recovery,
+        )
 
 
 def governor_id(value) -> str:
@@ -145,7 +158,17 @@ def reserve_budget(ledger: dict, policy: Policy, env: dict, now: datetime, calls
             raise ImportBlocked("Invalid saved quota state; refresh refused.") from None
         if run == ledger.get("last_run") or run in runs:
             raise ImportBlocked("This workflow attempt already reserved its API budget.")
-        if (now - previous_start).total_seconds() < policy.refresh_cooldown_seconds:
+        elapsed = (now - previous_start).total_seconds()
+        if elapsed < 0:
+            raise ImportBlocked("Saved quota timestamp is in the future; refresh refused.")
+        # A source-controlled grant permits one exact retry of a failed first
+        # attempt. Advancing last_run consumes it; the full budget is charged.
+        first_attempt = env["GITHUB_RUN_ID"] + ":1"
+        recovery = (
+            same_day and policy.recovery_attempt == run
+            and ledger.get("last_run") == first_attempt and first_attempt in runs
+        )
+        if elapsed < policy.refresh_cooldown_seconds and not recovery:
             raise ImportBlocked("Refresh cooldown active; use the existing snapshot.")
     else:
         reserved, runs = 0, []
@@ -167,7 +190,10 @@ def http_json(path: str, api_key: str) -> dict:
         raise ImportBlocked("Invalid upstream request path.")
     request = Request(
         API_BASE + path,
-        headers={"Authorization": "Bearer " + api_key, "Accept": "application/json"},
+        headers={
+            "Authorization": "Bearer " + api_key, "Accept": "application/json",
+            "User-Agent": API_USER_AGENT,
+        },
     )
     try:
         with build_opener(NoRedirect()).open(request, timeout=100) as response:
