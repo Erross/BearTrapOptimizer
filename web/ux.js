@@ -282,6 +282,8 @@ for(const button of document.querySelectorAll('[data-tab]')){
  button.onkeydown=e=>{if(!['ArrowLeft','ArrowRight','Home','End'].includes(e.key))return;e.preventDefault();const tabs=[...document.querySelectorAll('[data-tab]')],i=tabs.indexOf(button);const target=tabs[e.key==='Home'?0:e.key==='End'?tabs.length-1:(i+(e.key==='ArrowRight'?1:-1)+tabs.length)%tabs.length];activatePage(target.dataset.tab);target.focus();};
 }
 for(const button of document.querySelectorAll('[data-go]'))button.onclick=()=>activatePage(button.dataset.go);
+function closePlanSettings(){document.body.classList.remove('settings-open');$('toggleSettings').setAttribute('aria-expanded','false');$('toggleSettings').textContent='Show plan settings';$('main').scrollIntoView({block:'start'});}
+$('closeSettings').onclick=closePlanSettings;
 $('toggleSettings').onclick=()=>{const open=document.body.classList.toggle('settings-open');$('toggleSettings').setAttribute('aria-expanded',String(open));$('toggleSettings').textContent=open?'Hide plan settings':'Show plan settings';if(open)document.querySelector('aside').scrollIntoView({block:'start'});};
 $('simplelines').onclick=()=>{visible=new Set([0,chosen]);renderLegend();renderCharts();};
 $('alllines').onclick=()=>{visible=new Set(result.runs.map((r,i)=>i));renderLegend();renderCharts();};
@@ -290,7 +292,7 @@ $('planselect').onchange=()=>selectPlan($('planselect').value);
 $('save').textContent='Save alliance file';
 $('load').onclick=()=>{if(ensureSavedDrafts())$('projectfile').click();};
 $('rosterimport').onclick=()=>{if(ensureSavedDrafts())$('rosterfile').click();};
-$('run').onclick=run;$('refreshresults').onclick=run;$('search').onclick=search;
+$('run').onclick=()=>{run();if(document.body.classList.contains('settings-open')){closePlanSettings();activatePage('comparetab');}};$('refreshresults').onclick=run;$('search').onclick=()=>{search();if(document.body.classList.contains('settings-open')){closePlanSettings();activatePage('comparetab');}};
 $('troopplayer').onchange=renderPlayerEditor;$('applystock').onclick=savePlayer;$('estimatepower').onclick=estimatePlayerStock;
 $('memberfilter').oninput=()=>renderRoster(false);
 $('samplereports').onclick=()=>{$('reports').value='host,troops,damage,infantry,cavalry,archers,infantry_tier,cavalry_tier,archers_tier\n'+(roster.at(-1)?.name||'Leader name')+',50000,9000000,5000,5000,40000,8,8,8';};
