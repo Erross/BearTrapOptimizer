@@ -12,17 +12,17 @@ The [beginner UX audit](docs/UX_AUDIT.md) records the page-by-page critique and 
 
 In GitHub, enable **Settings → Pages → Source: GitHub Actions**. The included `pages.yml` workflow validates both engines and publishes the web folder on pushes to main. Alternatively publish the `web` directory contents from a dedicated Pages branch.
 
-## Five practical approaches
+## Six practical approaches
 
-The front page compares **Everyone together**, **Strongest leaders only**, **Selected leaders in waves**, **Selected waves + troop limit**, and **Everyone in waves**. All five damage curves are shown by default. Each approach card names its starter count, opening groups, interval and troop rule. Selecting a card shows the corresponding leaders, join-only players and launch groups.
+The front page compares **Everyone together**, **Strongest leaders only**, **Selected leaders in waves**, **Selected waves + troop limit**, **Everyone in waves**, and **Everyone in waves + troop limit**. All six damage curves are shown by default. Each approach card names its starter count, opening groups, interval and troop rule. Selecting a card shows the corresponding leaders, join-only players and launch groups. Both wave approaches have a capped counterpart with identical leaders and timing, so the only difference within each pair is the joining-march limit.
 
-Five inputs remain on the front page: attendance, alliance strength profile, selected starter count, opening waves and seconds between waves. Real player details, troop stocks, bonuses, custom plans, calibration, saving and advanced search live in **Setup & assumptions**.
+The five main inputs are attendance, alliance strength profile, selected starter count, opening waves and seconds between waves. A troop-cap slider with an exact numeric entry sits below them and automatically refreshes both capped approaches. Real player details, troop stocks, bonuses, custom plans, calibration, saving and advanced search live in **Setup & assumptions**.
 
 The default is an **illustrative top-four alliance**: 40 players split into 8 developing / 18 core / 10 strong / 4 leader profiles, TC24–30, 20–160M power and 450k–1M rally capacities. This is an editable assumed mix, not a measured average or Kingdom 2399 roster. The shared definition is `web/alliance-profiles.json`; power and TC do not directly multiply damage.
 
 The graph shows relative damage, with **100 = the together baseline's final damage**. Every line uses the same roster, troop stocks and common denominator. A per-join troop limit is an alliance rule, 50k by default in the capped approach; actual game rally capacities and joiner limits apply everywhere.
 
-The five approaches share 5% leader marches and concentrated joining marches. With everyone selected and one opening wave, the uncapped selected and everyone-wave approaches exactly match the together baseline, including every point on the damage curve. Zero spacing between waves has the same effect. Troop allocation changes can be tested as a custom approach in Setup.
+The six approaches share 5% leader marches and concentrated joining marches. With everyone selected and one opening wave, the uncapped selected and everyone-wave approaches exactly match the together baseline, including every point on the damage curve; their capped counterparts also match each other. Zero spacing between waves has the same effect. Both capped approaches use the front-page troop-cap limit. Troop allocation changes can be tested as a custom approach in Setup.
 
 The broader three-stage search remains optional. Balanced keeps at least 95% of the highest feasible tested damage and then minimizes ready-troop waiting. See [planner details](docs/PLANNER.md) for exact approach definitions, assumptions and search limits.
 
@@ -53,11 +53,12 @@ Open **http://127.0.0.1:8765**. On Windows, `py app.py` also works. Stop with Ct
 
 ## Start with the comparison, then refine
 
-1. Open the app to see five damage curves for the illustrative alliance. Adjust the five main variables and choose **Compare approaches**.
-2. Select an approach card to inspect its leaders, join-only members and opening groups. Changing selected starter count affects the selected-leader plans; the everyone plans still use all eligible players.
-3. Open **Setup & assumptions** to enter real players, attendance, troop counts, tiers, bonuses and travel times. Saved player edits are preserved when updating the comparison. Estimated stocks stay labelled estimated.
-4. Use the model page for custom player ranges, the capped approach's joining limit, an additional custom plan or a broader search. The troop-mix and report-fitting tools remain available there.
-5. Save an alliance file in Setup to keep the inputs after closing the tab. Load it later or share it with another member. Computed results are recalculated.
+1. Open the app to see six damage curves for the illustrative alliance. Adjust the five main variables and choose **Compare approaches**.
+2. Drag the troop-cap slider or enter an exact limit to explore the two capped approaches. The comparison refreshes automatically and preserves the graph lines you chose.
+3. Select an approach card to inspect its leaders, join-only members and opening groups. Changing selected starter count affects the selected-leader plans; the everyone plans still use all eligible players.
+4. Open **Setup & assumptions** to enter real players, attendance, troop counts, tiers, bonuses and travel times. Saved player edits are preserved when updating the comparison. Estimated stocks stay labelled estimated.
+5. Use the model page for custom player ranges, an additional custom plan or a broader search. The troop-mix and report-fitting tools remain available there.
+6. Save an alliance file in Setup to keep the inputs after closing the tab. Load it later or share it with another member. Computed results are recalculated.
 
 Travel defaults reflect the supplied 8–20 second range. The default is five-minute rallies and one extra host slot. The owner confirmed that rallies must hit before the event ends. That cutoff is mandatory and includes host travel. With five-minute countdowns and 8–20 second travel, launch before 24:40–24:52 elapsed, depending on the host. The maximum joiner count remains editable.
 

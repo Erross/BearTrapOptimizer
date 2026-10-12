@@ -1,7 +1,8 @@
-/* Five complete approaches; detailed setup stays behind the comparison. */
+/* Six complete approaches; detailed setup stays behind the comparison. */
 'use strict';
-const approachNames=['Everyone together','Strongest leaders only','Selected leaders in waves','Selected waves + troop limit','Everyone in waves'];
+const approachNames=['Everyone together','Strongest leaders only','Selected leaders in waves','Selected waves + troop limit','Everyone in waves','Everyone in waves + troop limit'];
 let profileMeta=null,profileNeedsRebuild=false;
+let capRefreshTimer=null,capRefreshRequested=false;
 controls.push('simpleprofile','frontwaves','frontgap','joinmarchcap');
 $('resultcontext').hidden=true;
 
@@ -18,7 +19,8 @@ function coherentApproaches(request){
   {...common,name:approachNames[1],host_count:strong,cadence:'synchronized',join_policy:'strength'},
   {...common,...grouped,name:approachNames[2],host_count:selected},
   {...common,...grouped,name:approachNames[3],host_count:selected,join_march_cap:cap},
-  {...common,...grouped,name:approachNames[4],host_count:count}
+  {...common,...grouped,name:approachNames[4],host_count:count},
+  {...common,...grouped,name:approachNames[5],host_count:count,join_march_cap:cap}
  ];
 }
 const originalPayload=payload;
@@ -33,9 +35,25 @@ function openingFacts(run){
  return {waves:starts.length,gap:starts.length>1?starts[1]-starts[0]:0};
 }
 function capLabel(s){return s.join_march_cap?'Up to '+Math.round(s.join_march_cap).toLocaleString()+' per join':'No alliance troop limit';}
+function syncCapDial(){
+ const cap=num('joinmarchcap');
+ $('frontcap').max=Math.min(2000000,Math.max(150000,cap||0,Number($('frontcap').max)||0,...roster.map(m=>m.march_capacity)));
+ if(Number.isFinite(cap)&&cap>0)$('frontcap').value=cap;
+}
+async function flushCapRefresh(){
+ if(running||!capRefreshRequested)return;
+ capRefreshRequested=false;await run({capOnly:true});
+ if(capRefreshRequested&&!running)flushCapRefresh();
+}
+function queueCapRefresh(){
+ syncCapDial();markResultsDirty('Joining-march troop cap changed.');
+ clearTimeout(capRefreshTimer);
+ capRefreshTimer=setTimeout(()=>{capRefreshTimer=null;capRefreshRequested=true;flushCapRefresh();},350);
+}
 const previousBadge=updateBadge;
 updateBadge=function(){
  previousBadge();
+ syncCapDial();
  const present=roster.filter(m=>!absent.has(m.name));
  $('simpleprofile').disabled=running||!synthetic;
  if(!synthetic)$('n').value=present.length;
@@ -48,7 +66,7 @@ updateBadge=function(){
  $('advisorassumptions').textContent=(synthetic?(profileMeta?.label||'Illustrative alliance'):'Your edited players')+' · TC'+Math.min(...towns)+'–'+Math.max(...towns)+' · '+Math.round(Math.min(...powers))+'–'+Math.round(Math.max(...powers))+'M power'+(synthetic?' · assumed mix; refine in Setup.':' · '+estimated+' estimated troop stocks; refine in Setup.');
 };
 const previousBusy=busy;
-busy=function(on,message=''){previousBusy(on,message);$('simpleprofile').disabled=on||!synthetic;$('frontwaves').disabled=on;$('frontgap').disabled=on;};
+busy=function(on,message=''){previousBusy(on,message);$('simpleprofile').disabled=on||!synthetic;$('frontwaves').disabled=on;$('frontgap').disabled=on;$('joinmarchcap').disabled=false;$('frontcap').disabled=false;if(!on&&capRefreshRequested)setTimeout(flushCapRefresh,0);};
 
 function profileTable(){
  if(!profileMeta){$('profiletable').innerHTML='<p>Using the current saved or edited roster. Player details and troop inventories are available in the other Setup pages.</p>';return;}
@@ -77,16 +95,20 @@ run=async function(options={}){
  if(running||!ensureSavedDrafts())return;
  if(synthetic&&profileNeedsRebuild){await generate();return;}
  const previous=result?.runs[chosen]?.strategy.name;
- busy(true,'Comparing five complete rally approaches…');
+ busy(true,'Comparing six complete rally approaches…');
  try{
   const request=JSON.parse(JSON.stringify(payload()));
   if(options.custom)request.strategies.push({...request.strategy,name:'Your custom approach'});
+  else if(options.capOnly){const custom=result?.runs.find(r=>r.strategy.name==='Your custom approach');if(custom)request.strategies.push({...custom.strategy});}
   const next=await api('compare',request);
   result=next;searchData=null;$('searchpanel').hidden=true;
   const previousIndex=result.runs.findIndex(r=>r.strategy.name===previous);
   chosen=options.custom?result.runs.length-1:previousIndex>=0?previousIndex:result.runs.reduce((best,r,i)=>r.total_damage>result.runs[best].total_damage?i:best,0);
-  visible=new Set(result.runs.map((_,i)=>i));resultsDirty=false;renderResults();profileTable();
+  const changedCap=num('joinmarchcap')!==request.strategies[3].join_march_cap;
+  visible=options.capOnly?new Set([...visible].filter(i=>i<result.runs.length)):new Set(result.runs.map((_,i)=>i));resultsDirty=changedCap;renderResults();profileTable();
   busy(false,'Compared '+result.runs.length+' approaches. Choose a card to inspect its leaders and waves.');
+  if(changedCap){markResultsDirty('Updating to the latest troop cap.');capRefreshRequested=true;setTimeout(flushCapRefresh,0);}
+  else{clearTimeout(capRefreshTimer);capRefreshTimer=null;capRefreshRequested=false;}
  }catch(error){busy(false);showError(error);}
 };
 
@@ -125,7 +147,7 @@ renderAdvisor=function(){
  const byTime=new Map();for(const name of r.selected_hosts){const t=r.initial_starts[name];if(!byTime.has(t))byTime.set(t,[]);byTime.get(t).push(name);}
  const groups=[...byTime].sort((a,b)=>(a[0]??Infinity)-(b[0]??Infinity));
  const own=s.host_allocation==='full'?'Use a full march in your own rally':s.host_allocation==='small'?'Keep '+(s.small_host_fraction*100)+'% of your maximum march for your own rally':'Split troops between your own rally and joins';
- const rule=s.name===approachNames[0]||s.name===approachNames[4]?'Every eligible attending player leads and joins.':'The highest-rated eligible leaders start; the other players join. Ratings use the entered leader bonuses, with rally capacity breaking ties.';
+ const rule=[approachNames[0],approachNames[4],approachNames[5]].includes(s.name)?'Every eligible attending player leads and joins.':'The highest-rated eligible leaders start; the other players join. Ratings use the entered leader bonuses, with rally capacity breaking ties.';
  $('planbrief').innerHTML='<p><b>Who leads:</b> '+esc(rule)+'</p><p><b>Troops:</b> '+esc(own)+'. '+(s.troop_split==='equal'?'Share remaining troops across joining marches.':'Fill each joining march before sending the next.')+' '+esc(capLabel(s))+'. '+(s.join_policy==='strength'?'Join the strongest reachable open rally.':'Join the reachable rally that hits first.')+'</p><p><b>After the opening:</b> '+(r.group_cycle_s?'Repeat groups every '+time(r.group_cycle_s)+' on the shared clock.':'Restart your own rally when its troops return, allowing '+result.mechanics.reaction_s+'s to send again.')+' All rallies must hit before '+time(result.mechanics.duration_s)+'.</p><div class="plan-metrics"><span><b>'+pct(r.summary.ready_wait_fraction)+'</b> ready-troop waiting</span><span><b>'+r.summary.rallies+'</b> rallies hit in time</span><span><b>'+pct(r.summary.mean_fill)+'</b> average rally fill</span></div>'+(r.summary.starters_without_first_rally?'<p class="stale">'+r.summary.starters_without_first_rally+' selected starters could not start with this stock, troop mix and event timing. Refine them in Setup.</p>':'');
  $('openinggroups').innerHTML='<h3>Opening launch groups</h3><div class="launch-groups">'+groups.map(([t,names],i)=>'<div><span>'+ (t===null?'Could not start':'Wave '+(i+1)+' · '+time(t))+'</span><strong>'+names.length+' '+(names.length===1?'starter':'starters')+'</strong><details><summary>Show players</summary><p>'+names.map(esc).join(', ')+'</p></details></div>').join('')+'</div>';
  const playerRows=list=>list.map(m=>[esc(m.name),'TC'+m.town_level,Number(m.power_m).toFixed(1)+'M',exactNumber(m.rally_capacity)]);
@@ -160,7 +182,9 @@ $('generate').onclick=async()=>{
  $('undodemo').onclick=async()=>{roster=backup.roster;absent=new Set(backup.absent);estimatedStocks=new Set(backup.estimated);synthetic=backup.synthetic;profileMeta=backup.profileMeta;profileNeedsRebuild=false;editingMember=null;editingTroops=null;renderRoster();await run();};
 };
 for(const id of ['n','simpleprofile'])$(id).addEventListener('input',()=>{if(synthetic)profileNeedsRebuild=true;markResultsDirty('Alliance profile changed.');});
-for(const id of ['frontwaves','frontgap','joinmarchcap'])$(id).addEventListener('input',()=>markResultsDirty('Approach timing or joining limit changed.'));
+for(const id of ['frontwaves','frontgap'])$(id).addEventListener('input',()=>markResultsDirty('Approach timing changed.'));
+$('frontcap').oninput=()=>{$('joinmarchcap').value=$('frontcap').value;queueCapRefresh();};
+$('joinmarchcap').oninput=queueCapRefresh;
 for(const id of demoControlIds)if(id!=='n')$(id).addEventListener('input',()=>{$('simpleprofile').value='custom';if(synthetic){profileNeedsRebuild=true;markResultsDirty('Custom player assumptions changed.');}});
 for(const id of ['projectfile','rosterfile']){
  const importPrevious=$(id).onchange;

@@ -55,3 +55,10 @@
 - Reference regression coverage checks identical complete simulation outputs for one-wave and zero-spacing openings under all three damage models, both counting scopes and four formation policies, including unequal travel, stock, capacities and ineligible starters. Troop conservation is audited in each run.
 - Checks passed: 42 Python tests, 105 complete-output Python/browser parity cases, dashboard state regression, JavaScript syntax and whitespace validation.
 - The revised default 40-player / 24-starter / four-wave / 60-second comparison scores indices 100.0 / 58.7 / 96.8 / 110.3 / 121.8. The changed denominator reflects the corrected troop-consistent baseline. With 40 starters and one wave, the together, selected uncapped and everyone-wave curves all score exactly 100.
+
+## Matched everyone-wave cap and interactive dial · 12 October 2026
+
+- Added a sixth approach, everyone in waves with the same joining-march limit as the selected capped plan. Its settings match the uncapped everyone-wave plan except for the name and limit. The leader list, opening groups, restart rule, own troop packet and joining priority are identical.
+- The front-page slider and exact number entry control both capped approaches and automatically refresh the comparison. Chosen graph lines and a custom comparison are preserved. Mid-calculation cap changes queue the latest value and keep the older result marked stale.
+- Dashboard regression checks cover six visible approaches, the matching settings, the new plan's leader instructions and cap, slider/number synchronization, automatic updates, selected graph lines, unchanged roster, and changing the cap during a worker request. Capped selected/everyone curves agree when all starters are selected, and a cap above every march capacity has no effect. Existing one-wave and zero-gap checks still pass.
+- Local checks passed: dashboard regression, JavaScript syntax, static HTTP/API tests and whitespace validation. The Python simulation and browser engine are unchanged.

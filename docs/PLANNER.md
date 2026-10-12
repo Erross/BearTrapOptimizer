@@ -1,8 +1,10 @@
 # Prescriptive rally planner
 
-The default page compares five complete approaches on one damage graph. It does not launch a broad search on first visit. Its five variables are attending players, alliance strength profile, selected starter count, opening wave count, and seconds between waves. Setup, real rosters, troop details, calibration, custom approaches and the larger search are available in an optional dialog. Entered players and attendance are preserved when updating the comparison.
+The default page compares six complete approaches on one damage graph. It does not launch a broad search on first visit. Its five variables are attending players, alliance strength profile, selected starter count, opening wave count, and seconds between waves. Setup, real rosters, troop details, calibration, custom approaches and the larger search are available in an optional dialog. Entered players and attendance are preserved when updating the comparison.
 
-## Five default approaches
+A front-page slider and exact number entry set the per-player joining-march limit for both capped approaches. Changes automatically update the comparison after a short pause, preserving the current line selection and custom comparison. If the limit changes while a worker calculation runs, that result stays marked stale and a follow-up calculation applies the latest value. The slider starts at 1k–150k and expands for larger entered limits or march capacities; it never changes a leader's own packet.
+
+## Six default approaches
 
 | Approach | Leaders | Opening | Joining rule |
 |---|---|---|---|
@@ -11,8 +13,9 @@ The default page compares five complete approaches on one damage graph. It does 
 | Selected leaders in waves | Up to the selected starter count, ranked by leader rating | Requested waves and interval | First reachable hit; no voluntary troop limit |
 | Selected waves + troop limit | Same leaders and timing as the preceding approach | Same requested waves and interval | Same joining rule, with a per-player joining-march limit (50k by default) |
 | Everyone in waves | Every eligible player | Requested waves and interval | First reachable hit; no voluntary troop limit |
+| Everyone in waves + troop limit | Same leaders and timing as everyone in waves | Same requested waves and interval | Same joining rule, with the same per-player joining-march limit as the selected capped approach |
 
-All five plans use 5% own marches and concentrated joins, reserving the next own packet. The together baseline and the wave plans use identical troop allocation, formation and restart rules: everyone in one wave, or multiple waves with zero spacing, gives exactly the same damage curve as everyone together. Selecting every eligible starter also makes the selected-leader plan identical to everyone in waves. The strongest-leader plan additionally prefers the strongest reachable rally; the capped plan adds only the joining-march limit. All five use the same chosen troop-mix policy and roster. Actual game rally capacities and joiner limits are enforced in every plan. A voluntary limit never removes the game's limits and does not reduce a leader's own troop packet. The chart uses one common denominator: the baseline's final damage is 100. It is a comparison, not a forecast of a measured event score.
+All six plans use 5% own marches and concentrated joins, reserving the next own packet. The together baseline and the uncapped wave plans use identical troop allocation, formation and restart rules: everyone in one wave, or multiple waves with zero spacing, gives exactly the same damage curve as everyone together. Selecting every eligible starter also makes the selected-leader plan identical to everyone in waves, with matching capped counterparts. The strongest-leader plan additionally prefers the strongest reachable rally; each capped plan adds only the joining-march limit to its uncapped counterpart. All six use the same chosen troop-mix policy and roster. Actual game rally capacities and joiner limits are enforced in every plan. A voluntary limit never removes the game's limits and does not reduce a leader's own troop packet. The chart uses one common denominator: the baseline's final damage is 100. It is a comparison, not a forecast of a measured event score.
 
 `opening_wave_count` makes exactly that many balanced opening groups, up to the number of actual selected leaders. A zero interval merges them into simultaneous starts. `join_march_cap=0` adds no alliance limit; a positive value limits each joining march. The leader's own march is unaffected.
 

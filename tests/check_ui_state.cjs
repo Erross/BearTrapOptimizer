@@ -115,16 +115,55 @@ async function main() {
     await new Promise(resolve => setTimeout(resolve, 10));
   }
   assert(state('result !== null'), 'Initial recommendation did not finish');
-  assert.equal(state('result.runs.length'), 5, 'The basic comparison needs exactly five coherent approaches');
-  assert.equal(state('visible.size'), 5, 'All five approaches should be graphed initially');
+  assert.equal(state('result.runs.length'), 6, 'The basic comparison needs both capped and uncapped wave approaches');
+  assert.equal(state('visible.size'), 6, 'All six approaches should be graphed initially');
   assert(nodes.alliancechart.innerHTML.includes('Relative alliance damage'));
   assert(!nodes.setupdialog.open, 'Detailed setup should be closed initially');
   assert(state('result.runs[2].strategy.opening_wave_count'), 'Wave plans need an exact requested wave count');
   assert.equal(state('result.runs[3].strategy.join_march_cap'), 50000);
+  assert.equal(state('result.runs[5].strategy.join_march_cap'), 50000);
+  const pair = JSON.parse(state('JSON.stringify([result.runs[4].strategy, result.runs[5].strategy])'));
+  for (const settings of pair) {delete settings.name; delete settings.join_march_cap;}
+  assert.deepEqual(pair[0], pair[1], 'The everyone-wave pair must differ only in its joining limit');
+  assert(nodes.legend.innerHTML.includes('Everyone in waves + troop limit'));
+  assert(nodes.comparisontable.innerHTML.includes('Everyone in waves + troop limit'));
+  context.selectPlan(5);
+  assert.equal(nodes.selectedname.textContent, 'Everyone in waves + troop limit');
+  assert(nodes.planbrief.innerHTML.includes('Every eligible attending player leads and joins.'));
+  assert(nodes.planbrief.innerHTML.includes('Up to 50,000 per join'));
   context.activatePage('membertab');
   assert.equal(nodes.setupdialog.open, true, 'Setup needs to open when requested');
   context.closePlanSettings();
   assert.equal(nodes.setupdialog.open, false);
+
+  async function waitForCap(cap) {
+    for (let attempt = 0; attempt < 500; attempt++) {
+      noError();
+      if (state('!running && !resultsDirty && result.runs[5].strategy.join_march_cap') === cap) return;
+      await new Promise(resolve => setTimeout(resolve, 10));
+    }
+    assert.fail('Automatic comparison did not apply cap ' + cap);
+  }
+  state('visible = new Set([4, 5])');
+  const beforeDial = generatedCount();
+  nodes.frontcap.value = '75000';
+  nodes.frontcap.oninput();
+  await waitForCap(75000);
+  assert.equal(nodes.joinmarchcap.value, '75000');
+  assert.equal(state('result.runs[3].strategy.join_march_cap'), 75000);
+  assert.equal(state('visible.size'), 2, 'Cap changes must keep the chosen graph lines');
+  assert.equal(generatedCount(), beforeDial, 'The troop-cap dial must not replace the roster');
+  // Change the cap while another worker comparison is outstanding. Its older
+  // answer must stay marked stale until the queued latest cap has been applied.
+  const inFlight = context.run();
+  nodes.joinmarchcap.value = '65000';
+  nodes.joinmarchcap.oninput();
+  await inFlight;
+  await waitForCap(65000);
+  assert.equal(Number(nodes.frontcap.value), 65000);
+  nodes.joinmarchcap.value = '50000';
+  nodes.joinmarchcap.oninput();
+  await waitForCap(50000);
 
   // Equivalent choices must remain equivalent through the real UI builder,
   // not just through two matching simulator implementations. Use the complete
@@ -146,6 +185,10 @@ async function main() {
     assert.deepEqual(run.members, equivalent[0].members,
       'Equivalent approaches must give every player the same damage and troop use');
   }
+  assert(state('JSON.stringify(result.runs[3].series) === JSON.stringify(result.runs[5].series)'),
+    'Selecting everyone must also make the two capped approaches identical');
+  assert(state('result.runs[5].contributions.filter(p => p.role === "join").every(p => p.troops <= 50000)'),
+    'Everyone-wave joining marches must obey the voluntary limit');
   nodes.frontwaves.value = '7';
   nodes.frontgap.value = '0';
   await nodes.recommend.onclick();
@@ -159,6 +202,8 @@ async function main() {
   noError();
   assert(state('JSON.stringify(result.runs[2].series) === JSON.stringify(result.runs[3].series)'),
     'A joining limit above every march size must have no effect');
+  assert(state('JSON.stringify(result.runs[4].series) === JSON.stringify(result.runs[5].series)'),
+    'A joining limit above every march size must also have no effect on everyone in waves');
   nodes.joinmarchcap.value = '50000';
   nodes.n.value = '4';
   nodes.hosts.value = '4';
@@ -211,6 +256,17 @@ async function main() {
   assert.equal(generatedCount(), beforeEstimate, 'Recommendation replaced an individually estimated stock');
   assert.equal(searchRequest().roster.find(member => member.name === estimatedName).troops, 90000);
   assert(state('estimatedStocks.has(roster[0].name)'), 'Estimated stock lost its provenance');
-  console.log('Equivalent one-wave and zero-gap approaches match exactly; roster edits survive recommendations.');
+  await context.run({custom: true});
+  noError();
+  const customBeforeCap = state('JSON.stringify(result.runs[6])');
+  state('visible = new Set([4, 5, 6])');
+  nodes.joinmarchcap.value = '60000';
+  nodes.joinmarchcap.oninput();
+  await waitForCap(60000);
+  assert.equal(state('result.runs.length'), 7, 'Cap updates must retain a custom comparison');
+  assert.equal(state('JSON.stringify(result.runs[6])'), customBeforeCap);
+  assert.equal(state('chosen'), 6, 'Cap updates must keep the selected custom plan');
+  assert.equal(state('visible.size'), 3);
+  console.log('Matched cap pairs, automatic dial updates, equivalent waves and saved roster edits pass.');
 }
 main().catch(error => {console.error(error); process.exitCode = 1;});
