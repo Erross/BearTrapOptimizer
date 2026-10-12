@@ -6,5 +6,5 @@
   "refresh_cooldown_seconds": 3600,
   "calls_per_minute": 50,
   "include_troop_power_board": true,
-  "recovery_attempt": "38320784150:2"
+  "recovery_attempt": null
 }

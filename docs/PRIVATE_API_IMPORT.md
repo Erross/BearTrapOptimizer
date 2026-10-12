@@ -90,3 +90,8 @@ supports browser CORS; this has not been verified.
 Local tests use a dummy key and exercise the security and budget gates. Live
 provider requests run only through the owner-gated Actions workflow, with the
 real key retained in the private Actions secret.
+
+Live verification on 2026-10-12: the API returned 98 CNQ roster members, and all
+98 profiles and city coordinates were saved using 100 provider requests. Both
+the import and Pages publication succeeded. The one-time recovery grant was
+cleared after use; the failed and successful reservations remain charged.
