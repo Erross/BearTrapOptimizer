@@ -33,7 +33,7 @@ function activatePage(id){
  }
  for(const panel of document.querySelectorAll('.tab'))panel.classList.toggle('active',panel.id===id);
  $('resultcontext').hidden=!['comparetab','plantab'].includes(id);
- $('tab-'+id).scrollIntoView({block:'nearest',inline:'nearest'});
+ if(result)$('tab-'+id).scrollIntoView({block:'nearest',inline:'nearest'});
  if(result){if(id==='comparetab')renderCharts();if(id==='plantab')renderPlan();}
 }
 function markResultsDirty(reason='Settings changed.'){

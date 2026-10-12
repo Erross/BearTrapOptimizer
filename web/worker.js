@@ -1,4 +1,4 @@
-importScripts('./combat.js?v=20261012-advisor2', './engine.js?v=20261012-advisor2');
+importScripts('./combat.js?v=20261012-advisor3', './engine.js?v=20261012-advisor3');
 self.onmessage=function({data}){
   const {id,path,payload}=data;
   try{
