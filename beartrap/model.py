@@ -155,6 +155,8 @@ class Strategy:
     reserve_lead_troops: bool = False
     host_min_relative_score: float = 0.0
     host_min_rally_capacity: int = 0
+    join_march_cap: int = 0
+    opening_wave_count: int = 0
 
     @classmethod
     def parse(cls, row):
@@ -190,6 +192,10 @@ class Strategy:
             raise ValueError("Minimum leader score must be 0–100% of the strongest eligible player")
         if not isinstance(obj.host_min_rally_capacity, int) or not 0 <= obj.host_min_rally_capacity <= 20000000:
             raise ValueError("Minimum rally capacity must be 0–20M")
+        if not isinstance(obj.join_march_cap, int) or not 0 <= obj.join_march_cap <= 2000000:
+            raise ValueError("Joining-march cap must be 0 (no alliance limit) or 1–2M")
+        if not isinstance(obj.opening_wave_count, int) or not 0 <= obj.opening_wave_count <= 100:
+            raise ValueError("Opening waves must be 0 (use group size) or 1–100")
         return obj
 
 

@@ -39,6 +39,8 @@ class Element {
   addEventListener() {}
   scrollIntoView() {}
   focus() {}
+  showModal() {this.open = true;}
+  close() {this.open = false;}
 }
 const camel = text => text.replace(/-([a-z])/g, (_, letter) => letter.toUpperCase());
 function parseElements(html) {
@@ -78,7 +80,8 @@ class WorkerStub {
       requests.push(JSON.parse(JSON.stringify(message)));
       try {
         const result = message.path === 'roster'
-          ? {roster: engine.synthetic(message.payload)} : engine[message.path](message.payload);
+          ? {roster: engine.synthetic(message.payload)} : message.path === 'alliance_roster'
+          ? engine.profile_roster(message.payload) : engine[message.path](message.payload);
         this.onmessage({data: {id: message.id, result}});
       } catch (error) {
         this.onmessage({data: {id: message.id, error: error.message}});
@@ -97,10 +100,11 @@ for (const file of ['app.js', 'formations-ui.js']) {
 nodes.n.value = '4';
 nodes.duration.value = '2';
 nodes.countdown.value = '30';
-vm.runInContext(fs.readFileSync(process.argv[2] || path.join(root, 'web/ux.js'), 'utf8'), context);
+vm.runInContext(fs.readFileSync(path.join(root, 'web/ux.js'), 'utf8'), context);
+vm.runInContext(fs.readFileSync(path.join(root, 'web/approaches.js'), 'utf8'), context);
 const state = expression => vm.runInContext(expression, context);
-const generatedCount = () => requests.filter(request => request.path === 'roster').length;
-const searchRequest = () => requests.filter(request => request.path === 'search').at(-1).payload;
+const generatedCount = () => requests.filter(request => ['roster', 'alliance_roster'].includes(request.path)).length;
+const searchRequest = () => requests.filter(request => request.path === 'compare').at(-1).payload;
 function noError() {
   assert.notEqual(nodes.error.style.display, 'block', nodes.error.textContent);
 }
@@ -111,6 +115,16 @@ async function main() {
     await new Promise(resolve => setTimeout(resolve, 10));
   }
   assert(state('result !== null'), 'Initial recommendation did not finish');
+  assert.equal(state('result.runs.length'), 5, 'The basic comparison needs exactly five coherent approaches');
+  assert.equal(state('visible.size'), 5, 'All five approaches should be graphed initially');
+  assert(nodes.alliancechart.innerHTML.includes('Relative alliance damage'));
+  assert(!nodes.setupdialog.open, 'Detailed setup should be closed initially');
+  assert(state('result.runs[2].strategy.opening_wave_count'), 'Wave plans need an exact requested wave count');
+  assert.equal(state('result.runs[3].strategy.join_march_cap'), 50000);
+  context.activatePage('membertab');
+  assert.equal(nodes.setupdialog.open, true, 'Setup needs to open when requested');
+  context.closePlanSettings();
+  assert.equal(nodes.setupdialog.open, false);
 
   const excludedName = state('roster[0].name');
   const attendance = nodes.rostertable.querySelectorAll('[data-attend]')[0];
@@ -144,6 +158,7 @@ async function main() {
   nodes.troopplayer.value = estimatedName;
   context.renderPlayerEditor();
   nodes.mintroops.value = '90000';
+  nodes.minpower.value = state('roster[0].power_m');
   context.estimatePlayerStock();
   noError();
   const beforeEstimate = generatedCount();

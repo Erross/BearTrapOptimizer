@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "provenance": "Illustrative scenarios, not a measured alliance ranking or Kingdom 2399 census. Town Center and power describe the assumed player mix; neither directly multiplies damage.",
+  "profiles": {
+    "top_four": {"label": "Top-four alliance mix", "description": "Mostly TC26–29, with developing members and a smaller TC30 leadership group.", "weights": [0.20, 0.45, 0.25, 0.10]},
+    "developing": {"label": "Developing alliance", "description": "Mostly TC24–27, with a few stronger rally leaders.", "weights": [0.40, 0.45, 0.13, 0.02]},
+    "established": {"label": "Established alliance", "description": "Mostly TC28–30, with a smaller developing group.", "weights": [0.08, 0.22, 0.40, 0.30]}
+  },
+  "bands": [
+    {"label": "Developing", "town_level": [24, 25], "power_m": [20, 40], "troops": [150000, 250000], "march_capacity": [65000, 85000], "rally_capacity": [450000, 550000], "tier": 8, "attack": [70, 95], "lethality": [50, 70], "travel_s": [18, 16]},
+    {"label": "Core", "town_level": [26, 27], "power_m": [40, 75], "troops": [250000, 450000], "march_capacity": [85000, 110000], "rally_capacity": [550000, 750000], "tier": 9, "attack": [100, 140], "lethality": [80, 120], "travel_s": [16, 12]},
+    {"label": "Strong", "town_level": [28, 29], "power_m": [75, 110], "troops": [450000, 650000], "march_capacity": [110000, 130000], "rally_capacity": [750000, 900000], "tier": 9, "attack": [150, 200], "lethality": [130, 180], "travel_s": [12, 10]},
+    {"label": "Leaders", "town_level": [30, 30], "power_m": [110, 160], "troops": [650000, 1000000], "march_capacity": [130000, 150000], "rally_capacity": [900000, 1000000], "tier": 10, "attack": [210, 280], "lethality": [180, 240], "travel_s": [10, 8]}
+  ]
+}

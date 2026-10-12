@@ -37,3 +37,10 @@
 
 - Fixed the recommendation flow resetting attendance, saved player details and individual power-based troop estimates while the original roster was still marked as a demo. Those edits now select the current roster for subsequent recommendations. Editing details does not relabel estimated stocks as measured counts.
 - `node tests/check_ui_state.cjs` exercises attendance selection, player renaming and rally capacity edits, and a per-player stock estimate through the actual dashboard handlers and browser engine. Recommendations keep the edited inputs and do not regenerate players. This uses a DOM stub and a short event; full timing and engine parity are covered by the existing suites. The Pages workflow runs this check before deployment.
+
+## Graph-first approach comparison · 12 October 2026
+
+- Checks: 41 Python tests, 99 complete-output Python/browser parity cases, and the dashboard state check. Shared profile JSON and new scripts/styles are also checked through the local HTTP API.
+- Added balanced explicit wave counts, voluntary per-join troop limits, ordered named comparisons sharing one scale, and a shared illustrative profile definition. Tests cover uneven groups, more waves than leaders, conservation and physical capacity under voluntary caps, and preserving the leader's own march size.
+- The updated UI-state check verifies exactly five initial approaches, all five lines selected, a relative damage graph, closed initial Setup, opening/closing Setup, and roster edits surviving comparison updates.
+- The default 40-player scenario uses 8 developing / 18 core / 10 strong / 4 leader profiles. In a full 30-minute Node calculation, the five approaches scored relative indices 100.0 / 53.4 / 88.1 / 100.3 / 110.8. This took about 1.1 seconds in the development environment and does not establish actual alliance damage or mobile-device performance.

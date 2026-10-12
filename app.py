@@ -8,6 +8,7 @@ import traceback
 from beartrap.analysis import compare, search, calibrate
 from beartrap.model import synthetic_roster
 from beartrap.combat import formation_plan
+from beartrap.profiles import profile_roster
 from dataclasses import asdict
 
 ROOT = Path(__file__).resolve().parent
@@ -30,10 +31,12 @@ class Handler(BaseHTTPRequestHandler):
         if path in ("/","/index.html","/responsive-check.html"):
             page="index.html" if path=="/" else path[1:]
             self.send(200,(ROOT/"web"/page).read_bytes(),"text/html; charset=utf-8")
-        elif path in ("/engine.js","/worker.js","/combat.js","/formations-ui.js","/app.js","/ux.js"):
+        elif path in ("/engine.js","/worker.js","/combat.js","/formations-ui.js","/app.js","/ux.js","/approaches.js","/profile-model.js"):
             self.send(200,(ROOT/"web"/path[1:]).read_bytes(),"text/javascript; charset=utf-8")
-        elif path in ("/styles.css","/ux.css"):
+        elif path in ("/styles.css","/ux.css","/approaches.css"):
             self.send(200,(ROOT/"web"/path[1:]).read_bytes(),"text/css; charset=utf-8")
+        elif path == "/alliance-profiles.json":
+            self.send(200,(ROOT/"web/alliance-profiles.json").read_bytes(),"application/json")
         elif path == "/api/defaults":
             self.send(200,{"roster":[asdict(m) for m in synthetic_roster()]})
         elif path == "/health":
@@ -50,6 +53,7 @@ class Handler(BaseHTTPRequestHandler):
             return
         actions = {"/api/compare":compare,"/api/search":search,"/api/calibrate":calibrate,
                    "/api/formation_plan":formation_plan,
+                   "/api/alliance_roster":profile_roster,
                    "/api/roster":lambda p: {"roster":[asdict(m) for m in synthetic_roster(**p)]}}
         if self.path not in actions:
             self.send(404,{"error":"Not found"})

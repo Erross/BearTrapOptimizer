@@ -8,17 +8,21 @@ https://erross.github.io/BearTrapOptimizer/
 
 The `web/` folder is a fully static GitHub Pages app. It runs all calculations in a Web Worker in the browser; members need no Python installation. No input data is uploaded. The Python engine remains available for local analysis and automated parity checks.
 
-The [beginner UX audit](docs/UX_AUDIT.md) records the page-by-page critique and resulting changes. The interface uses one selected plan for its summary and schedule, labels all time/score graphs, provides keyboard time readouts, and marks old results when inputs change. Save an alliance JSON file to retain edits after closing the tab.
+The [beginner UX audit](docs/UX_AUDIT.md) records the page-by-page critique and resulting changes. The interface uses one selected approach for its plan and schedule, labels all time/score graphs, provides keyboard time readouts, and marks old results when inputs change. Save an alliance JSON file to retain edits after closing the tab.
 
 In GitHub, enable **Settings → Pages → Source: GitHub Actions**. The included `pages.yml` workflow validates both engines and publishes the web folder on pushes to main. Alternatively publish the `web` directory contents from a dedicated Pages branch.
 
-## Automatic planning and Kingdom 2399
+## Five practical approaches
 
-The simple intake starts with your reported **450k–1M rally capacities**. Other ranges are explicitly illustrative: TC22–30 labels, T8–T10, 45,301–140k march capacities, 45k–1.5M stocks and 50–250% Attack and Lethality by type. These are editable assumptions, not a measured server distribution. Historical scores and power do not enter the combat calculation. Town level alone does not infer a player's bonuses or inventories.
+The front page compares **Everyone together**, **Strongest leaders only**, **Selected leaders in waves**, **Selected waves + troop limit**, and **Everyone in waves**. All five damage curves are shown by default. Each approach card names its starter count, opening groups, interval and troop rule. Selecting a card shows the corresponding leaders, join-only players and launch groups.
 
-`/api/search` accepts `search_goal` (`balanced`, `damage`, `flow`) and `opening_limit_s` (default240, 0 disables). Balanced retains at least95% of the highest feasible tested score and then minimizes ready-troop waiting. A bounded three-stage search tests starter cohorts, capacity/leader-score floors, group sizes, intervals, restart rules, own-rally amounts and mixes. It checks all selected starters actually begin within the opening window. Recommendations are best tested, not proven global optima.
+Five inputs remain on the front page: attendance, alliance strength profile, selected starter count, opening waves and seconds between waves. Real player details, troop stocks, bonuses, custom plans, calibration, saving and advanced search live in **Setup & assumptions**.
 
-The [Kingshot Stats API](https://api.kingshotstats.com/) advertises kingdom boards and alliance rosters with power and Town Center levels, behind a Discord-issued API key. A usable Kingdom2399 alliance roster was not retrieved. Full troop inventory and rally bonuses still need player input; no credentials are included in this static app. See [planner details](docs/PLANNER.md).
+The default is an **illustrative top-four alliance**: 40 players split into 8 developing / 18 core / 10 strong / 4 leader profiles, TC24–30, 20–160M power and 450k–1M rally capacities. This is an editable assumed mix, not a measured average or Kingdom 2399 roster. The shared definition is `web/alliance-profiles.json`; power and TC do not directly multiply damage.
+
+The graph shows relative damage, with **100 = the together baseline's final damage**. Every line uses the same roster, troop stocks and common denominator. A per-join troop limit is an alliance rule, 50k by default in the capped approach; actual game rally capacities and joiner limits apply everywhere.
+
+The broader three-stage search remains optional. Balanced keeps at least 95% of the highest feasible tested damage and then minimizes ready-troop waiting. See [planner details](docs/PLANNER.md) for exact approach definitions, assumptions and search limits.
 
 ## Run locally
 
@@ -32,7 +36,7 @@ Open **http://127.0.0.1:8765**. On Windows, `py app.py` also works. Stop with Ct
 
 ## What is included
 
-- Editable sample alliance of 32 members, historical personal totals from 3M to 224M, and an illustrative 2B baseline.
+- Editable illustrative 40-player alliance with developing, core, strong and leader groups; alternative maturity profiles and custom ranges.
 - Separate leader slot plus each member's own joining slots; troop conservation, rally capacity, joiner caps, travel, return and reaction delays.
 - Synchronized, evenly staggered, three-wave, custom-spacing and configurable group schedules; independent restarts or a shared group clock.
 - Next-impact, strongest-host and estimated damage-per-troop-minute joining policies.
@@ -43,18 +47,15 @@ Open **http://127.0.0.1:8765**. On Windows, `py app.py` also works. Stop with Ct
 - Plain-language strategy names, instructions and explanations of each tradeoff.
 - Automatic starter-pool, group-size, wave-interval and allocation recommendations, selectable individual charts, impact timeline, utilization and member tradeoffs.
 - CSV roster import/export, contribution-report calibration, project JSON export/import, results CSV, host timetable and SVG chart export.
-- Example player with 226,505 troops: five joining marches of 45,301, or roughly 37,751 per allocation if also leading a sixth allocation.
+- Can model a player with 226,505 troops: five joining marches of 45,301, or roughly 37,751 per allocation if also leading a sixth allocation.
 
-## Start with the demo, then calibrate
+## Start with the comparison, then refine
 
-1. Set attendance and the example capacity spread, then choose **Recommend my rally plan**. The default selects the least waiting among tested plans within 5% of the highest tested damage. Read the starter roles and first-wave table. Treat this as an estimate under assumptions.
-2. In **Alliance setup**, choose attending players and select a name to edit march sizes, capacities and travel. “May start rallies” controls eligibility; each plan chooses how many eligible starters to use. In **Troop mixes**, save usable infantry, cavalry, archers, tiers and report stats. The preview can check full marches or five 45,301-troop shares. Power-based estimates use your selected endpoints only and stay labelled estimated.
-3. Choose the damage model and scope. The community square-root model is the new UI default; compare per-player and pooled-rally assumptions. Enter empirically estimated residual host strength after accounting for type stats. Account power and town level are context, not damage coefficients. Personal event totals cannot identify rally-host strength by themselves.
-4. Optionally paste individual contribution reports into the advanced report-fitting panel on Alliance setup. Include each report's three troop counts and tiers; counts must sum to total troops. Troop-aware fitting supports per-player mode only. Repeat tier/buff conditions where possible. Apply estimates to exact matching member names.
-5. Disable baseline normalization for an absolute report-calibrated run. Normalization deliberately fits one baseline to a target and holds that scale fixed across other strategies; it does not independently validate them.
-6. Search host counts and troop mixtures, inspect personal outcomes, export the host start timetable and trial one approach in-game.
-
-Changing attendance, saving player details, or estimating one player's stock switches the planner to your edited roster. **Recommend my rally plan** then preserves those changes. Use **Replace alliance with demo players** to deliberately create another example roster; estimated stocks remain labelled estimated after editing player details.
+1. Open the app to see five damage curves for the illustrative alliance. Adjust the five main variables and choose **Compare approaches**.
+2. Select an approach card to inspect its leaders, join-only members and opening groups. Changing selected starter count affects the selected-leader plans; the everyone plans still use all eligible players.
+3. Open **Setup & assumptions** to enter real players, attendance, troop counts, tiers, bonuses and travel times. Saved player edits are preserved when updating the comparison. Estimated stocks stay labelled estimated.
+4. Use the model page for custom player ranges, the capped approach's joining limit, an additional custom plan or a broader search. The troop-mix and report-fitting tools remain available there.
+5. Save an alliance file in Setup to keep the inputs after closing the tab. Load it later or share it with another member. Computed results are recalculated.
 
 Travel defaults reflect the supplied 8–20 second range. The default is five-minute rallies and one extra host slot. The owner confirmed that rallies must hit before the event ends. That cutoff is mandatory and includes host travel. With five-minute countdowns and 8–20 second travel, launch before 24:40–24:52 elapsed, depending on the host. The maximum joiner count remains editable.
 

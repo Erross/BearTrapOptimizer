@@ -1,8 +1,28 @@
 # Prescriptive rally planner
 
-The intake is attendance plus editable assumed ability endpoints. The application automatically searches after generating a roster; entered rosters are retained when requesting a recommendation. Real attendance is edited on Alliance setup. Range changes rebuild only the demo. Every output labels whether it is an assumed or entered roster.
+The default page compares five complete approaches on one damage graph. It does not launch a broad search on first visit. Its five variables are attending players, alliance strength profile, selected starter count, opening wave count, and seconds between waves. Setup, real rosters, troop details, calibration, custom approaches and the larger search are available in an optional dialog. Entered players and attendance are preserved when updating the comparison.
 
-## Recommendation objectives
+## Five default approaches
+
+| Approach | Leaders | Opening | Joining rule |
+|---|---|---|---|
+| Everyone together | Every eligible player | One simultaneous group | No voluntary troop limit |
+| Strongest leaders only | Highest-rated eligible quarter of attendance, at most the selected starter count | One simultaneous group | Prefer strongest reachable rally; no voluntary troop limit |
+| Selected leaders in waves | Up to the selected starter count, ranked by leader rating | Requested waves and interval | First reachable hit; no voluntary troop limit |
+| Selected waves + troop limit | Same leaders and timing as the preceding approach | Same requested waves and interval | Same joining rule, with a per-player joining-march limit (50k by default) |
+| Everyone in waves | Every eligible player | Requested waves and interval | First reachable hit; no voluntary troop limit |
+
+The together baseline uses full own marches and shares remaining troops. The other plans use 5% own marches and concentrated joins, reserving the next own packet. All five use the same chosen troop-mix policy and roster. Actual game rally capacities and joiner limits are enforced in every plan. A voluntary limit never removes the game's limits and does not reduce a leader's own troop packet. The chart uses one common denominator: the baseline's final damage is 100. It is a comparison, not a forecast of a measured event score.
+
+`opening_wave_count` makes exactly that many balanced opening groups, up to the number of actual selected leaders. A zero interval merges them into simultaneous starts. `join_march_cap=0` adds no alliance limit; a positive value limits each joining march. The leader's own march is unaffected.
+
+## Illustrative top-four alliance
+
+`web/alliance-profiles.json` is the shared scenario definition for both engines. The default 40-player roster has 8 developing members (TC24–25), 18 core members (TC26–27), 10 strong members (TC28–29), and 4 leaders (TC30). Assumed power spans 20–160M, rally capacities 450k–1M, and usable stocks 150k–1M. Developing and established profiles vary the weights of these groups. These are assumed scenarios, not measured averages of rank-four alliances or Kingdom 2399. Power and TC are labels; inventories, tiers, capacities, travel and explicit bonuses drive simulation. Residual leader and stock-quality multipliers start at 1.
+
+Detailed range edits switch to a custom illustrative roster. Saving player details or attendance retains the current players, and estimated troop stocks remain labelled estimated.
+
+## Optional advanced search objectives
 
 - **Balanced (default):** minimize ready waiting among feasible tested plans scoring at least95% of the highest feasible tested damage.
 - **Damage:** maximize feasible tested alliance damage, breaking ties on ready waiting.

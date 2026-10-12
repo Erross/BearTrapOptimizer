@@ -32,8 +32,9 @@ class HTTPTests(unittest.TestCase):
     def test_dashboard_and_compare(self):
         with urllib.request.urlopen(self.url) as r:
             self.assertIn(b'Bear Trap Optimizer',r.read())
-        for path, mime in [('/app.js','text/javascript'),('/ux.js','text/javascript'),('/styles.css','text/css'),('/ux.css','text/css')]:
-            with urllib.request.urlopen(self.url+path+'?v=20261011-ux4') as asset:
+        for path, mime in [('/app.js','text/javascript'),('/ux.js','text/javascript'),('/styles.css','text/css'),('/ux.css','text/css'),
+                           ('/approaches.js','text/javascript'),('/profile-model.js','text/javascript'),('/approaches.css','text/css'),('/alliance-profiles.json','application/json')]:
+            with urllib.request.urlopen(self.url+path+'?v=20261012-simple1') as asset:
                 self.assertIn(mime,asset.headers['Content-Type'])
                 self.assertGreater(len(asset.read()),0)
         with self.post('/api/compare',{'synthetic':{'n':4},'host_count':2}) as r:
@@ -41,6 +42,15 @@ class HTTPTests(unittest.TestCase):
         self.assertEqual(len(data['runs']),14)
         self.assertTrue(any(r['strategy']['cadence']=='groups' for r in data['runs']))
         self.assertAlmostEqual(data['runs'][0]['total_damage'],2e9,delta=.001)
+
+    def test_illustrative_profile_api_and_shared_static_data(self):
+        with self.post('/api/alliance_roster',{'n':40,'profile':'top_four'}) as response:
+            data=json.load(response)
+        self.assertEqual(len(data['roster']),40)
+        self.assertEqual([band['players'] for band in data['profile']['bands']],[8,18,10,4])
+        with urllib.request.urlopen(self.url+'/alliance-profiles.json') as response:
+            definitions=json.load(response)
+        self.assertEqual(definitions['profiles']['top_four']['weights'],[.2,.45,.25,.1])
 
     def test_invalid_input_is_400(self):
         with self.assertRaises(urllib.error.HTTPError) as e:

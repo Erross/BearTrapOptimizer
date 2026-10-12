@@ -144,8 +144,8 @@ renderResults=function(){
 // Every time chart has a labelled axis, an exact readout and a keyboard-operable time input.
 chart=function(id,lines,{bar=false,unit='damage'}={}){
  const el=$(id),duration=result?.mechanics.duration_s||num('duration')*60;
- const names={alliancechart:'Alliance cumulative score',individualchart:'Player cumulative score',minutechart:'Score in each minute',usagechart:'Troops away from home',waitingchart:'Troops ready to join but waiting'};
- const unitLabel=unit==='troops'?'Troops':'Estimated score';
+ const names={alliancechart:'Alliance damage comparison',individualchart:'Player damage comparison',minutechart:'Damage in each minute',usagechart:'Troops away from home',waitingchart:'Troops ready to join but waiting'};
+ const unitLabel=unit==='troops'?'Troops':unit==='index'?'Relative alliance damage':'Estimated damage';
  if(!lines.length){el.innerHTML='<div class="empty">No plans selected. Tick a plan above, or choose “Show baseline + selected plan”.</div>';return;}
  const W=Math.max(320,Math.min(960,el.clientWidth||$('main').clientWidth-44)),H=W<500?290:320,L=65,R=20,T=35,B=60;
  const maxValue=Math.max(1,...lines.flatMap(l=>l.points.map(p=>p.y))),ymax=maxValue*1.08;
@@ -166,13 +166,13 @@ chart=function(id,lines,{bar=false,unit='damage'}={}){
  });
  svg+='<line class="cross" x1="'+L+'" x2="'+L+'" y1="'+T+'" y2="'+(H-B)+'" stroke="#53665c" stroke-dasharray="4 4"/></svg>';
  const inputId=id+'-time',readId=id+'-readout';
- el.innerHTML=svg+'<p class="chart-description">k = thousand · M = million · B = billion. Drag the time control or use its arrow keys for exact values.</p><div class="chart-inspect"><label for="'+inputId+'">Inspect '+(bar?'a minute':'an event time')+' <b id="'+id+'-clock">0:00</b><input id="'+inputId+'" type="range" min="0" max="'+(bar?Math.max(0,duration-60):duration)+'" step="'+(bar?60:1)+'" value="0"></label><div id="'+readId+'" class="chart-readout" aria-live="polite"></div></div>'+
+ el.innerHTML=svg+'<p class="chart-description">'+(unit==='index'?'100 = the final damage from everyone starting together. Same players and troops in every approach.':'k = thousand · M = million · B = billion.')+' Drag the time control for exact values.</p><div class="chart-inspect"><label for="'+inputId+'">Inspect '+(bar?'a minute':'an event time')+' <b id="'+id+'-clock">0:00</b><input id="'+inputId+'" type="range" min="0" max="'+(bar?Math.max(0,duration-60):duration)+'" step="'+(bar?60:1)+'" value="0"></label><div id="'+readId+'" class="chart-readout" aria-live="polite"></div></div>'+
   '<details class="summary-table"><summary>Read exact '+(bar?'minute totals':'final totals')+' as a table</summary>'+table(bar?['Minute','Estimated score']:['Plan',unitLabel+' at event end'],bar?lines[0].points.filter(p=>p.x<duration).map(p=>[time(p.x)+'–'+time(Math.min(p.x+60,duration)),exactNumber(p.y)]):lines.map(l=>[esc(l.name),exactNumber(l.points.at(-1)?.y||0)]))+'</details>';
  const cross=el.querySelector('.cross'),input=$(inputId),clock=$(id+'-clock'),readout=$(readId);
  function display(second){
   const eventTime=bar?Math.floor(second/60)*60:Math.floor(second);clock.textContent=time(eventTime)+(bar?'–'+time(Math.min(eventTime+60,duration)):'');
   input.value=eventTime;cross.setAttribute('x1',X(eventTime));cross.setAttribute('x2',X(eventTime));
-  readout.innerHTML=lines.map(l=>{let value=0;for(const p of l.points){if(p.x>eventTime)break;value=p.y;}return '<span><b>'+esc(l.name)+':</b> '+exactNumber(value)+(unit==='troops'?' troops':' score')+'</span>';}).join('');
+  readout.innerHTML=lines.map(l=>{let value=0;for(const p of l.points){if(p.x>eventTime)break;value=p.y;}return '<span><b>'+esc(l.name)+':</b> '+exactNumber(value)+(unit==='troops'?' troops':unit==='index'?' damage index':' estimated damage')+'</span>';}).join('');
  }
  input.oninput=()=>display(Number(input.value));
  el.querySelector('svg').onpointermove=e=>{const bounds=e.currentTarget.getBoundingClientRect(),px=(e.clientX-bounds.left)/bounds.width*W;display(Math.max(0,Math.min(bar?duration-60:duration,(px-L)/(W-L-R)*duration)));};
@@ -362,4 +362,4 @@ $('recommend').onclick=async()=>{if(running||!ensureSavedDrafts())return;if(synt
 $('reviewassumptions').onclick=()=>{$('demosettings').open=true;document.body.classList.add('settings-open');$('toggleSettings').setAttribute('aria-expanded','true');$('demosettings').scrollIntoView({block:'start'});};
 const advisorBadge=updateBadge;
 updateBadge=function(){advisorBadge();for(const id of ['n','mintown','maxtown','minrally','maxrally'])$(id).disabled=running||!synthetic;$('advisorassumptions').textContent=synthetic?'Example roster, not a measured Kingdom 2399 census. Capacity range comes from your report; troop stocks, march sizes, tiers and Attack/Lethality bonuses are editable assumptions. Town level and power do not directly multiply damage.':'Using '+roster.filter(m=>!absent.has(m.name)).length+' attending players from your entered roster. Edit attendance on Alliance setup. Example range controls do not replace these players; the recommendation uses their actual inputs.';};
-activatePage('comparetab');updateFormationHelp();generate();
+activatePage('comparetab');updateFormationHelp();

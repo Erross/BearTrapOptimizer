@@ -47,11 +47,12 @@ def simulate(members, mechanics=Mechanics(), strategy=Strategy(), audit=False):
         phases[i] = (0 if strategy.cadence == "synchronized" else
                      int(rank*reference_cycle/max(1,len(hosts))) if strategy.cadence == "staggered" else
                      (rank%3)*90 if strategy.cadence == "waves" else
-                     (rank//strategy.group_size)*strategy.wave_interval_s if strategy.cadence == "groups" else rank*strategy.spacing_s)
+                     ((rank*min(len(hosts),strategy.opening_wave_count)//len(hosts)) if strategy.opening_wave_count else rank//strategy.group_size)*strategy.wave_interval_s if strategy.cadence == "groups" else rank*strategy.spacing_s)
         next_start[i] = phases[i]
     group_cycle = 0
     if strategy.cadence == "groups" and strategy.group_repeat == "fixed":
-        minimum_cycle = max(reference_cycle, math.ceil(len(hosts)/strategy.group_size)*strategy.wave_interval_s)
+        opening_waves = min(len(hosts),strategy.opening_wave_count) if strategy.opening_wave_count else math.ceil(len(hosts)/strategy.group_size)
+        minimum_cycle = max(reference_cycle, opening_waves*strategy.wave_interval_s)
         group_cycle = strategy.wave_cycle_s or (math.ceil(minimum_cycle/strategy.wave_interval_s)*strategy.wave_interval_s if strategy.wave_interval_s else minimum_cycle)
         if group_cycle < minimum_cycle:
             raise ValueError(f"Shared group cycle must be at least {minimum_cycle}s for these starters and travel times")
@@ -216,7 +217,7 @@ def simulate(members, mechanics=Mechanics(), strategy=Strategy(), audit=False):
                 desired = (m.march_capacity if strategy.troop_split == "concentrated" else
                            max(1,math.ceil(max(0,m.troops-(own_quota(i) if i in active_hosts else 0))/max(1,m.join_slots))) if strategy.reserve_lead_troops else
                            max(1,math.ceil(m.troops/(m.join_slots+(1 if i in active_hosts else 0)))))
-                amount = min(desired,m.march_capacity,join_total,remaining)
+                amount = min(desired,m.march_capacity,join_total,remaining,strategy.join_march_cap or m.march_capacity)
                 mix = allocate(join_available, amount, m, members[r["host_index"]], mechanics, strategy)
                 amount = sum(mix.values())
                 if not amount:

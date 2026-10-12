@@ -35,8 +35,16 @@ def compare(payload):
     mechanics = Mechanics.parse(payload.get("mechanics",{}))
     count = int(payload.get("host_count",12))
     custom = Strategy.parse(payload.get("strategy",{}))
-    strategies = default_strategies(len(members),count,custom)
-    strategies.append(replace(custom,name="Your custom strategy"))
+    if "strategies" in payload:
+        rows = payload["strategies"]
+        if not isinstance(rows,list) or not 1 <= len(rows) <= 12:
+            raise ValueError("Provide 1–12 comparison approaches")
+        strategies = [Strategy.parse(row) for row in rows]
+        if len({s.name for s in strategies}) != len(strategies) or any(not s.name.strip() for s in strategies):
+            raise ValueError("Comparison approaches need unique, non-empty names")
+    else:
+        strategies = default_strategies(len(members),count,custom)
+        strategies.append(replace(custom,name="Your custom strategy"))
     # Fit once to an explicitly chosen baseline; NEVER fit each scenario separately.
     normalization = payload.get("normalization", {})
     target = float(normalization.get("target",2e9))
@@ -146,7 +154,7 @@ def search(payload):
                 for repeat in ("ready","fixed"):
                     trial(replace(s,host_names=tuple(row["selected_hosts"]),host_count=len(row["selected_hosts"]),cadence="groups",
                                   group_size=size,wave_interval_s=interval,group_repeat=repeat,wave_cycle_s=0,
-                                  reserve_lead_troops=True,name=f"Groups of {size} · {interval}s · {repeat}"))
+                                  opening_wave_count=0,reserve_lead_troops=True,name=f"Groups of {size} · {interval}s · {repeat}"))
     finalists=sorted((r for r in tested if r["opening_feasible"]),key=rank)[:4]
     # Stage 3: amounts and troop mixes. Keep the score scale fixed throughout.
     for row in finalists:

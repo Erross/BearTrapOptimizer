@@ -1,5 +1,23 @@
 # Beginner walkthrough and UX changes
 
+## Second usability pass · 12 October 2026
+
+The user found the first revision confusing and overwhelming: a long recommendation preceded the graph, setup was always visible, and many comparison rows described isolated simulator switches instead of complete alliance plans.
+
+| Finding | Current behavior |
+|---|---|
+| Setup dominates the first visit | Full-width comparison page; player, troop and model setup opens only on request. |
+| Too many variables | Five main inputs: attendance, strength profile, selected starters, waves, interval. |
+| Approach names do not describe a usable plan | Five named complete approaches; each card gives starter count, waves, interval, troop limit and join-only count. |
+| Damage curves are hidden under a long plan | All five damage lines are displayed immediately, followed by the approach cards. |
+| Arbitrary billions suggest a forecast | Relative damage graph: 100 is the together baseline's final total; all curves use the same roster and denominator. |
+| "Troop caps" can mean game capacity or an alliance rule | The capped approach limits each joining march. Physical rally capacities and joiner caps remain enforced everywhere. |
+| Default roster lacks a believable core group | Shared illustrative top-four profile with developing/core/strong/leader groups, including TC and power spread. It is clearly marked assumed. |
+| Who leads and who should only join is hard to find | Selecting a card updates a compact plan, opening launch groups and expandable lists for both roles. |
+| First visit waits for a broad search | Initial comparison runs five approaches; the broader search is optional in Setup. |
+
+The remaining sections below record the earlier review. The graph-first layout supersedes their sidebar, tab and automatic-search flow; the troop editor, calibration, schedule exports, stale-data protection and saved-roster behavior remain available behind Setup.
+
 Reviewed 11 October 2026. Audience: a Bear Trap player who knows how to send troops but does not understand simulation terminology; alliance members with different first languages. This was an expert walkthrough of the live page, not a study with recruited players.
 
 ## First visit and shared controls

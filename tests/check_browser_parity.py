@@ -10,6 +10,7 @@ from beartrap.model import Member, Mechanics, Strategy, synthetic_roster
 from beartrap.simulator import simulate
 from beartrap.analysis import compare, calibrate, search
 from beartrap.combat import formation_plan, effective_components
+from beartrap.profiles import profile_roster
 
 ROOT=Path(__file__).resolve().parents[1]
 
@@ -97,6 +98,26 @@ def main():
         p={'synthetic':{'n':4},'mechanics':{'duration_s':120,'countdown_s':30,'damage_model':'sqrt'},
            'strategy':{'reserve_lead_troops':True},'search_goal':goal,'opening_limit_s':60}
         cases.append({'method':'search','args':[p],'expected':search(p)})
+    for profile in ('top_four','developing','established'):
+        for n in (2,7,40):
+            inputs={'profile':profile,'n':n}
+            cases.append({'method':'profile_roster','args':[inputs],'expected':profile_roster(inputs)})
+    for repeat in ('ready','fixed'):
+        for cap in (0,25000):
+            setting=Strategy(host_count=5,cadence='groups',opening_wave_count=4,group_size=2,
+                             wave_interval_s=30,group_repeat=repeat,host_allocation='small',
+                             reserve_lead_troops=True,troop_split='concentrated',join_march_cap=cap)
+            cfg=replace(c,damage_model='sqrt',duration_s=300)
+            cases.append({'method':'simulate','args':[[asdict(m) for m in typed],asdict(cfg),asdict(setting)],
+                          'expected':simulate(typed,cfg,setting,audit=True)})
+    p={'roster':profile_roster({'n':8})['roster'],'mechanics':{'damage_model':'sqrt','duration_s':300,'countdown_s':60},
+       'strategies':[{'name':'Everyone together','host_count':8,'cadence':'synchronized'},
+                     {'name':'Selected waves','host_count':4,'cadence':'groups','opening_wave_count':3,'wave_interval_s':30,'host_allocation':'small','reserve_lead_troops':True},
+                     {'name':'Selected capped','host_count':4,'cadence':'groups','opening_wave_count':3,'wave_interval_s':30,'host_allocation':'small','reserve_lead_troops':True,'join_march_cap':25000}]}
+    expected=compare(p);expected.pop('assumptions')
+    cases.append({'method':'compare','args':[p],'expected':expected})
+    search_inputs=dict(p,search_goal='balanced',opening_limit_s=60)
+    cases.append({'method':'search','args':[search_inputs],'expected':search(search_inputs)})
     js="const fs=require('fs'),e=require('./web/engine.js');const cases=JSON.parse(fs.readFileSync(0,'utf8'));console.log(JSON.stringify(cases.map(c=>e[c.method](...c.args))));"
     result=subprocess.run(['node','-e',js],input=json.dumps([{k:v for k,v in c.items() if k!='expected'} for c in cases]),
                           text=True,capture_output=True,cwd=ROOT,check=True)
