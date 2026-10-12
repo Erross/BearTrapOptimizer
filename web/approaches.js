@@ -14,7 +14,7 @@ function coherentApproaches(request){
  const selected=Math.min(count,starters),strong=Math.min(selected,Math.max(1,Math.ceil(request.roster.filter(m=>m.can_host).length/4)));
  const grouped={cadence:'groups',opening_wave_count:waves,group_size:Math.max(1,Math.ceil(selected/waves)),wave_interval_s:gap};
  return [
-  {...common,name:approachNames[0],host_count:count,cadence:'synchronized',host_allocation:'full',troop_split:'equal'},
+  {...common,name:approachNames[0],host_count:count,cadence:'synchronized'},
   {...common,name:approachNames[1],host_count:strong,cadence:'synchronized',join_policy:'strength'},
   {...common,...grouped,name:approachNames[2],host_count:selected},
   {...common,...grouped,name:approachNames[3],host_count:selected,join_march_cap:cap},

@@ -40,6 +40,28 @@ class ApproachTests(unittest.TestCase):
         unlimited=simulate(members,Mechanics(duration_s=300,countdown_s=60),replace(settings,join_march_cap=0),audit=True)
         self.assertTrue(any(p['troops']>25000 for p in unlimited['contributions'] if p['role']=='join'))
 
+    def test_one_wave_and_zero_gap_have_identical_damage_to_synchronized(self):
+        # Include unequal stock/travel/capacities, an ineligible leader and
+        # multiple cycles. Matching totals alone could hide different curves.
+        members=[Member.parse(row) for row in profile_roster({'n':8})['roster']]
+        members[0]=replace(members[0],can_host=False)
+        for model in ('legacy','weighted','sqrt'):
+            for scope in ('march','rally'):
+                for formation in ('inventory','strict','adaptive','optimized'):
+                    with self.subTest(model=model,scope=scope,formation=formation):
+                        mechanics=Mechanics(duration_s=240,countdown_s=45,
+                                            damage_model=model,damage_scope=scope)
+                        settings=Strategy(host_count=8,cadence='synchronized',host_allocation='small',
+                                          troop_split='concentrated',join_policy='next',formation=formation,
+                                          reserve_lead_troops=True,host_min_rally_capacity=500000)
+                        baseline=simulate(members,mechanics,settings,audit=True)
+                        baseline.pop('strategy')
+                        for waves,gap in ((1,90),(5,0)):
+                            grouped=simulate(members,mechanics,replace(settings,cadence='groups',
+                                             opening_wave_count=waves,wave_interval_s=gap),audit=True)
+                            grouped.pop('strategy')
+                            self.assertEqual(grouped,baseline)
+
     def test_named_comparisons_share_one_baseline_and_preserve_order(self):
         rows=profile_roster({'n':8})['roster']
         settings=[{'name':'Everyone together','host_count':8,'cadence':'synchronized'},

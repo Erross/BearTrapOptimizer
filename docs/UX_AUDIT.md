@@ -12,6 +12,7 @@ The user found the first revision confusing and overwhelming: a long recommendat
 | Damage curves are hidden under a long plan | All five damage lines are displayed immediately, followed by the approach cards. |
 | Arbitrary billions suggest a forecast | Relative damage graph: 100 is the together baseline's final total; all curves use the same roster and denominator. |
 | "Troop caps" can mean game capacity or an alliance rule | The capped approach limits each joining march. Physical rally capacities and joiner caps remain enforced everywhere. |
+| Everyone in one wave differs from everyone together | All five use the same leader and joining-march allocation. One wave and zero-spacing waves exactly reproduce the together baseline. |
 | Default roster lacks a believable core group | Shared illustrative top-four profile with developing/core/strong/leader groups, including TC and power spread. It is clearly marked assumed. |
 | Who leads and who should only join is hard to find | Selecting a card updates a compact plan, opening launch groups and expandable lists for both roles. |
 | First visit waits for a broad search | Initial comparison runs five approaches; the broader search is optional in Setup. |

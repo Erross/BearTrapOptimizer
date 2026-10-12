@@ -22,6 +22,8 @@ The default is an **illustrative top-four alliance**: 40 players split into 8 de
 
 The graph shows relative damage, with **100 = the together baseline's final damage**. Every line uses the same roster, troop stocks and common denominator. A per-join troop limit is an alliance rule, 50k by default in the capped approach; actual game rally capacities and joiner limits apply everywhere.
 
+The five approaches share 5% leader marches and concentrated joining marches. With everyone selected and one opening wave, the uncapped selected and everyone-wave approaches exactly match the together baseline, including every point on the damage curve. Zero spacing between waves has the same effect. Troop allocation changes can be tested as a custom approach in Setup.
+
 The broader three-stage search remains optional. Balanced keeps at least 95% of the highest feasible tested damage and then minimizes ready-troop waiting. See [planner details](docs/PLANNER.md) for exact approach definitions, assumptions and search limits.
 
 ## Run locally

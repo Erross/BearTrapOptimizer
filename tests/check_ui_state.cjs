@@ -126,6 +126,49 @@ async function main() {
   context.closePlanSettings();
   assert.equal(nodes.setupdialog.open, false);
 
+  // Equivalent choices must remain equivalent through the real UI builder,
+  // not just through two matching simulator implementations. Use the complete
+  // default event to include later restarts and returning troop inventories.
+  nodes.n.value = '40';
+  nodes.hosts.value = '40';
+  nodes.duration.value = '30';
+  nodes.countdown.value = '300';
+  nodes.frontwaves.value = '1';
+  await context.generate();
+  noError();
+  let equivalent = state('JSON.stringify([result.runs[0], result.runs[2], result.runs[4]])');
+  equivalent = JSON.parse(equivalent);
+  for (const run of equivalent.slice(1)) {
+    assert.deepEqual(run.series, equivalent[0].series,
+      'Everyone in one wave must have the same complete damage curve as everyone together');
+    assert.deepEqual(run.hits, equivalent[0].hits,
+      'Equivalent approaches must hit with the same troops, timings and damage');
+    assert.deepEqual(run.members, equivalent[0].members,
+      'Equivalent approaches must give every player the same damage and troop use');
+  }
+  nodes.frontwaves.value = '7';
+  nodes.frontgap.value = '0';
+  await nodes.recommend.onclick();
+  noError();
+  assert(state('JSON.stringify(result.runs[0].series) === JSON.stringify(result.runs[4].series)'),
+    'Zero spacing between opening waves must also match everyone together');
+  assert(state('JSON.stringify(result.runs[2].series) === JSON.stringify(result.runs[4].series)'),
+    'Selecting all starters must match the everyone approach');
+  nodes.joinmarchcap.value = '2000000';
+  await nodes.recommend.onclick();
+  noError();
+  assert(state('JSON.stringify(result.runs[2].series) === JSON.stringify(result.runs[3].series)'),
+    'A joining limit above every march size must have no effect');
+  nodes.joinmarchcap.value = '50000';
+  nodes.n.value = '4';
+  nodes.hosts.value = '4';
+  nodes.duration.value = '2';
+  nodes.countdown.value = '30';
+  nodes.frontwaves.value = '4';
+  nodes.frontgap.value = '60';
+  await context.generate();
+  noError();
+
   const excludedName = state('roster[0].name');
   const attendance = nodes.rostertable.querySelectorAll('[data-attend]')[0];
   attendance.checked = false;
@@ -168,6 +211,6 @@ async function main() {
   assert.equal(generatedCount(), beforeEstimate, 'Recommendation replaced an individually estimated stock');
   assert.equal(searchRequest().roster.find(member => member.name === estimatedName).troops, 90000);
   assert(state('estimatedStocks.has(roster[0].name)'), 'Estimated stock lost its provenance');
-  console.log('Dashboard attendance, saved player details and stock estimates survive recommendations.');
+  console.log('Equivalent one-wave and zero-gap approaches match exactly; roster edits survive recommendations.');
 }
 main().catch(error => {console.error(error); process.exitCode = 1;});

@@ -116,6 +116,19 @@ def main():
                      {'name':'Selected capped','host_count':4,'cadence':'groups','opening_wave_count':3,'wave_interval_s':30,'host_allocation':'small','reserve_lead_troops':True,'join_march_cap':25000}]}
     expected=compare(p);expected.pop('assumptions')
     cases.append({'method':'compare','args':[p],'expected':expected})
+    # Degenerate wave schedules must match the simultaneous opening in both
+    # engines, including different travel times and filtered starter permissions.
+    wave_members=[Member.parse(row) for row in p['roster']]
+    wave_members[0]=replace(wave_members[0],can_host=False)
+    for scope in ('march','rally'):
+        cfg=Mechanics(duration_s=240,countdown_s=45,damage_model='sqrt',damage_scope=scope)
+        setting=Strategy(host_count=8,cadence='synchronized',host_allocation='small',
+                         troop_split='concentrated',join_policy='next',reserve_lead_troops=True)
+        for waves,gap in ((0,60),(1,90),(5,0)):
+            candidate=setting if not waves else replace(setting,cadence='groups',
+                          opening_wave_count=waves,wave_interval_s=gap)
+            cases.append({'method':'simulate','args':[[asdict(m) for m in wave_members],asdict(cfg),asdict(candidate)],
+                          'expected':simulate(wave_members,cfg,candidate,audit=True)})
     search_inputs=dict(p,search_goal='balanced',opening_limit_s=60)
     cases.append({'method':'search','args':[search_inputs],'expected':search(search_inputs)})
     js="const fs=require('fs'),e=require('./web/engine.js');const cases=JSON.parse(fs.readFileSync(0,'utf8'));console.log(JSON.stringify(cases.map(c=>e[c.method](...c.args))));"
