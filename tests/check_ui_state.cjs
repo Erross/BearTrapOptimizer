@@ -136,6 +136,7 @@ async function main() {
   assert.equal(generatedCount(), beforeAttendance, 'Recommendation rebuilt an edited attendance list');
   assert.equal(searchRequest().roster.length, 3);
   assert(!searchRequest().roster.some(member => member.name === excludedName));
+  assert(nodes.advisorassumptions.textContent.includes('3 estimated troop stocks'), 'Estimated-stock count must use attendance');
 
   await context.generate();
   state('editingMember = roster[0].name');

@@ -44,7 +44,8 @@ updateBadge=function(){
  $('frontwaves').disabled=running;$('frontgap').disabled=running;
  if(!present.length){$('advisorassumptions').textContent='Choose attending players in Setup to compare approaches.';return;}
  const towns=present.map(m=>m.town_level),powers=present.map(m=>m.power_m);
- $('advisorassumptions').textContent=(synthetic?(profileMeta?.label||'Illustrative alliance'):'Your edited players')+' · TC'+Math.min(...towns)+'–'+Math.max(...towns)+' · '+Math.round(Math.min(...powers))+'–'+Math.round(Math.max(...powers))+'M power'+(synthetic?' · assumed mix; refine in Setup.':' · '+estimatedStocks.size+' estimated troop stocks; refine in Setup.');
+ const estimated=present.filter(m=>estimatedStocks.has(m.name)||m.infantry==null).length;
+ $('advisorassumptions').textContent=(synthetic?(profileMeta?.label||'Illustrative alliance'):'Your edited players')+' · TC'+Math.min(...towns)+'–'+Math.max(...towns)+' · '+Math.round(Math.min(...powers))+'–'+Math.round(Math.max(...powers))+'M power'+(synthetic?' · assumed mix; refine in Setup.':' · '+estimated+' estimated troop stocks; refine in Setup.');
 };
 const previousBusy=busy;
 busy=function(on,message=''){previousBusy(on,message);$('simpleprofile').disabled=on||!synthetic;$('frontwaves').disabled=on;$('frontgap').disabled=on;};
@@ -160,7 +161,7 @@ $('generate').onclick=async()=>{
 };
 for(const id of ['n','simpleprofile'])$(id).addEventListener('input',()=>{if(synthetic)profileNeedsRebuild=true;markResultsDirty('Alliance profile changed.');});
 for(const id of ['frontwaves','frontgap','joinmarchcap'])$(id).addEventListener('input',()=>markResultsDirty('Approach timing or joining limit changed.'));
-for(const id of demoControlIds)if(id!=='n')$(id).addEventListener('input',()=>{if(synthetic){$('simpleprofile').value='custom';profileNeedsRebuild=true;markResultsDirty('Custom player assumptions changed.');}});
+for(const id of demoControlIds)if(id!=='n')$(id).addEventListener('input',()=>{$('simpleprofile').value='custom';if(synthetic){profileNeedsRebuild=true;markResultsDirty('Custom player assumptions changed.');}});
 for(const id of ['projectfile','rosterfile']){
  const importPrevious=$(id).onchange;
  $(id).onchange=async event=>{const previousMeta=profileMeta,previousDirty=profileNeedsRebuild;profileMeta=null;profileNeedsRebuild=false;await importPrevious(event);if($('error').style.display==='block'){profileMeta=previousMeta;profileNeedsRebuild=previousDirty;}profileTable();updateBadge();};
