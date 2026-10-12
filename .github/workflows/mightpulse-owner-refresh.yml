@@ -1,0 +1,67 @@
+name: Owner-only alliance refresh
+on:
+  workflow_dispatch:
+    inputs:
+      member_ids:
+        description: "Optional saved-roster governor IDs, separated by commas; blank refreshes everyone"
+        type: string
+        required: false
+        default: ""
+concurrency:
+  group: owner-only-mightpulse-refresh
+  cancel-in-progress: false
+jobs:
+  import:
+    if: github.repository == 'Erross/BearTrapOptimizer' && github.actor == 'Erross' && github.actor_id == '33665337' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    permissions:
+      contents: write
+    outputs:
+      snapshot_sha: ${{ steps.source.outputs.sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m unittest discover -s tests -v
+      - name: Configure snapshot author
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+      - name: Refresh only the configured alliance
+        env:
+          MIGHTPULSE_API_KEY: ${{ secrets.MIGHTPULSE_API_KEY }}
+          MIGHTPULSE_MEMBER_IDS: ${{ inputs.member_ids }}
+        run: python scripts/mightpulse_import.py
+      - name: Record the published snapshot source
+        id: source
+        run: |
+          source_sha=$(git rev-parse HEAD)
+          echo "sha=$source_sha" >> "$GITHUB_OUTPUT"
+  publish:
+    needs: import
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    concurrency:
+      group: pages
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.import.outputs.snapshot_sha }}
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: web
+      - uses: actions/deploy-pages@v4
+        id: deployment
