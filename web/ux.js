@@ -228,7 +228,7 @@ async function saveMemberDetails(){
   await api('formation_plan',{member:draft,mechanics:payload().mechanics,strategy:strategy(),marches:1,march_size:Math.max(1,Math.min(draft.march_capacity,draft.troops))});
   const oldName=member.name,wasAbsent=absent.delete(oldName),wasEstimated=estimatedStocks.delete(oldName);
   Object.assign(member,draft);if(wasAbsent)absent.add(draft.name);if(wasEstimated)estimatedStocks.add(draft.name);
-  editingMember=draft.name;memberDraft=false;renderRoster();updateBadge();markResultsDirty('Player details changed.');
+  editingMember=draft.name;memberDraft=false;synthetic=false;renderRoster();updateBadge();markResultsDirty('Player details changed.');
   $('status').textContent='Saved '+draft.name+'. Compare rally plans to update the results.';
  }catch(e){showError(e);if($('savemember'))$('savemember').disabled=false;}
 }
@@ -236,7 +236,7 @@ renderRoster=function(refreshProfiles=true){
  const query=$('memberfilter').value.trim().toLowerCase();
  const players=roster.map((m,index)=>({m,index})).filter(({m})=>m.name.toLowerCase().includes(query));
  $('rostertable').innerHTML=players.length?'<table><thead><tr>'+['Attending','Player (select to edit)','Usable troop stock','Maximum march','Joining marches','May start rallies'].map(h=>'<th scope="col">'+h+'</th>').join('')+'</tr></thead><tbody>'+players.map(({m,index})=>'<tr class="'+(m.name===editingMember?'selected':'')+'"><td><input type="checkbox" aria-label="'+esc(m.name)+' attending" data-attend="'+index+'" '+(!absent.has(m.name)?'checked':'')+'></td><td><button class="text-button" data-edit-member="'+index+'">'+esc(m.name)+'</button></td><td>'+exactNumber(m.troops)+'<div class="fine">'+(estimatedStocks.has(m.name)||m.infantry==null?'Estimated stock':'Entered stock')+'</div></td><td>'+exactNumber(m.march_capacity)+'</td><td>'+m.join_slots+'</td><td>'+(m.can_host?'Yes':'No')+'</td></tr>').join('')+'</tbody></table>':'<p>No players match that name.</p>';
- for(const input of $('rostertable').querySelectorAll('[data-attend]'))input.onchange=()=>{const name=roster[Number(input.dataset.attend)].name;input.checked?absent.delete(name):absent.add(name);updateBadge();markResultsDirty('Attendance changed.');};
+ for(const input of $('rostertable').querySelectorAll('[data-attend]'))input.onchange=()=>{const name=roster[Number(input.dataset.attend)].name;input.checked?absent.delete(name):absent.add(name);synthetic=false;updateBadge();markResultsDirty('Attendance changed.');};
  for(const button of $('rostertable').querySelectorAll('[data-edit-member]'))button.onclick=()=>{
   if(memberDraft){showError(new Error('Save or discard the current player’s detail edits before choosing another player.'));return;}
   editingMember=roster[Number(button.dataset.editMember)].name;renderRoster(false);
@@ -274,7 +274,7 @@ $('applyfit').onclick=()=>{applyFitCore();markResultsDirty('Leader multipliers c
 const originalEstimate=estimatePlayerStock;
 estimatePlayerStock=function(){
  if(stockDraft){showError(new Error('Save or discard entered troop edits before replacing them with an estimate.'));return;}
- $('error').style.display='none';originalEstimate();if($('error').style.display!=='block')markResultsDirty('A player’s troop stock was estimated.');
+ $('error').style.display='none';originalEstimate();if($('error').style.display!=='block'){synthetic=false;updateBadge();markResultsDirty('A player’s troop stock was estimated.');}
 };
 
 updateFormationHelp=function(){

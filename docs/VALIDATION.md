@@ -32,3 +32,8 @@
 - Browser worker, engine and UI assets are versioned together to avoid stale mixed-model resources on GitHubPages.
 - Live Chrome verification passed for automatic32-player and40-player recommendations, grouped first starts, practical troop instructions, the travel-aware cutoff and the ready-wait graph. A1M capacity floor selected only the1M leader and reported39 join-only players with80.4% waiting, demonstrating the cost of excluding all smaller rallies. These are demo outcomes, not alliance measurements.
 - All five tabs fit within the360-pixel usable width of a375-pixel Chrome frame, without page-level horizontal overflow. This does not validate a physical touch device.
+
+## Roster preservation revision · 12 October 2026
+
+- Fixed the recommendation flow resetting attendance, saved player details and individual power-based troop estimates while the original roster was still marked as a demo. Those edits now select the current roster for subsequent recommendations. Editing details does not relabel estimated stocks as measured counts.
+- `node tests/check_ui_state.cjs` exercises attendance selection, player renaming and rally capacity edits, and a per-player stock estimate through the actual dashboard handlers and browser engine. Recommendations keep the edited inputs and do not regenerate players. This uses a DOM stub and a short event; full timing and engine parity are covered by the existing suites. The Pages workflow runs this check before deployment.

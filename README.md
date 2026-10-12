@@ -54,6 +54,8 @@ Open **http://127.0.0.1:8765**. On Windows, `py app.py` also works. Stop with Ct
 5. Disable baseline normalization for an absolute report-calibrated run. Normalization deliberately fits one baseline to a target and holds that scale fixed across other strategies; it does not independently validate them.
 6. Search host counts and troop mixtures, inspect personal outcomes, export the host start timetable and trial one approach in-game.
 
+Changing attendance, saving player details, or estimating one player's stock switches the planner to your edited roster. **Recommend my rally plan** then preserves those changes. Use **Replace alliance with demo players** to deliberately create another example roster; estimated stocks remain labelled estimated after editing player details.
+
 Travel defaults reflect the supplied 8–20 second range. The default is five-minute rallies and one extra host slot. The owner confirmed that rallies must hit before the event ends. That cutoff is mandatory and includes host travel. With five-minute countdowns and 8–20 second travel, launch before 24:40–24:52 elapsed, depending on the host. The maximum joiner count remains editable.
 
 Use Save alliance file before closing to keep inputs and reports. Computed results are omitted and recalculated on load. There is no automatic disk or cloud saving from the dashboard. All game actions are manual; this is an analysis tool.
@@ -86,6 +88,7 @@ API: `POST /api/compare`, `/api/search`, `/api/calibrate`, `/api/roster`, `/api/
 ```bash
 python -m unittest discover -s tests -v
 python tests/check_browser_parity.py  # Node is needed for this development check only
+node tests/check_ui_state.cjs         # Dashboard roster-preservation checks
 ```
 
 Tests cover troop/slot conservation, damage attribution, host-stat versus power separation, travel deadlines, return constraints, strict end-of-event scoring, calibration and randomized resource cases. GitHub Actions runs the suite on Python 3.10, 3.12 and 3.13.
