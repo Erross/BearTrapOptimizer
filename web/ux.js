@@ -311,7 +311,7 @@ $('planselect').onchange=()=>selectPlan($('planselect').value);
 $('save').textContent='Save alliance file';
 $('load').onclick=()=>{if(ensureSavedDrafts())$('projectfile').click();};
 $('rosterimport').onclick=()=>{if(ensureSavedDrafts())$('rosterfile').click();};
-$('run').onclick=()=>{run();if(document.body.classList.contains('settings-open')){closePlanSettings();activatePage('comparetab');}};$('refreshresults').onclick=run;$('search').onclick=()=>{search();if(document.body.classList.contains('settings-open')){closePlanSettings();activatePage('comparetab');}};
+$('run').onclick=()=>{run();if(document.body.classList.contains('settings-open')){closePlanSettings();activatePage('comparetab');}};$('refreshresults').textContent='Update recommendation';$('refreshresults').onclick=()=>{$('recommend').onclick();};$('search').onclick=()=>{search();if(document.body.classList.contains('settings-open')){closePlanSettings();activatePage('comparetab');}};
 $('troopplayer').onchange=renderPlayerEditor;$('applystock').onclick=savePlayer;$('estimatepower').onclick=estimatePlayerStock;
 $('memberfilter').oninput=()=>renderRoster(false);
 $('samplereports').onclick=()=>{$('reports').value='host,troops,damage,infantry,cavalry,archers,infantry_tier,cavalry_tier,archers_tier\n'+(roster.at(-1)?.name||'Leader name')+',50000,9000000,5000,5000,40000,8,8,8';};
@@ -358,7 +358,7 @@ for(const id of ['projectfile','rosterfile']){
  };
 }
 let resizeTimer;window.addEventListener('resize',()=>{clearTimeout(resizeTimer);resizeTimer=setTimeout(()=>{if(!result)return;if(activePage==='comparetab')renderCharts();if(activePage==='plantab')renderPlan();},100);});
-$('recommend').onclick=async()=>{if(!ensureSavedDrafts())return;if(synthetic)await generate();else await search();};
+$('recommend').onclick=async()=>{if(running||!ensureSavedDrafts())return;if(synthetic)await generate();else await search();};
 $('reviewassumptions').onclick=()=>{$('demosettings').open=true;document.body.classList.add('settings-open');$('toggleSettings').setAttribute('aria-expanded','true');$('demosettings').scrollIntoView({block:'start'});};
 const advisorBadge=updateBadge;
 updateBadge=function(){advisorBadge();for(const id of ['n','mintown','maxtown','minrally','maxrally'])$(id).disabled=running||!synthetic;$('advisorassumptions').textContent=synthetic?'Example roster, not a measured Kingdom 2399 census. Capacity range comes from your report; troop stocks, march sizes, tiers and Attack/Lethality bonuses are editable assumptions. Town level and power do not directly multiply damage.':'Using '+roster.filter(m=>!absent.has(m.name)).length+' attending players from your entered roster. Edit attendance on Alliance setup. Example range controls do not replace these players; the recommendation uses their actual inputs.';};
