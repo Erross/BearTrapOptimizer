@@ -9,3 +9,6 @@ body{font-size:15px}p,.fine,.help{line-height:1.6}.fine{font-size:12px}button,in
 .intro .stepnumber{display:inline}.timeline-wrap svg{min-width:960px}.timeline-wrap{overscroll-behavior:contain}
 @media(max-width:760px){.intro button{min-height:44px;padding:10px 12px}.intro button>span{display:none}.intro strong{display:block;margin:0}.chart svg{min-height:0}.chart-readout{overflow-wrap:anywhere}}
 @media(prefers-reduced-motion:reduce){*{animation:none!important;scroll-behavior:auto!important}}
+
+/* Let the page tabs stick to the window; nested tables own their overflow. */
+.main{overflow:visible;min-width:0}
