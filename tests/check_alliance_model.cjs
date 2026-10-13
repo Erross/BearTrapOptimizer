@@ -81,3 +81,19 @@ assert.deepEqual(E.simulate(rows,config,{...setting,cadence:'groups',opening_wav
 for(const bad of [{Stranger:{Host:1}},{Near:[]},{Near:{Host:1.5}},{Near:{Host:-1}},{Near:{Host:3601}},{Near:{Host:true}}])assert.throws(()=>E.simulate(rows,config,setting,bad));
 assert.equal(E.member({name:'Long',outbound_s:600}).outbound_s,600);
 console.log('CNQ identity, nearest assignment, preserved edits, archives, plan round trips and city-to-city timing pass.');
+
+// A distant governor remains assigned/attending but never enters any strategy roster.
+const cutoff=M.mergeSnapshot(M.emptyPlan(),snapshot([['21',0,0],['22',100,0],['23',101,0],['24',null,null]]));
+cutoff.traps={'1':{x:0,y:0},'2':{x:300,y:0}};
+cutoff.comparisonGroup='1';cutoff.players.forEach(p=>p.group='1');
+const near=M.compile(cutoff,bands);
+assert.equal(near.roster.length,3);assert.equal(near.excluded.length,1);
+assert.equal(near.excluded[0].governorId,'23');assert(cutoff.players[2].attending);assert.equal(cutoff.players[2].group,'1');
+assert(!Object.keys(M.joinTravelTimes(cutoff,near.roster)).some(name=>name===M.engineName(cutoff.players[2])));
+cutoff.distanceFilter.enabled=false;assert.equal(M.compile(cutoff,bands).roster.length,4);
+cutoff.distanceFilter.enabled=true;cutoff.comparisonGroup='all';cutoff.traps['2']={x:101,y:0};
+assert.equal(M.compile(cutoff,bands).roster.length,4,'All members uses nearest saved trap');
+const legacy=M.clone(cutoff);delete legacy.distanceFilter;assert.deepEqual(M.validatePlan(legacy).distanceFilter,{enabled:true,maxUnits:100});
+assert.deepEqual(M.validatePlan(JSON.parse(JSON.stringify(cutoff))).distanceFilter,cutoff.distanceFilter);
+const invalidFilter=M.clone(cutoff);invalidFilter.distanceFilter.maxUnits=0;assert.throws(()=>M.validatePlan(invalidFilter));
+console.log('Distance boundaries, nearest-trap filtering, missing positions, preserved attendance and saved cutoffs pass.');

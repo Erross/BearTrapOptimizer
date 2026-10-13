@@ -12,6 +12,25 @@ The [beginner UX audit](docs/UX_AUDIT.md) records the page-by-page critique and 
 
 In GitHub, enable **Settings → Pages → Source: GitHub Actions**. The included `pages.yml` workflow validates both engines and publishes the web folder on pushes to main. Alternatively publish the `web` directory contents from a dedicated Pages branch.
 
+## Map zoom and distant members
+
+In **CNQ roster & traps**, use **+ / −**, **Fit nearby** or **Fit all** to zoom the
+city map. Scroll to zoom and drag to pan; arrow buttons and keyboard controls
+are available. Map navigation does not change assignments or simulation inputs.
+
+Save both trap positions, then use **Auto-assign by proximity** beside the save
+button to assign unassigned members to the nearer trap. To reassign a selected
+set, use the proximity button above the member table. Existing assignments are
+kept when no members are selected.
+
+**Exclude distant members** defaults to a maximum of **100 coordinate units**.
+For a trap-specific comparison, distance is to that trap; All members and
+Unassigned use the nearest saved trap. Change the threshold or turn it off.
+Distant members remain in the roster with their attendance and assignments;
+they are omitted from every strategy in that comparison. The summary lists
+excluded names, and orange outlines mark their map positions. Without a known
+city/trap distance the member stays included. The setting saves with the plan.
+
 ## Starter approaches and your own strategies
 
 The front page compares **Everyone together**, **Strongest leaders only**, **Selected leaders in waves**, **Selected waves + troop limit**, **Everyone in waves**, and **Everyone in waves + troop limit**. All six damage curves are shown by default. Each approach card names its starter count, opening groups, interval and troop rule. Selecting a card shows the corresponding leaders, join-only players and launch groups. Both wave approaches have a capped counterpart with identical leaders and timing, so the only difference within each pair is the joining-march limit.

@@ -2,7 +2,7 @@
 (function(){
  'use strict';
  const M=globalThis.BearAllianceModel,KEY='BearTrapOptimizer:CNQ:2399:plan:v1';
- const state={plan:M.emptyPlan(),bands:null,mode:'cnq',filter:'all',page:0,selected:new Set(),compiled:null,editorId:null,pending:false,started:false};
+ const state={plan:M.emptyPlan(),bands:null,mode:'cnq',filter:'all',page:0,selected:new Set(),compiled:null,editorId:null,pending:false,started:false,map:{view:null,drag:null,suppressClick:false}};
  const active=()=>state.mode==='cnq',members=()=>state.plan.players.filter(p=>p.active);
  const date=value=>value?new Date(typeof value==='number'?value*1000:value).toLocaleString([], {month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}):'Not imported';
  const notice=(message,error=false)=>{$('alliancestatus').textContent=message;$('alliancestatus').classList.toggle('problem',error);};
@@ -49,7 +49,7 @@
   $('legend').innerHTML='';$('comparisontable').innerHTML='';$('planbrief').innerHTML='';
   $('openinggroups').innerHTML='';$('leaderroles').innerHTML='';$('selectedname').textContent='Choose attending members';
   $('selecteddescription').textContent='Each comparison uses one group of players.';
-  $('status').textContent='This group has no attending players.';updateActionAvailability();availability();
+  $('status').textContent=state.compiled?.excluded?.some(p=>p.attending)?'All attending members in this group exceed the distance cutoff. Adjust the cutoff in Roster & traps.':'This group has no attending players.';updateActionAvailability();availability();
  }
  function context(){
   const count=roster.filter(r=>!absent.has(r.name)).length,total=members().length;
@@ -58,6 +58,7 @@
   $('alliancecontextlabel').textContent=active()?'CNQ · Kingdom 2399':'Illustrative alliance';
   $('alliancesummary').textContent=active()?count+' attending · '+M.groupLabel(state.plan.comparisonGroup)+
    (['all','none'].includes(state.plan.comparisonGroup)?' · travel assumed until comparing a trap':' · assigned members only')+
+   (state.compiled?.excluded?.some(p=>p.attending)?' · '+state.compiled.excluded.filter(p=>p.attending).length+' distant excluded':'')+
    ' · snapshot '+date(state.plan.snapshotAt):'Example or manually entered players. Your CNQ assignments are saved separately.';
   $('allianceopen').textContent='CNQ roster & traps · '+total;
   if(active()){
@@ -70,14 +71,16 @@
  function availability(){
   const locked=running||state.pending;
   for(const id of ['rostersource','comparegroup','alliancerefresh','allianceimport','applyalliancebulk','assignnearest',
-   'savetrappositions','savecalibration','savealliancemember','allianceexport'])$(id).disabled=locked;
+   'savetrappositions','savecalibration','savealliancemember','allianceexport','autoassigntraps','savedistance'])$(id).disabled=locked;
   for(const input of $('alliancetrapform').querySelectorAll('input'))input.disabled=locked;
   for(const input of $('alliancememberform').querySelectorAll('input,select'))input.disabled=locked;
   for(const id of ['membermeasuredtravel','membermeasuredreturn'])$(id).disabled=locked||!['1','2'].includes($('membertrap').value);
   for(const id of ['citywidth','cityseconds','traveloffset'])$(id).disabled=locked;
   $('applyalliancebulk').disabled=locked||!state.selected.size;
   $('assignnearest').disabled=locked||!state.plan.traps['1']||!state.plan.traps['2'];
-  for(const group of ['1','2'])$('comparetrap'+group).disabled=locked||!members().some(p=>p.group===group&&p.attending);
+  $('autoassigntraps').disabled=$('assignnearest').disabled;
+  $('distanceenabled').disabled=locked;$('distancemax').disabled=locked;
+  for(const group of ['1','2'])$('comparetrap'+group).disabled=locked||!members().some(p=>p.group===group&&p.attending&&!M.distanceStatus(state.plan,p,group).excluded);
   if(active()&&!roster.some(r=>!absent.has(r.name)))$('recommend').disabled=true;
  }
  function matches(){
@@ -86,38 +89,70 @@
    (!query||p.api.name.toLowerCase().includes(query)||p.governorId.includes(query)))
    .sort((a,b)=>b.api.power-a.api.power||a.governorId.localeCompare(b.governorId));
  }
- function renderMap(){
-  const people=members().filter(p=>M.hasPosition(p.api)),traps=['1','2'].filter(g=>state.plan.traps[g]);
+ function mapBounds(nearby=false){
+  const people=members().filter(p=>M.hasPosition(p.api)&&(!nearby||!M.distanceStatus(state.plan,p).excluded));
+  const traps=['1','2'].filter(g=>state.plan.traps[g]);
   const points=[...people.map(p=>p.api),...traps.map(g=>state.plan.traps[g])];
-  if(!points.length){$('alliancemap').innerHTML='<p class="fine">No saved positions available.</p>';return;}
+  if(!points.length)return null;
   const xmin=Math.min(...points.map(p=>p.x)),xmax=Math.max(...points.map(p=>p.x));
   const ymin=Math.min(...points.map(p=>p.y)),ymax=Math.max(...points.map(p=>p.y));
-  const range=Math.max(20,xmax-xmin,ymax-ymin),cx=(xmin+xmax)/2,cy=(ymin+ymax)/2;
-  const X=x=>36+((x-cx)/range+.5)*328,Y=y=>364-((y-cy)/range+.5)*328;
-  let svg='<svg viewBox="0 0 400 400" role="img" aria-label="CNQ city and Bear trap coordinates">';
+  return {cx:(xmin+xmax)/2,cy:(ymin+ymax)/2,range:Math.max(20,xmax-xmin,ymax-ymin)*1.08};
+ }
+ function fitMap(nearby=false){state.map.view=mapBounds(nearby);renderMap();}
+ function zoomMap(factor){
+  const full=mapBounds();if(!full)return;
+  const current=state.map.view||full;
+  state.map.view={...current,range:Math.max(full.range/128,Math.min(full.range,current.range/factor))};renderMap();
+ }
+ function panMap(x,y){
+  const current=state.map.view||mapBounds();if(!current)return;
+  state.map.view={...current,cx:current.cx+x*current.range,cy:current.cy+y*current.range};renderMap();
+ }
+ function renderMap(){
+  const people=members().filter(p=>M.hasPosition(p.api)),traps=['1','2'].filter(g=>state.plan.traps[g]);
+  const full=mapBounds();if(!full){$('alliancemap').innerHTML='<p class="fine">No saved positions available.</p>';return;}
+  const view=state.map.view||full,{range,cx,cy}=view;
+  const X=x=>200+(x-cx)/range*328,Y=y=>200-(y-cy)/range*328;
+  let svg='<svg viewBox="0 0 400 400" role="img" aria-label="Zoomable CNQ city and Bear trap coordinates"><defs><clipPath id="alliance-map-clip"><rect x="36" y="36" width="328" height="328"/></clipPath></defs>';
   for(let i=0;i<=4;i++){
    const x=cx-range/2+range*i/4,y=cy-range/2+range*i/4;
    svg+='<path d="M'+X(x)+' 36V364 M36 '+Y(y)+'H364" fill="none" stroke="#dce6d5"/>'+
     '<text x="'+X(x)+'" y="384" text-anchor="middle" fill="#68776d" font-size="10">'+Math.round(x)+'</text>'+
     '<text x="30" y="'+(Y(y)+3)+'" text-anchor="end" fill="#68776d" font-size="10">'+Math.round(y)+'</text>';
   }
+  svg+='<g clip-path="url(#alliance-map-clip)">';
   for(const p of people){
    const color=p.group==='1'?'#357052':p.group==='2'?'#785798':'#8b968c',selected=state.selected.has(p.governorId);
-   svg+='<circle data-map-member="'+p.governorId+'" tabindex="0" role="button" aria-label="Select '+esc(p.api.name)+'" cx="'+X(p.api.x)+'" cy="'+Y(p.api.y)+'" r="'+(selected?7:5)+'" fill="'+color+'" stroke="'+(selected?'#c18730':'white')+'" stroke-width="'+(selected?3:1)+'"><title>'+esc(p.api.name)+' · '+p.api.x+', '+p.api.y+' · '+M.groupLabel(p.group)+'</title></circle>';
+   const far=M.distanceStatus(state.plan,p).excluded;
+   svg+='<circle data-map-member="'+p.governorId+'" tabindex="0" role="button" aria-label="Select '+esc(p.api.name)+(far?' · distant, excluded from comparison':'')+'" cx="'+X(p.api.x)+'" cy="'+Y(p.api.y)+'" r="'+(selected?7:5)+'" fill="'+(far?'#fff4e6':color)+'" stroke="'+(selected?'#c18730':far?'#b65c26':'white')+'" stroke-width="'+(selected?3:far?2:1)+'"><title>'+esc(p.api.name)+' · '+p.api.x+', '+p.api.y+' · '+M.groupLabel(p.group)+(far?' · distant, excluded from comparison':'')+'</title></circle>';
   }
   for(const g of traps){
    const t=state.plan.traps[g],x=X(t.x),y=Y(t.y);
-   svg+='<path d="M'+x+' '+(y-10)+'l10 10 -10 10 -10 -10Z" fill="'+(g==='1'?'#245d43':'#785798')+'" stroke="white" stroke-width="2"/><text x="'+(x+12)+'" y="'+(y+4)+'" fill="#173c35" font-size="11" font-weight="bold">Trap '+g+'</text>';
+   svg+='<path d="M'+x+' '+(y-10)+'l10 10 -10 10 -10 -10Z" fill="'+(g==='1'?'#245d43':'#785798')+'" stroke="white" stroke-width="2"/><text x="'+(x+12)+'" y="'+(y+(g==='1'?-12:20))+'" fill="#173c35" font-size="11" font-weight="bold">'+M.groupLabel(g)+'</text>';
   }
-  $('alliancemap').innerHTML=svg+'</svg>';$('alliancepositioncount').textContent=people.length+' positions';
+  $('alliancemap').innerHTML=svg+'</g></svg>';$('alliancepositioncount').textContent=people.length+' positions';
+  $('mapzoomlevel').textContent=Math.round(full.range/range*100)+'%';
+  $('mapzoomin').disabled=range<=full.range/128;$('mapzoomout').disabled=range>=full.range;
+ }
+ function renderDistanceSummary(){
+  const people=M.groupPlayers(state.plan),far=people.filter(p=>M.distanceStatus(state.plan,p).excluded),filter=state.plan.distanceFilter;
+  const positioned=people.filter(p=>M.distanceStatus(state.plan,p).units!==null),missing=people.length-positioned.length;
+  const summary=!filter.enabled?'Distance cutoff is off.':!positioned.length?'Save a trap position to apply the distance cutoff.':
+   far.filter(p=>p.attending).length+' attending members excluded beyond '+filter.maxUnits+' coordinate units · '+M.groupLabel(state.plan.comparisonGroup)+'.';
+  $('distancecutoffsummary').textContent=summary+(missing&&positioned.length?' '+missing+' members have no distance estimate and remain included if attending.':'');
+  $('distanceexcluded').innerHTML=far.length?'<summary>Show '+far.length+' distant members</summary><ul>'+far.map(p=>{
+   const d=M.distanceStatus(state.plan,p);return '<li>'+esc(p.api.name)+' · '+Math.round(d.units)+' units from '+M.groupLabel(d.trap)+(p.attending?'':' · marked absent')+'</li>';
+  }).join('')+'</ul>':'';
+  $('distanceexcluded').hidden=!far.length;
  }
  function render(){
   const filtered=matches();state.page=Math.min(state.page,Math.max(0,Math.ceil(filtered.length/15)-1));
   const rows=filtered.slice(state.page*15,state.page*15+15);
   $('alliancerows').innerHTML=rows.map(p=>{
+   const far=M.distanceStatus(state.plan,p).excluded;
    const t=M.travel(state.plan,p),position=M.hasPosition(p.api)?p.api.x+', '+p.api.y:'Position missing';
-   return '<tr class="'+(state.selected.has(p.governorId)?'picked':'')+'"><td><input type="checkbox" data-pick-member="'+p.governorId+'" aria-label="Select '+esc(p.api.name)+'" '+(state.selected.has(p.governorId)?'checked':'')+'></td><td><button type="button" class="member-name" data-edit-alliance="'+p.governorId+'">'+esc(p.api.name)+'</button><div class="fine">TC'+p.api.townLevel+' · '+fmt(p.api.power)+' power<br>ID '+p.governorId+' · '+position+'</div></td><td>'+M.groupLabel(p.group)+'<div class="fine">'+(p.canHost?'May start rallies':'Join only')+'</div></td><td>'+(t.ring===null?'—':'Ring '+t.ring)+(t.seconds===null?'':' · '+t.seconds+'s')+'<div class="fine">'+esc(t.source)+(t.stale?' · old measurement':'')+'</div></td><td><input type="checkbox" data-alliance-attend="'+p.governorId+'" aria-label="'+esc(p.api.name)+' attending" '+(p.attending?'checked':'')+' '+(running?'disabled':'')+'></td></tr>';
-  }).join('')||'<tr><td colspan="5">No matching members.</td></tr>';
+   return '<tr class="'+(state.selected.has(p.governorId)?'picked':'')+'"><td><input type="checkbox" data-pick-member="'+p.governorId+'" aria-label="Select '+esc(p.api.name)+'" '+(state.selected.has(p.governorId)?'checked':'')+'></td><td><button type="button" class="member-name" data-edit-alliance="'+p.governorId+'">'+esc(p.api.name)+'</button><div class="fine">TC'+p.api.townLevel+' · '+fmt(p.api.power)+' power<br>ID '+p.governorId+' · '+position+'</div></td><td>'+M.groupLabel(p.group)+'<div class="fine">'+(p.canHost?'May start rallies':'Join only')+'</div>'+(far?'<span class="distance-tag">Distant · excluded</span>':'')+'</td><td>'+(t.ring===null?'—':'Ring '+t.ring)+(t.seconds===null?'':' · '+t.seconds+'s')+'<div class="fine">'+esc(t.source)+(t.stale?' · old measurement':'')+'</div></td><td><input type="checkbox" data-alliance-attend="'+p.governorId+'" aria-label="'+esc(p.api.name)+' attending" '+(p.attending?'checked':'')+' '+(running?'disabled':'')+'></td></tr>';
+  }).join('')||'<tr><td colspan="5">'+(state.filter!=='all'&&!members().some(p=>p.group===state.filter)?'No members assigned here yet. Save both trap coordinates, then choose Auto-assign by proximity above.':'No matching members.')+'</td></tr>';
   $('alliancepicked').textContent=state.selected.size+' selected';
   $('selectedgovernorids').value=[...state.selected].join(',');
   $('selectallmembers').textContent='Select all '+filtered.length;
@@ -136,11 +171,12 @@
   }
   const departed=state.plan.players.filter(p=>!p.active).length;
   $('alliancedeparted').textContent=departed?departed+' departed members retained in the plan. They are excluded from comparisons.':'';
-  context();renderMap();availability();
+  context();renderMap();renderDistanceSummary();availability();
  }
  function settings(){
   for(const g of ['1','2'])for(const axis of ['x','y'])$('trap'+axis+g).value=state.plan.traps[g]?.[axis]??'';
   $('citywidth').value=state.plan.calibration.cityWidthUnits;$('cityseconds').value=state.plan.calibration.secondsPerCityWidth;
+  $('distanceenabled').checked=state.plan.distanceFilter.enabled;$('distancemax').value=state.plan.distanceFilter.maxUnits;
   $('traveloffset').value=state.plan.calibration.offsetSeconds;$('comparegroup').value=state.plan.comparisonGroup;
  }
  function change(next,message){
@@ -295,10 +331,37 @@
   };
   $('alliancerows').onclick=e=>{const button=e.target.closest('[data-edit-alliance]');if(button)openEditor(button.dataset.editAlliance);};
   function selectMap(e){
+   if(state.map.suppressClick){state.map.suppressClick=false;return;}
    const city=e.target.closest('[data-map-member]');if(!city)return;
    const id=city.dataset.mapMember;state.selected.has(id)?state.selected.delete(id):state.selected.add(id);render();
   }
-  $('alliancemap').onclick=selectMap;$('alliancemap').onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();selectMap(e);}};
+  $('alliancemap').onclick=selectMap;
+  $('mapzoomin').onclick=()=>zoomMap(1.6);$('mapzoomout').onclick=()=>zoomMap(1/1.6);
+  $('mapfitall').onclick=()=>fitMap();$('mapfitnearby').onclick=()=>fitMap(true);
+  $('mappanleft').onclick=()=>panMap(-.2,0);$('mappanright').onclick=()=>panMap(.2,0);
+  $('mappanup').onclick=()=>panMap(0,.2);$('mappandown').onclick=()=>panMap(0,-.2);
+  $('alliancemap').onkeydown=e=>{
+   if(e.key==='Enter'||e.key===' '){e.preventDefault();selectMap(e);}
+   else if(['+','=','-','0','ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(e.key)){
+    e.preventDefault();if(e.key==='+'||e.key==='=')zoomMap(1.6);else if(e.key==='-')zoomMap(1/1.6);
+    else if(e.key==='0')fitMap();else panMap(e.key==='ArrowLeft'?-.2:e.key==='ArrowRight'?.2:0,e.key==='ArrowUp'?.2:e.key==='ArrowDown'?-.2:0);
+   }
+  };
+  $('alliancemap').addEventListener('wheel',e=>{e.preventDefault();zoomMap(e.deltaY<0?1.25:1/1.25);},{passive:false});
+  $('alliancemap').onpointerdown=e=>{
+   if(e.button!==0)return;state.map.suppressClick=false;
+   state.map.drag={x:e.clientX,y:e.clientY,view:{...(state.map.view||mapBounds())},id:e.pointerId,moved:false};
+  };
+  $('alliancemap').onpointermove=e=>{
+   const drag=state.map.drag;if(!drag||drag.id!==e.pointerId)return;
+   const dx=e.clientX-drag.x,dy=e.clientY-drag.y;if(!drag.moved&&Math.hypot(dx,dy)<4)return;
+   if(!drag.moved)$('alliancemap').setPointerCapture(e.pointerId);
+   drag.moved=true;state.map.suppressClick=true;
+   const scale=drag.view.range/($('alliancemap').getBoundingClientRect().width*328/400);
+   state.map.view={...drag.view,cx:drag.view.cx-dx*scale,cy:drag.view.cy+dy*scale};renderMap();
+  };
+  function endMapDrag(e){const drag=state.map.drag;if(drag&&drag.id===e.pointerId){state.map.drag=null;if($('alliancemap').hasPointerCapture(e.pointerId))$('alliancemap').releasePointerCapture(e.pointerId);}}
+  $('alliancemap').onpointerup=endMapDrag;$('alliancemap').onpointercancel=endMapDrag;
   $('applyalliancebulk').onclick=()=>{
    try{
     capture();const next=M.clone(state.plan),group=$('bulkgroup').value,attendance=$('bulkattendance').value,role=$('bulkrole').value;
@@ -309,9 +372,16 @@
     if(change(next,'Updated '+state.selected.size+' selected members.')){state.selected.clear();render();}
    }catch(error){notice(error.message,true);}
   };
-  $('assignnearest').onclick=()=>{
-   try{capture();const result=M.assignNearest(state.plan,state.selected.size?state.selected:null);change(result.plan,'Assigned '+result.assigned+' members.'+(result.skipped?' '+result.skipped+' need a position or a choice between equally near traps.':''));}
+  function assignByProximity(selected){
+   try{capture();const result=M.assignNearest(state.plan,selected);change(result.plan,'Assigned '+result.assigned+' members.'+(result.skipped?' '+result.skipped+' need a position or a choice between equally near traps.':''));}
    catch(error){notice(error.message,true);}
+  };
+  $('assignnearest').onclick=()=>assignByProximity(state.selected.size?state.selected:null);
+  $('autoassigntraps').onclick=()=>assignByProximity(null);
+  $('savedistance').onclick=()=>{
+   try{capture();const next=M.clone(state.plan);next.distanceFilter={enabled:$('distanceenabled').checked,maxUnits:num('distancemax')};
+    if(change(next,'Distance cutoff saved. Distant members stay in the roster and are excluded from comparisons.')){settings();fitMap(true);}
+   }catch(error){notice(error.message,true);}
   };
   $('alliancetrapform').onsubmit=e=>{
    e.preventDefault();
