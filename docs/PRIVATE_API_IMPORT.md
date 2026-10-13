@@ -1,8 +1,34 @@
 # Owner-only MightPulse import
 
-This first phase adds a manual, owner-only data importer. It does not activate
-live API requests in the public planner, and does not yet wire the coordinate
-planner preview into the published dashboard.
+The manual, owner-only importer publishes a saved snapshot. The public planner
+loads that file; opening the app and running comparisons never call MightPulse.
+
+## Use the imported roster
+
+Open the main app and choose **CNQ roster & traps**. The initial plan has all
+imported members unassigned and both trap coordinates blank. Enter coordinates
+for **Bear trap 1** and **Bear trap 2**, save them, then assign unassigned members
+to their nearest trap or select members and apply a group manually. Search,
+group filters, page selection and select-all work across the roster. Attendance
+and permission to start rallies can also be changed in bulk.
+
+Choose **Compare Bear trap 1** or **Compare Bear trap 2** to graph that group's
+attending players. Coordinate travel is a calibrated straight-line estimate:
+offset + distance / coordinate units per city width * seconds per city width.
+Both leader-to-trap and joiner-to-leader city travel are simulated. The initial
+calibration is an assumption; measure marches and adjust it. A per-member
+measured trap march takes precedence until their city or that trap moves.
+
+Town Center, account power and positions are imported observations. Troop counts,
+tiers, capacities and Attack/Lethality start from the existing illustrative bands
+and remain editable estimates. They are not measurements supplied by MightPulse.
+
+The browser saves the alliance plan locally. Export/Import plan also preserves
+assignments, trap positions, attendance, rally permissions, measured stats,
+calibration and added strategies. **Update saved observations** reads the latest
+published snapshot; it does not launch a provider refresh. It updates selected
+governors, or everyone if no selection exists. Changes are merged by governor
+ID, preserving local planning fields. Departed members are retained but excluded.
 
 ## Activation
 
@@ -21,8 +47,8 @@ cannot be changed through workflow inputs or the public app.
 
 ## Bounded traffic
 
-- The saved JSON snapshot will supply the public planner after dashboard
-  integration; no public refresh endpoint exists.
+- The saved JSON snapshot supplies the public planner; no public provider
+  refresh endpoint exists.
 - No refresh occurs on page load, push, pull request, slider change or simulation.
 - The workflow and Python importer both check owner, repository and main branch.
 - Full refresh reserves at most 102 requests for 100 profiles and one board.
@@ -64,8 +90,8 @@ explicitly; internal UIDs are not interchangeable. Snapshots preserve the
 provider's freshness metadata and status of unavailable profiles.
 
 Planner assignments, Bear trap 1 / Bear trap 2 coordinates and manually measured
-stats belong in separate user planning data. A subsequent dashboard integration
-should merge API observations by governor ID while preserving those fields.
+stats are saved in separate user planning data. The dashboard merges API
+observations by governor ID while preserving those fields.
 
 The import workflow deploys the updated web directory itself because commits
 made with GITHUB_TOKEN do not ordinarily trigger the separate Pages push

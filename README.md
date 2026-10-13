@@ -20,9 +20,11 @@ Use **+ Add strategy** at the top to add up to six named comparisons alongside t
 
 An added strategy can have no voluntary troop cap, its own fixed cap, or follow the front-page dial. Fixed caps and troop mixes remain independent of the preset controls. Added strategies are included in the alliance JSON file and all comparison exports; loading the file recalculates every curve.
 
-The five main inputs are attendance, alliance strength profile, selected starter count, opening waves and seconds between waves. A troop-cap slider with an exact numeric entry sits below them and automatically refreshes both capped approaches. Real player details, troop stocks, bonuses, custom plans, calibration, saving and advanced search live in **Setup & assumptions**.
+The main controls show attendance, alliance strength, selected starter count, opening waves and seconds between waves. With the imported CNQ roster, attendance and strength reflect the chosen players; edit attendance in **CNQ roster & traps**. A troop-cap slider with an exact numeric entry automatically refreshes both capped approaches. Advanced mechanics and search remain in **Setup & assumptions**.
 
-The default is an **illustrative top-four alliance**: 40 players split into 8 developing / 18 core / 10 strong / 4 leader profiles, TC24–30, 20–160M power and 450k–1M rally capacities. This is an editable assumed mix, not a measured average or Kingdom 2399 roster. The shared definition is `web/alliance-profiles.json`; power and TC do not directly multiply damage.
+The default loads the published **CNQ, Kingdom 2399** roster. Choose **CNQ roster & traps**, enter coordinates for **Bear trap 1** and **Bear trap 2**, and assign members automatically by nearest trap or manually in bulk. Each trap can be compared separately. The cached data supplies names, TC, account power and city positions; stocks, tiers, capacities and Attack/Lethality remain editable starting estimates. Assignments and measured values merge by governor ID and survive snapshot updates. See [import and planning instructions](docs/PRIVATE_API_IMPORT.md).
+
+Choose **Illustrative alliance** to use the original top-four scenario: 40 players split into 8 developing / 18 core / 10 strong / 4 leader profiles, TC24–30, 20–160M power and 450k–1M rally capacities. This is an assumed mix, not a measured alliance average. The shared definition is `web/alliance-profiles.json`; power and TC do not directly multiply damage.
 
 The graph shows relative damage, with **100 = the together baseline's final damage**. Every line uses the same roster, troop stocks and common denominator. A per-join troop limit is an alliance rule, 50k by default in the capped approach; actual game rally capacities and joiner limits apply everywhere.
 
@@ -57,7 +59,7 @@ Open **http://127.0.0.1:8765**. On Windows, `py app.py` also works. Stop with Ct
 
 ## Start with the comparison, then refine
 
-1. Open the app to see six damage curves for the illustrative alliance. Adjust the five main variables and choose **Compare approaches**.
+1. Open the app to see six damage curves for the cached CNQ roster. In **CNQ roster & traps**, enter trap positions, assign groups, then choose **Compare Bear trap 1** or **Compare Bear trap 2**. Before selecting a trap, full-alliance comparisons use assumed travel.
 2. Drag the troop-cap slider or enter an exact limit to explore the two capped approaches. The comparison refreshes automatically and preserves the graph lines you chose.
 3. Choose **+ Add strategy** to compare a named troop mix or timing plan. Use Edit, Duplicate and Remove to refine the added comparisons. Save the alliance file to keep them.
 4. Select an approach card to inspect its leaders, join-only members and opening groups. Changing selected starter count affects the selected-leader plans; the everyone plans still use all eligible players.
@@ -67,7 +69,7 @@ Open **http://127.0.0.1:8765**. On Windows, `py app.py` also works. Stop with Ct
 
 Travel defaults reflect the supplied 8–20 second range. The default is five-minute rallies and one extra host slot. The owner confirmed that rallies must hit before the event ends. That cutoff is mandatory and includes host travel. With five-minute countdowns and 8–20 second travel, launch before 24:40–24:52 elapsed, depending on the host. The maximum joiner count remains editable.
 
-Use Save alliance file before closing to keep inputs and reports. Computed results are omitted and recalculated on load. There is no automatic disk or cloud saving from the dashboard. All game actions are manual; this is an analysis tool.
+The CNQ plan saves assignments and measured values in this browser. Export the plan to keep a portable backup, including added strategies and comparison settings. Save alliance file in Setup also includes the CNQ plan. Computed results are recalculated on load. There is no cloud storage for user plans. All game actions are manual; this is an analysis tool.
 
 ## Initial strategy questions
 
@@ -98,6 +100,8 @@ API: `POST /api/compare`, `/api/search`, `/api/calibrate`, `/api/roster`, `/api/
 python -m unittest discover -s tests -v
 python tests/check_browser_parity.py  # Node is needed for this development check only
 node tests/check_ui_state.cjs         # Dashboard roster-preservation checks
+node tests/check_alliance_model.cjs   # Identity, merge and coordinate timing
+node tests/check_alliance_ui.cjs      # CNQ grouping, graph and import handlers
 ```
 
 Tests cover troop/slot conservation, damage attribution, host-stat versus power separation, travel deadlines, return constraints, strict end-of-event scoring, calibration and randomized resource cases. GitHub Actions runs the suite on Python 3.10, 3.12 and 3.13.

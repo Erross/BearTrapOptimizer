@@ -53,11 +53,11 @@ def compare(payload):
     baseline_strategy = Strategy.parse(normalization["strategy"]) if normalization.get("strategy") else strategies[0]
     fit_enabled = bool(normalization.get("enabled",True))
     if fit_enabled:
-        baseline = simulate(members,mechanics,baseline_strategy)
+        baseline = simulate(members,mechanics,baseline_strategy,travel_times=payload.get("travel_times"))
         if not baseline["total_damage"]:
             raise ValueError("Chosen normalization baseline scored zero; add eligible hosts or turn normalization off")
         mechanics = replace(mechanics,score_per_effective_troop=mechanics.score_per_effective_troop*target/baseline["total_damage"])
-    runs = [simulate(members,mechanics,s) for s in strategies]
+    runs = [simulate(members,mechanics,s,travel_times=payload.get("travel_times")) for s in strategies]
     best = max(runs,key=lambda x:x["total_damage"])
     return {"roster":[asdict(m) for m in members],"mechanics":asdict(mechanics),"runs":runs,
             "normalization":{"enabled":fit_enabled,"target":target,"baseline_strategy":asdict(baseline_strategy)},
@@ -68,7 +68,9 @@ def compare(payload):
                 "Historical personal event totals are context only; they are not host coefficients.",
                 "Host slot is separate from joining slots. Each player can join a particular rally once.",
                 "Rally capacity includes the host. Joiner cap and all timing mechanics are editable.",
-                "Join travel is a per-member approximation, not a city-to-city distance matrix.",
+                ("Join travel uses supplied city-to-city estimates with per-member fallbacks."
+                 if payload.get("travel_times") is not None else
+                 "Join travel is a per-member approximation; no city-to-city times were supplied."),
                 "Troop inventories and tiers are tracked. Host Attack and Lethality bonuses apply by type; residual hero effects remain in host strength.",
                 "A better sampled scenario is not proof of a global optimum or a measured in-game improvement.",
             ]}
@@ -118,7 +120,7 @@ def search(payload):
         if key in seen or len(tested)>=420:return
         seen.add(key)
         if s.cadence=="groups" and opening_limit and ((s.host_count-1)//s.group_size)*s.wave_interval_s>opening_limit:return
-        record(simulate(members,mechanics,s))
+        record(simulate(members,mechanics,s,travel_times=payload.get("travel_times")))
     # Stage 1: select candidate starter pools using combined leader rating and
     # capacity, then compare group and individually staggered launch protocols.
     capacities=sorted(members[i].rally_capacity for i in pool)
@@ -170,7 +172,7 @@ def search(payload):
     if goal=="balanced":
         near_best=[r for r in tested if r["opening_feasible"] and r["total_damage"]>=.95*best_damage["total_damage"]]
         selected=min(near_best,key=lambda r:(r["ready_wait_fraction"],-r["total_damage"]))
-        best_run=simulate(members,mechanics,Strategy.parse(selected["strategy"]))
+        best_run=simulate(members,mechanics,Strategy.parse(selected["strategy"]),travel_times=payload.get("travel_times"))
     tested.sort(key=lambda r:(not r["opening_feasible"],*rank(r)))
     return {"best":best_run,"tested":tested,"best_damage":best_damage,"best_flow":best_flow,"search_goal":goal,"opening_limit_s":opening_limit,
             "mechanics":base["mechanics"],"normalization":base["normalization"],

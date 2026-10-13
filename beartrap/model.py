@@ -79,8 +79,8 @@ class Member:
             raise ValueError("Rally capacity must be 1–20M and join slots 0–10")
         if not 0 < self.host_strength <= 100 or not 0 < self.troop_quality <= 20:
             raise ValueError("Host strength must be 0–100 and troop quality 0–20 (exclusive of zero)")
-        if max(self.outbound_s, self.return_s, self.join_travel_s) > 300:
-            raise ValueError("Travel times must be 0–300 seconds")
+        if max(self.outbound_s, self.return_s, self.join_travel_s) > 3600:
+            raise ValueError("Travel times must be 0–3,600 seconds")
         inv = [getattr(self, t) for t in ("infantry", "cavalry", "archers")]
         if any(x is not None for x in inv):
             if not all(isinstance(x, int) and not isinstance(x, bool) and x >= 0 for x in inv) or sum(inv) != self.troops:

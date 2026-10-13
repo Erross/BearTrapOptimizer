@@ -131,7 +131,8 @@ async function removeAddedStrategy(index){
 }
 function allianceProjectSnapshot(){
  return {version:2,roster,estimatedStocks:[...estimatedStocks],absent:[...absent],synthetic,
-  controls:Object.fromEntries(controls.map(id=>[id,$(id).type==='checkbox'?$(id).checked:$(id).value])),reports:$('reports').value,addedStrategies:cloneStrategyData(addedStrategies)};
+  controls:Object.fromEntries(controls.map(id=>[id,$(id).type==='checkbox'?$(id).checked:$(id).value])),reports:$('reports').value,addedStrategies:cloneStrategyData(addedStrategies),
+  ...(window.BearAllianceUI?{alliancePlan:window.BearAllianceUI.snapshot()}:{})};
 }
 function initializeStrategyBuilder(){
  $('addstrategy').onclick=()=>openStrategyEditor();$('strategyeditor').onsubmit=commitStrategyEditor;
