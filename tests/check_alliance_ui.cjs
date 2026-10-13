@@ -144,12 +144,36 @@ async function main(){
  nodes.allianceopen.onclick();assert(nodes.alliancedialog.open);
  assert.equal(location.hash,'#roster');
  assert(nodes.alliancerows.innerHTML.includes(ui.state.plan.players[0].api.name));
+ // Existing general group tests disable the new optional cutoff; it is tested below.
+ ui.state.plan.distanceFilter.enabled=false;
  nodes.trapx1.value='650';nodes.trapy1.value='700';nodes.trapx2.value='850';nodes.trapy2.value='900';
  nodes.alliancetrapform.onsubmit({preventDefault(){}});
  nodes.cityseconds.value='.1';nodes.savecalibration.onclick();
  nodes.assignnearest.onclick();
  assert(ui.state.plan.players.some(p=>p.group==='1'));
  assert(ui.state.plan.players.some(p=>p.group==='2'));
+ // Zoom and fitting preserve selection and the underlying planning data.
+ const planBeforeZoom=JSON.stringify(ui.snapshot()),mapBefore=nodes.alliancemap.innerHTML;
+ nodes.mapzoomin.onclick();assert.equal(nodes.mapzoomlevel.textContent,'160%');
+ assert.notEqual(nodes.alliancemap.innerHTML,mapBefore);
+ nodes.mapfitall.onclick();assert.equal(nodes.mapzoomlevel.textContent,'100%');
+ assert.equal(JSON.stringify(ui.snapshot()),planBeforeZoom);
+ // A distance boundary excludes only outliers without changing attendance or groups.
+ nodes.distanceenabled.checked=true;nodes.distancemax.value='100';nodes.savedistance.onclick();
+ const compiledWithCutoff=context.BearAllianceModel.compile(ui.state.plan,ui.state.bands);
+ assert(compiledWithCutoff.excluded.length>0);
+ const filteredIds=new Set(compiledWithCutoff.excluded.map(p=>p.governorId));
+ assert(compiledWithCutoff.roster.every(r=>!filteredIds.has(compiledWithCutoff.bindings[r.name])));
+ assert(compiledWithCutoff.excluded.every(p=>ui.state.plan.players.find(x=>x.governorId===p.governorId).attending));
+ await ui.scope('all');noError();
+ assert.equal(state('result.roster.length'),compiledWithCutoff.roster.length);
+ const cutoffRequest=requests.filter(r=>r.path==='compare').at(-1).payload;
+ assert(cutoffRequest.roster.every(r=>!filteredIds.has(compiledWithCutoff.bindings[r.name])));
+ nodes.mapfitnearby.onclick();assert(ui.state.map.view);assert(nodes.distanceexcluded.innerHTML.includes('distant members'));
+ const stateWithCutoff=clone(ui.snapshot());
+ assert(stateWithCutoff.distanceFilter.enabled);assert.equal(stateWithCutoff.distanceFilter.maxUnits,100);
+ nodes.distanceenabled.checked=false;nodes.savedistance.onclick();
+ assert.equal(state('roster.length'),published.members.length);
  const first=ui.state.plan.players[0],id=first.governorId;
  nodes.alliancerows.onclick({target:{closest(){return {dataset:{editAlliance:id}};}}});
  nodes.membertrap.value='1';nodes.membertrap.onchange();

@@ -75,7 +75,7 @@
  function emptyPlan(){
   return {schema:SCHEMA,version:1,kingdomId:KINGDOM,allianceTag:TAG,snapshotAt:null,
    traps:{'1':null,'2':null},calibration:{cityWidthUnits:2,secondsPerCityWidth:4,offsetSeconds:2},
-   comparisonGroup:'all',useAlliance:true,players:[]};
+   comparisonGroup:'all',useAlliance:true,distanceFilter:{enabled:true,maxUnits:100},players:[]};
  }
  function validatePlan(value){
   if(!value||value.schema!==SCHEMA||value.version!==1||value.kingdomId!==KINGDOM||value.allianceTag!==TAG
@@ -85,6 +85,8 @@
   result.useAlliance=boolean(value.useAlliance,true,'roster source');
   if(!['all','1','2','none'].includes(value.comparisonGroup))throw Error('Invalid comparison group.');
   result.comparisonGroup=value.comparisonGroup;
+  result.distanceFilter={enabled:boolean(value.distanceFilter?.enabled,true,'distance cutoff'),
+   maxUnits:bounded(value.distanceFilter?.maxUnits??100,1,1e6,false,'Maximum trap distance')};
   result.traps={'1':position(value.traps?.['1']),'2':position(value.traps?.['2'])};
   if(result.traps['1']&&result.traps['2']&&distance(result.traps['1'],result.traps['2'])===0)throw Error('The two Bear traps need different coordinates.');
   const c=value.calibration;
@@ -183,9 +185,18 @@
  function groupPlayers(plan,group=plan.comparisonGroup){
   return plan.players.filter(p=>p.active&&(group==='all'||p.group===group));
  }
+ function distanceStatus(plan,player,group=plan.comparisonGroup){
+  const candidates=(['1','2'].includes(group)?[group]:['1','2'])
+   .map(g=>({trap:g,units:distance(player.api,plan.traps[g])})).filter(p=>p.units!==null).sort((a,b)=>a.units-b.units);
+  const nearest=candidates[0],filter=plan.distanceFilter??{enabled:true,maxUnits:100};
+  return {units:nearest?.units??null,trap:nearest?.trap??null,
+   excluded:!!(filter.enabled&&nearest&&nearest.units>filter.maxUnits)};
+ }
  function compile(plan,bands){
-  const players=groupPlayers(plan),rows=[],bindings={},estimated=[];
+  const players=groupPlayers(plan),rows=[],bindings={},estimated=[],excluded=[];
   for(const player of players){
+   const proximity=distanceStatus(plan,player);
+   if(proximity.excluded){excluded.push({governorId:player.governorId,name:player.api.name,attending:player.attending,...proximity});continue;}
    const row=estimate(player,bands);
    if(['1','2'].includes(plan.comparisonGroup)){
     const t=travel(plan,player,plan.comparisonGroup);
@@ -195,7 +206,7 @@
    rows.push(row);bindings[row.name]=player.governorId;
    if(!TYPES.every(t=>own(player.stats,t)))estimated.push(row.name);
   }
-  return {roster:rows,bindings,estimated,absent:players.filter(p=>!p.attending).map(engineName)};
+  return {roster:rows,bindings,estimated,excluded,absent:players.filter(p=>!p.attending&&!distanceStatus(plan,p).excluded).map(engineName)};
  }
  function joinTravelTimes(plan,rows){
   if(!['1','2'].includes(plan.comparisonGroup))return null;
@@ -214,6 +225,6 @@
   return matrix;
  }
  const model={SCHEMA,KINGDOM,TAG,TYPES,statBounds,clone,own,id,position,hasPosition,distance,groupLabel,
-  emptyPlan,validatePlan,mergeSnapshot,nearestTrap,assignNearest,fingerprint,travel,engineName,estimate,compile,groupPlayers,joinTravelTimes};
+  emptyPlan,validatePlan,mergeSnapshot,nearestTrap,assignNearest,fingerprint,travel,engineName,estimate,compile,groupPlayers,distanceStatus,joinTravelTimes};
  if(typeof module!=='undefined')module.exports=model;root.BearAllianceModel=model;
 })(typeof self!=='undefined'?self:globalThis);
