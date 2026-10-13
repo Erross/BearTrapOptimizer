@@ -125,8 +125,18 @@ renderSelectedSummary=function(){
 };
 renderLegend=function(){
  if(!result)return;
- $('legend').innerHTML=result.runs.map((r,i)=>'<label class="approach-key" style="--approach-color:'+colors[i%colors.length]+'"><input type="checkbox" data-line="'+i+'" '+(visible.has(i)?'checked':'')+'><span class="line-swatch"></span>'+esc(strategyTitle(r.strategy))+'</label>').join('');
- for(const input of $('legend').querySelectorAll('[data-line]'))input.onchange=()=>{input.checked?visible.add(Number(input.dataset.line)):visible.delete(Number(input.dataset.line));renderCharts();};
+ const order=result.runs.map((_,i)=>i).filter(i=>visible.has(i));
+ const legend=result.runs.map((r,i)=>{
+  const position=visible.has(i)?order.indexOf(i):i,dash=position%3===1?'8 3':position%3===2?'3 3':'';
+  return '<label class="approach-key" style="--approach-color:'+colors[i%colors.length]+'"><input type="checkbox" data-line="'+i+'" '+(visible.has(i)?'checked':'')+'><svg class="legend-swatch" viewBox="0 0 34 12" aria-hidden="true"><line x1="0" y1="6" x2="34" y2="6" stroke="'+colors[i%colors.length]+'" stroke-width="3"'+(dash?' stroke-dasharray="'+dash+'"':'')+'/></svg>'+esc(strategyTitle(r.strategy))+'</label>';
+ }).join('');
+ for(const id of ['legend','individuallegend']){
+  $(id).innerHTML=legend;
+  for(const input of $(id).querySelectorAll('[data-line]'))input.onchange=()=>{
+   input.checked?visible.add(Number(input.dataset.line)):visible.delete(Number(input.dataset.line));
+   renderLegend();renderCharts();
+  };
+ }
 };
 const previousCharts=renderCharts;
 renderCharts=function(){

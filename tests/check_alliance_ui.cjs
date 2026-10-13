@@ -140,6 +140,20 @@ async function main(){
  assert.equal(nodes.allianceopen.textContent,'CNQ roster & traps · '+published.members.length);
  assert(ui.state.plan.players.every(p=>p.group==='none'));
  assert.equal(state('result.runs.length'),6);
+ const player=state('result.roster[0]'),name=context.BearAllianceModel.engineName(ui.state.plan.players.find(p=>context.BearAllianceModel.engineName(p)===player.name));
+ const option=nodes.individual.children.find(e=>e.tag==='option'&&e.value===name);
+ assert(option,'The selector must retain the stable engine name as its value');
+ assert(nodes.individual.innerHTML.includes(ui.playerName(player)+' – '));
+ assert(!nodes.individual.innerHTML.includes('>'+player.name+'</option>'),'Governor ID must not be the visible player label');
+ assert(nodes.individuallegend.innerHTML.includes('Everyone together'));
+ const playerToggle=nodes.individuallegend.querySelectorAll('[data-line]')[1];
+ playerToggle.checked=false;playerToggle.onchange();
+ assert(!state('visible.has(1)'));assert(!nodes.individualchart.innerHTML.includes('Strongest leaders only'));
+ assert(!nodes.legend.querySelectorAll('[data-line]')[1].checked,'Both graph legends must stay synchronized');
+ const mainToggle=nodes.legend.querySelectorAll('[data-line]')[1];mainToggle.checked=true;mainToggle.onchange();
+ assert(nodes.individuallegend.querySelectorAll('[data-line]')[1].checked);
+ assert(nodes.individualchart.innerHTML.includes('Strongest leaders only'));
+
  assert.equal(fetched.filter(u=>u.includes('alliance-api')).length,1);
  nodes.allianceopen.onclick();assert(nodes.alliancedialog.open);
  assert.equal(location.hash,'#roster');

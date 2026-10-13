@@ -132,10 +132,14 @@ function renderComparison(){
  }).join('')+'</tbody></table>';
  for(const button of $('comparisontable').querySelectorAll('[data-view-plan]'))button.onclick=()=>selectPlan(button.dataset.viewPlan,true);
 }
+function individualPlayerLabel(member){
+ const name=window.BearAllianceUI?.active()?window.BearAllianceUI.playerName(member):member.name;
+ return name+' – '+fmt(member.power_m*1e6);
+}
 renderResults=function(){
  if(!result)return;updateBadge();renderSelectedSummary();renderLegend();renderComparison();
  const old=$('individual').value;
- $('individual').innerHTML=result.roster.slice().sort((a,b)=>b.historical_score-a.historical_score).map(m=>'<option>'+esc(m.name)+'</option>').join('');
+ $('individual').innerHTML=result.roster.slice().sort((a,b)=>b.historical_score-a.historical_score).map(m=>'<option value="'+esc(m.name)+'">'+esc(individualPlayerLabel(m))+'</option>').join('');
  if(result.roster.some(m=>m.name===old))$('individual').value=old;
  $('planselect').innerHTML=result.runs.map((r,i)=>'<option value="'+i+'">'+esc(strategyTitle(r.strategy))+'</option>').join('');$('planselect').value=chosen;
  renderCharts();renderPlan();renderTroopProfiles();renderInventoryDiagnostics();renderAdvisor();updateActionAvailability();
@@ -184,6 +188,7 @@ renderCharts=function(){
  const name=$('individual').value;
  chart('individualchart',active.map(({r,i})=>({name:strategyTitle(r.strategy),color:colors[i%colors.length],points:(r.individual_series[name]||[]).map(p=>({x:p.second,y:p.damage}))})));
  const member=result.roster.find(m=>m.name===name);
+ if(member)$('individualtitle').textContent='Player damage · '+individualPlayerLabel(member);
  if(member)$('individualnote').textContent=exactNumber(member.troops)+' usable troops · '+member.join_slots+' joining marches + one separate own rally · Past event score '+fmt(member.historical_score)+' (reference only)';
  renderIndividualTypes(name);
 };
