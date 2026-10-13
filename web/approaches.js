@@ -204,5 +204,6 @@ for(const id of ['projectfile','rosterfile']){
  const importPrevious=$(id).onchange;
  $(id).onchange=async event=>{const previousMeta=profileMeta,previousDirty=profileNeedsRebuild;profileMeta=null;profileNeedsRebuild=false;await importPrevious(event);if($('error').style.display==='block'){profileMeta=previousMeta;profileNeedsRebuild=previousDirty;}profileTable();updateBadge();};
 }
+$('individual').onchange=()=>renderCharts();
 initializeStrategyBuilder();
 if(window.BearAllianceUI)window.BearAllianceUI.start();else generate();
