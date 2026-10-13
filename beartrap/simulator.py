@@ -17,7 +17,24 @@ def starter_pool(members, mechanics, strategy):
     return ratings, relative, eligible
 
 
-def simulate(members, mechanics=Mechanics(), strategy=Strategy(), audit=False):
+def join_travel_matrix(members, supplied):
+    """Partial name-keyed city-to-city times; missing entries keep member defaults."""
+    names = {m.name for m in members}
+    if supplied is None:
+        supplied = {}
+    if not isinstance(supplied, dict) or set(supplied) - names:
+        raise ValueError("Joining travel must use known roster names")
+    for row in supplied.values():
+        if not isinstance(row, dict) or set(row) - names:
+            raise ValueError("Joining travel rows must use known roster names")
+        for seconds in row.values():
+            if type(seconds) is not int or not 0 <= seconds <= 3600:
+                raise ValueError("Joining travel must be whole seconds from 0–3,600")
+    return [[supplied.get(m.name, {}).get(host.name, m.join_travel_s)
+             for host in members] for m in members]
+
+
+def simulate(members, mechanics=Mechanics(), strategy=Strategy(), audit=False, travel_times=None):
     if not members or len(members) > 100:
         raise ValueError("Roster must contain 1–100 members")
     for m in members:
@@ -29,10 +46,13 @@ def simulate(members, mechanics=Mechanics(), strategy=Strategy(), audit=False):
         raise ValueError("Member names must be unique")
     if set(strategy.host_names) - set(names):
         raise ValueError("Selected host does not exist in the roster")
+    join_travel = join_travel_matrix(members, travel_times)
     ratings, relative_scores, eligible = starter_pool(members,mechanics,strategy)
     hosts = [i for i in eligible if names[i] in strategy.host_names] if strategy.host_names else eligible[:strategy.host_count]
     host_set = set(hosts)
     n = len(members)
+    minimum_join_travel = [min((join_travel[i][host] for host in eligible if host != i),
+                              default=m.join_travel_s) for i, m in enumerate(members)]
     available = [m.troops for m in members]
     available_types = [inventory(m) for m in members]
     original_types = [dict(x) for x in available_types]
@@ -209,7 +229,7 @@ def simulate(members, mechanics=Mechanics(), strategy=Strategy(), audit=False):
             for r in open_rallies:
                 if r["host_index"] == i or any(p["member_index"] == i for p in r["participants"]):
                     continue
-                if now+m.join_travel_s >= r["departure_s"] or len(r["participants"])-1 >= mechanics.joiner_cap:
+                if now+join_travel[i][r["host_index"]] >= r["departure_s"] or len(r["participants"])-1 >= mechanics.joiner_cap:
                     continue
                 remaining = members[r["host_index"]].rally_capacity-r["troops"]
                 if remaining < 1:
@@ -234,7 +254,7 @@ def simulate(members, mechanics=Mechanics(), strategy=Strategy(), audit=False):
                             d/(amount*max(1,r["hit_s"]+m.return_s-now)))
                 candidates.append((priority,-r["hit_s"],-r["id"],amount,r,mix))
             if not candidates:
-                if now+m.join_travel_s < max_departure:
+                if now+minimum_join_travel[i] < max_departure:
                     ready = min(join_total,(m.join_slots-slots[i])*m.march_capacity)
                     ready_wait[i] += ready
                     waiting_now += ready

@@ -131,6 +131,30 @@ def main():
                           'expected':simulate(wave_members,cfg,candidate,audit=True)})
     search_inputs=dict(p,search_goal='balanced',opening_limit_s=60)
     cases.append({'method':'search','args':[search_inputs],'expected':search(search_inputs)})
+    # Coordinate times affect every comparison, its normalization baseline and
+    # search trials, including travel longer than the legacy 300-second bound.
+    coordinate_members = [replace(m, outbound_s=330 if i == 0 else m.outbound_s)
+                          for i, m in enumerate(wave_members)]
+    travel = {m.name: {host.name: (i + j) * 31 for j, host in enumerate(coordinate_members) if i != j}
+              for i, m in enumerate(coordinate_members)}
+    cfg = Mechanics(duration_s=600, countdown_s=60, damage_model='sqrt')
+    for waves in (0, 1, 3):
+        candidate = Strategy(host_count=8, cadence='groups' if waves else 'synchronized',
+                             opening_wave_count=waves, wave_interval_s=30, host_allocation='small',
+                             troop_split='concentrated', reserve_lead_troops=True)
+        cases.append({'method':'simulate','args':[[asdict(m) for m in coordinate_members],asdict(cfg),asdict(candidate),travel],
+                      'expected':simulate(coordinate_members,cfg,candidate,audit=True,travel_times=travel)})
+    coordinate_payload = {'roster':[asdict(m) for m in coordinate_members], 'mechanics':asdict(cfg),
+                          'strategies':[asdict(candidate)], 'travel_times':travel}
+    expected = compare(coordinate_payload); expected.pop('assumptions')
+    cases.append({'method':'compare','args':[coordinate_payload],'expected':expected})
+    small = synthetic_roster(n=4)
+    small_travel = {small[0].name:{small[1].name:40},small[1].name:{small[0].name:30}}
+    for goal in ('damage','balanced'):
+        coordinate_search = {'roster':[asdict(m) for m in small], 'travel_times':small_travel,
+                             'mechanics':{'duration_s':120,'countdown_s':30,'damage_model':'sqrt'},
+                             'search_goal':goal,'opening_limit_s':60}
+        cases.append({'method':'search','args':[coordinate_search],'expected':search(coordinate_search)})
     js="const fs=require('fs'),e=require('./web/engine.js');const cases=JSON.parse(fs.readFileSync(0,'utf8'));console.log(JSON.stringify(cases.map(c=>e[c.method](...c.args))));"
     result=subprocess.run(['node','-e',js],input=json.dumps([{k:v for k,v in c.items() if k!='expected'} for c in cases]),
                           text=True,capture_output=True,cwd=ROOT,check=True)
