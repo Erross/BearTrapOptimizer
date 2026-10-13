@@ -145,6 +145,9 @@ async function main(){
  assert(option,'The selector must retain the stable engine name as its value');
  assert(nodes.individual.innerHTML.includes(ui.playerName(player)+' – '));
  assert(!nodes.individual.innerHTML.includes('>'+player.name+'</option>'),'Governor ID must not be the visible player label');
+ const secondPlayer=state('result.roster[1]');nodes.individual.value=secondPlayer.name;nodes.individual.onchange();
+ assert(nodes.individualtitle.textContent.includes(ui.playerName(secondPlayer)+' – '),'Changing players must refresh the heading');
+ nodes.individual.value=player.name;nodes.individual.onchange();
  assert(nodes.individuallegend.innerHTML.includes('Everyone together'));
  const playerToggle=nodes.individuallegend.querySelectorAll('[data-line]')[1];
  playerToggle.checked=false;playerToggle.onchange();
