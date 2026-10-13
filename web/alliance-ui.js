@@ -46,7 +46,7 @@
  function clearComparison(){
   result=null;searchData=null;resultsDirty=false;chosen=0;
   $('alliancechart').innerHTML='<div class="empty">Assign attending members to '+esc(M.groupLabel(state.plan.comparisonGroup))+' in Roster &amp; traps to compare this group.</div>';
-  $('legend').innerHTML='';$('comparisontable').innerHTML='';$('planbrief').innerHTML='';
+  $('legend').innerHTML='';$('individuallegend').innerHTML='';$('comparisontable').innerHTML='';$('planbrief').innerHTML='';
   $('openinggroups').innerHTML='';$('leaderroles').innerHTML='';$('selectedname').textContent='Choose attending members';
   $('selecteddescription').textContent='Each comparison uses one group of players.';
   $('status').textContent=state.compiled?.excluded?.some(p=>p.attending)?'All attending members in this group exceed the distance cutoff. Adjust the cutoff in Roster & traps.':'This group has no attending players.';updateActionAvailability();availability();
@@ -437,5 +437,5 @@
   }
   render();if(location.hash==='#roster')open();
  }
- window.BearAllianceUI={start,snapshot,active,open,scope,state};
+ window.BearAllianceUI={start,snapshot,active,open,scope,state,playerName:row=>state.plan.players.find(p=>M.engineName(p)===row.name)?.api.name??row.name};
 })();
