@@ -1,8 +1,8 @@
 # Owner-only MightPulse import
 
 This first phase adds a manual, owner-only data importer. It does not activate
-live API requests in the public planner, and does not yet wire the coordinate
-planner preview into the published dashboard.
+live API requests in the public planner. The dashboard reads the saved snapshot
+and combines it with browser-local planning data.
 
 ## Activation
 
@@ -21,8 +21,8 @@ cannot be changed through workflow inputs or the public app.
 
 ## Bounded traffic
 
-- The saved JSON snapshot will supply the public planner after dashboard
-  integration; no public refresh endpoint exists.
+- The saved JSON snapshot supplies the public planner; no public refresh
+  endpoint exists.
 - No refresh occurs on page load, push, pull request, slider change or simulation.
 - The workflow and Python importer both check owner, repository and main branch.
 - Full refresh reserves at most 102 requests for 100 profiles and one board.
@@ -64,8 +64,8 @@ explicitly; internal UIDs are not interchangeable. Snapshots preserve the
 provider's freshness metadata and status of unavailable profiles.
 
 Planner assignments, Bear trap 1 / Bear trap 2 coordinates and manually measured
-stats belong in separate user planning data. A subsequent dashboard integration
-should merge API observations by governor ID while preserving those fields.
+stats belong in separate user planning data. The dashboard merges API observations by governor ID while preserving those fields.
+See [CNQ planning workflow](ALLIANCE_PLANNER.md) for details.
 
 The import workflow deploys the updated web directory itself because commits
 made with GITHUB_TOKEN do not ordinarily trigger the separate Pages push

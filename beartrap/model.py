@@ -1,4 +1,4 @@
-from dataclasses import dataclass, fields, replace
+from dataclasses import dataclass, field, fields, replace
 import math
 
 
@@ -79,8 +79,8 @@ class Member:
             raise ValueError("Rally capacity must be 1–20M and join slots 0–10")
         if not 0 < self.host_strength <= 100 or not 0 < self.troop_quality <= 20:
             raise ValueError("Host strength must be 0–100 and troop quality 0–20 (exclusive of zero)")
-        if max(self.outbound_s, self.return_s, self.join_travel_s) > 300:
-            raise ValueError("Travel times must be 0–300 seconds")
+        if max(self.outbound_s, self.return_s, self.join_travel_s) > 3600:
+            raise ValueError("Travel times must be 0–3600 seconds")
         inv = [getattr(self, t) for t in ("infantry", "cavalry", "archers")]
         if any(x is not None for x in inv):
             if not all(isinstance(x, int) and not isinstance(x, bool) and x >= 0 for x in inv) or sum(inv) != self.troops:
@@ -109,6 +109,7 @@ class Mechanics:
     archer_counter_bonus: float = 10.0
     archer_volley_bonus: float = 0.0
     bear_attack_bonus: float = 0.0
+    join_travel_times: dict = field(default_factory=dict)
 
     @classmethod
     def parse(cls, row):
@@ -130,6 +131,11 @@ class Mechanics:
         for k in ("archer_counter_bonus", "archer_volley_bonus", "bear_attack_bonus"):
             if not math.isfinite(getattr(obj, k)) or not 0 <= getattr(obj, k) <= 1000:
                 raise ValueError("Damage bonuses must be 0–1,000%")
+        if not isinstance(obj.join_travel_times, dict):
+            raise ValueError("Invalid joining travel matrix")
+        for values in obj.join_travel_times.values():
+            if not isinstance(values, dict) or any(type(v) is not int or not 0 <= v <= 3600 for v in values.values()):
+                raise ValueError("Joining travel must be 0–3600 whole seconds")
         return obj
 
 

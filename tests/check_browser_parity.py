@@ -41,6 +41,18 @@ def main():
                 s=Strategy(host_count=7,cadence=cadence,host_allocation=allocation,join_policy=policy,
                            troop_split='concentrated' if policy=='strength' else 'equal',final_push=True)
                 cases.append({'method':'simulate','args':[rows,asdict(c),asdict(s)],'expected':simulate(members,c,s)})
+    # Coordinate-derived joins can reach different hosts at different times.
+    for matrix in ({members[1].name:{members[0].name:3600}},
+                   {m.name:{h.name:(i+j)*7 for j,h in enumerate(members) if h.name!=m.name} for i,m in enumerate(members)}):
+        travel_config=replace(c,join_travel_times=matrix)
+        travel_strategy=Strategy(host_count=7,cadence='groups',reserve_lead_troops=True)
+        cases.append({'method':'simulate','args':[rows,asdict(travel_config),asdict(travel_strategy)],
+                      'expected':simulate(members,travel_config,travel_strategy,audit=True)})
+    distant=[replace(members[0],outbound_s=700,return_s=700)]
+    distant_config=Mechanics(duration_s=1800)
+    distant_strategy=Strategy(host_count=1,cadence='synchronized')
+    cases.append({'method':'simulate','args':[[asdict(m) for m in distant],asdict(distant_config),asdict(distant_strategy)],
+                  'expected':simulate(distant,distant_config,distant_strategy)})
     # Check equal-to-expiration and too-late starts with actual 30-minute settings.
     late=[Member(f'H{i:02d}',join_slots=0,host_strength=2 if i<19 else 1,outbound_s=8) for i in range(20)]
     s=Strategy(host_count=20,cadence='custom',spacing_s=79)

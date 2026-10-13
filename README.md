@@ -12,6 +12,24 @@ The [beginner UX audit](docs/UX_AUDIT.md) records the page-by-page critique and 
 
 In GitHub, enable **Settings → Pages → Source: GitHub Actions**. The included `pages.yml` workflow validates both engines and publishes the web folder on pushes to main. Alternatively publish the `web` directory contents from a dedicated Pages branch.
 
+## CNQ roster and two Bear traps
+
+The app opens with the saved **CNQ / Kingdom 2399** import: 98 members with names,
+Town Center levels, power and city coordinates. Choose **View roster & assign traps**
+to enter **Bear trap 1** and **Bear trap 2** coordinates, assign members individually
+or in bulk, or assign unassigned members to the nearest trap. Use the front-page
+**Compare strategies for** selector to calculate each group's strategies. “All
+members” is explicitly a hypothetical one-trap scenario.
+
+Assignments, attendance, entered stats and measured travel save in your browser
+by governor ID. Download the CNQ plan or the full alliance file to back them up.
+Reloading the saved import preserves these choices even if a player changes name.
+Troops, march limits and combat bonuses are estimates until entered; power does
+not directly multiply damage. Coordinate travel uses editable calibration,
+with measured times taking priority. Joining travel is computed separately for
+each member-to-host pair. No page load or planning action calls MightPulse.
+See [CNQ planning details](docs/ALLIANCE_PLANNER.md).
+
 ## Starter approaches and your own strategies
 
 The front page compares **Everyone together**, **Strongest leaders only**, **Selected leaders in waves**, **Selected waves + troop limit**, **Everyone in waves**, and **Everyone in waves + troop limit**. All six damage curves are shown by default. Each approach card names its starter count, opening groups, interval and troop rule. Selecting a card shows the corresponding leaders, join-only players and launch groups. Both wave approaches have a capped counterpart with identical leaders and timing, so the only difference within each pair is the joining-march limit.
@@ -98,6 +116,7 @@ API: `POST /api/compare`, `/api/search`, `/api/calibrate`, `/api/roster`, `/api/
 python -m unittest discover -s tests -v
 python tests/check_browser_parity.py  # Node is needed for this development check only
 node tests/check_ui_state.cjs         # Dashboard roster-preservation checks
+node tests/check_alliance_model.cjs    # Cached roster, trap assignments and plan checks
 ```
 
 Tests cover troop/slot conservation, damage attribution, host-stat versus power separation, travel deadlines, return constraints, strict end-of-event scoring, calibration and randomized resource cases. GitHub Actions runs the suite on Python 3.10, 3.12 and 3.13.

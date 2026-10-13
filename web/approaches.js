@@ -195,4 +195,3 @@ for(const id of ['projectfile','rosterfile']){
  $(id).onchange=async event=>{const previousMeta=profileMeta,previousDirty=profileNeedsRebuild;profileMeta=null;profileNeedsRebuild=false;await importPrevious(event);if($('error').style.display==='block'){profileMeta=previousMeta;profileNeedsRebuild=previousDirty;}profileTable();updateBadge();};
 }
 initializeStrategyBuilder();
-generate();

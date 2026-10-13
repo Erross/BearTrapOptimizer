@@ -24,6 +24,7 @@ jobs:
       - run: python -m unittest discover -s tests -v
       - run: python tests/check_browser_parity.py
       - run: node tests/check_ui_state.cjs
+      - run: node tests/check_alliance_model.cjs
   deploy:
     needs: validate
     environment:

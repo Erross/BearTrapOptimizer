@@ -29,6 +29,13 @@ def simulate(members, mechanics=Mechanics(), strategy=Strategy(), audit=False):
         raise ValueError("Member names must be unique")
     if set(strategy.host_names) - set(names):
         raise ValueError("Selected host does not exist in the roster")
+    for name, values in mechanics.join_travel_times.items():
+        if name not in names or set(values) - set(names):
+            raise ValueError("Unknown player in joining travel matrix")
+    def join_travel(i, host):
+        return mechanics.join_travel_times.get(names[i], {}).get(names[host], members[i].join_travel_s)
+    def minimum_join_travel(i):
+        return min([3600] + [join_travel(i, h) for h in range(len(members)) if h != i])
     ratings, relative_scores, eligible = starter_pool(members,mechanics,strategy)
     hosts = [i for i in eligible if names[i] in strategy.host_names] if strategy.host_names else eligible[:strategy.host_count]
     host_set = set(hosts)
@@ -209,7 +216,7 @@ def simulate(members, mechanics=Mechanics(), strategy=Strategy(), audit=False):
             for r in open_rallies:
                 if r["host_index"] == i or any(p["member_index"] == i for p in r["participants"]):
                     continue
-                if now+m.join_travel_s >= r["departure_s"] or len(r["participants"])-1 >= mechanics.joiner_cap:
+                if now+join_travel(i,r["host_index"]) >= r["departure_s"] or len(r["participants"])-1 >= mechanics.joiner_cap:
                     continue
                 remaining = members[r["host_index"]].rally_capacity-r["troops"]
                 if remaining < 1:
@@ -234,7 +241,7 @@ def simulate(members, mechanics=Mechanics(), strategy=Strategy(), audit=False):
                             d/(amount*max(1,r["hit_s"]+m.return_s-now)))
                 candidates.append((priority,-r["hit_s"],-r["id"],amount,r,mix))
             if not candidates:
-                if now+m.join_travel_s < max_departure:
+                if now+minimum_join_travel(i) < max_departure:
                     ready = min(join_total,(m.join_slots-slots[i])*m.march_capacity)
                     ready_wait[i] += ready
                     waiting_now += ready
