@@ -35,13 +35,15 @@ MEMBER_FIELDS = (
 PLAYER_FIELDS = (
     "uid", "governor_id", "fid", "nick_name", "kid", "power",
     "town_center_level", "vip", "x", "y", "online", "last_active_at",
+    "kills", "office", "last_login", "avatar_url", "language", "shield_endtime", "burn_endtime",
     "alliance", "heroes", "ranks", "gov_gear",
 )
 ALLIANCE_FIELDS = (
     "aid", "name", "abbr", "kid", "power", "count", "leader_name",
-    "leader_uid", "leader_governor_id", "power_rank",
+    "leader_uid", "leader_governor_id", "flag_url", "power_rank",
 )
 FRESHNESS_FIELDS = ("fresh", "cached_at", "age_seconds")
+PROFILE_FIELDS = (*FRESHNESS_FIELDS, "uid", "id_type", "include", "heroes", "ranks", "gov_gear")
 
 
 class ImportBlocked(ValueError):
@@ -298,7 +300,7 @@ def refresh(policy: Policy, client: Client, previous: dict, selected: list[str],
         ):
             return member, None, "membership_changed"
         return member, {
-            "governor_id": member, **pick(data, FRESHNESS_FIELDS),
+            "governor_id": member, **pick(data, PROFILE_FIELDS),
             "player": pick(player, PLAYER_FIELDS),
         }, "refreshed"
 

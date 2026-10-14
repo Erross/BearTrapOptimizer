@@ -43,6 +43,8 @@ The main controls show attendance, alliance strength, selected starter count, op
 
 The default loads the published **CNQ, Kingdom 2399** roster. Choose **CNQ roster & traps**, enter coordinates for **Bear trap 1** and **Bear trap 2**, and assign members automatically by nearest trap or manually in bulk. Each trap can be compared separately. The cached data supplies names, TC, account power and city positions; stocks, tiers, capacities and Attack/Lethality remain editable starting estimates. Assignments and measured values merge by governor ID and survive snapshot updates. See [import and planning instructions](docs/PRIVATE_API_IMPORT.md).
 
+The main-page **Download alliance CSV** and **Download full API JSON** buttons export the entire saved alliance, including members outside the selected trap or distance cutoff. CSV includes coordinates, observed account and available troop power, roster/profile fields, rankings and nested hero/gear sections. Unavailable observations stay blank; top-100 power-board omissions do not mean zero power. JSON preserves the complete published snapshot and kingdom-board context. Downloads make no provider requests and contain no simulator estimates or local planning overrides.
+
 Choose **Illustrative alliance** to use the original top-four scenario: 40 players split into 8 developing / 18 core / 10 strong / 4 leader profiles, TC24–30, 20–160M power and 450k–1M rally capacities. This is an assumed mix, not a measured alliance average. The shared definition is `web/alliance-profiles.json`; power and TC do not directly multiply damage.
 
 The graph shows relative damage, with **100 = the together baseline's final damage**. Every line uses the same roster, troop stocks and common denominator. A per-join troop limit is an alliance rule, 50k by default in the capped approach; actual game rally capacities and joiner limits apply everywhere.
@@ -121,6 +123,7 @@ python tests/check_browser_parity.py  # Node is needed for this development chec
 node tests/check_ui_state.cjs         # Dashboard roster-preservation checks
 node tests/check_alliance_model.cjs   # Identity, merge and coordinate timing
 node tests/check_alliance_ui.cjs      # CNQ grouping, graph and import handlers
+node tests/check_alliance_export.cjs  # Complete provider exports and CSV integrity
 ```
 
 Tests cover troop/slot conservation, damage attribution, host-stat versus power separation, travel deadlines, return constraints, strict end-of-event scoring, calibration and randomized resource cases. GitHub Actions runs the suite on Python 3.10, 3.12 and 3.13.

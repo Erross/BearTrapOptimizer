@@ -180,6 +180,28 @@ class OwnerImportTests(unittest.TestCase):
         self.assertEqual(previous, original)
         self.assertEqual(self.reservations[-1]["reserved_calls"], 3)
 
+    def test_requested_sections_and_base_details_survive_sanitized_snapshot(self):
+        self.provider.profiles["1"] = {
+            "governor_id": 1, "uid": 901, "include": ["base", "heroes", "ranks", "gov_gear"],
+            "player": {"governor_id": 1, "kid": 2399, "kills": 12, "office": 2,
+                       "language": "en", "avatar_url": "https://example.com/avatar.png", "x": 500, "y": 600},
+            "heroes": [{"name": "Chenko", "power": 100, "gear": [{"enhancement_level": 25}],
+                        "secret": KEY}],
+            "ranks": {"power_rank": 10, "leaderboards": [{"name": "Building Power", "value": 500}]},
+            "gov_gear": {"hidden": True, "items": [], "message": "Hidden equipment"},
+            "unexpected_secret": KEY,
+        }
+        result = self.run_import()
+        profile = result["profiles"]["1"]
+        self.assertEqual(profile["heroes"][0]["gear"][0]["enhancement_level"], 25)
+        self.assertEqual(profile["ranks"]["leaderboards"][0]["value"], 500)
+        self.assertTrue(profile["gov_gear"]["hidden"])
+        self.assertEqual(profile["player"]["kills"], 12)
+        self.assertEqual(profile["player"]["language"], "en")
+        self.assertNotIn("unexpected_secret", profile)
+        self.assertNotIn("secret", profile["heroes"][0])
+        self.assertNotIn(KEY, json.dumps(result))
+
     def test_unknown_selected_id_is_blocked_before_reservation(self):
         env = owner_env()
         env["MIGHTPULSE_MEMBER_IDS"] = "999"
