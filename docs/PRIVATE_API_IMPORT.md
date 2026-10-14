@@ -23,6 +23,13 @@ Town Center, account power and positions are imported observations. Troop counts
 tiers, capacities and Attack/Lethality start from the existing illustrative bands
 and remain editable estimates. They are not measurements supplied by MightPulse.
 
+Main-page CSV and JSON downloads use the published provider snapshot, not the
+simulation roster or the current trap selection. Included player response sections
+(`heroes`, `ranks`, `gov_gear`) are retained at their documented top-level location,
+along with base-profile details and freshness metadata. Hidden gear and unavailable
+sections remain explicitly unavailable. CSV flattens object fields and retains arrays
+as JSON cells; the complete JSON download preserves the provider structures.
+
 The browser saves the alliance plan locally. Export/Import plan also preserves
 assignments, trap positions, attendance, rally permissions, measured stats,
 calibration and added strategies. **Update saved observations** reads the latest

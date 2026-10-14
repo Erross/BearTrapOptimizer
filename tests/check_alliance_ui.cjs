@@ -118,7 +118,7 @@ nodes.n.value = '4';
 nodes.duration.value = '2';
 nodes.countdown.value = '30';
 
-for(const file of ['ux.js','strategy-builder.js','alliance-model.js','alliance-ui.js','approaches.js'])vm.runInContext(fs.readFileSync(path.join(root,'web',file),'utf8'),context);
+for(const file of ['ux.js','strategy-builder.js','alliance-model.js','alliance-export.js','alliance-ui.js','approaches.js'])vm.runInContext(fs.readFileSync(path.join(root,'web',file),'utf8'),context);
 const state=expression=>vm.runInContext(expression,context);
 const ui=context.window.BearAllianceUI;
 const clone=value=>JSON.parse(JSON.stringify(value));
@@ -140,6 +140,16 @@ async function main(){
  assert.equal(nodes.allianceopen.textContent,'CNQ roster & traps · '+published.members.length);
  assert(ui.state.plan.players.every(p=>p.group==='none'));
  assert.equal(state('result.runs.length'),6);
+ const downloads=[];context.collectDownload=(...args)=>downloads.push(args);
+ vm.runInContext('download=collectDownload',context);
+ const requestsBeforeDownload=fetched.length,planBeforeDownload=JSON.stringify(ui.state.plan);
+ ui.state.selected.add(ui.state.plan.players[0].governorId);
+ nodes.alliancedownloadcsv.onclick();nodes.alliancedownloadjson.onclick();
+ assert.equal(downloads.length,2);assert(downloads[0][0].endsWith('.csv'));
+ assert.equal(JSON.parse(downloads[1][1]).members.length,published.members.length,'API download exports the entire alliance despite selected members');
+ assert.equal(fetched.length,requestsBeforeDownload,'Downloads must not fetch API data');
+ assert.equal(JSON.stringify(ui.state.plan),planBeforeDownload,'Download must not alter assignments or estimates');
+ ui.state.selected.clear();
  const player=state('result.roster[0]'),name=context.BearAllianceModel.engineName(ui.state.plan.players.find(p=>context.BearAllianceModel.engineName(p)===player.name));
  const option=nodes.individual.children.find(e=>e.tag==='option'&&e.value===name);
  assert(option,'The selector must retain the stable engine name as its value');

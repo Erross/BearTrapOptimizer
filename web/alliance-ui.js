@@ -2,7 +2,7 @@
 (function(){
  'use strict';
  const M=globalThis.BearAllianceModel,KEY='BearTrapOptimizer:CNQ:2399:plan:v1';
- const state={plan:M.emptyPlan(),bands:null,mode:'cnq',filter:'all',page:0,selected:new Set(),compiled:null,editorId:null,pending:false,started:false,map:{view:null,drag:null,suppressClick:false}};
+ const state={plan:M.emptyPlan(),apiSnapshot:null,bands:null,mode:'cnq',filter:'all',page:0,selected:new Set(),compiled:null,editorId:null,pending:false,started:false,map:{view:null,drag:null,suppressClick:false}};
  const active=()=>state.mode==='cnq',members=()=>state.plan.players.filter(p=>p.active);
  const date=value=>value?new Date(typeof value==='number'?value*1000:value).toLocaleString([], {month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}):'Not imported';
  const notice=(message,error=false)=>{$('alliancestatus').textContent=message;$('alliancestatus').classList.toggle('problem',error);};
@@ -70,6 +70,7 @@
  }
  function availability(){
   const locked=running||state.pending;
+  for(const id of ['alliancedownloadcsv','alliancedownloadjson'])$(id).disabled=state.pending||!active()||!state.apiSnapshot;
   for(const id of ['rostersource','comparegroup','alliancerefresh','allianceimport','applyalliancebulk','assignnearest',
    'savetrappositions','savecalibration','savealliancemember','allianceexport','autoassigntraps','savedistance'])$(id).disabled=locked;
   for(const input of $('alliancetrapform').querySelectorAll('input'))input.disabled=locked;
@@ -242,11 +243,20 @@
    const response=await fetch('./data/alliance-api.json',{cache:'no-store'});
    if(!response.ok)throw Error('Saved CNQ data is unavailable. Run the owner import, then try again.');
    const incoming=await response.json(),next=M.mergeSnapshot(state.plan,incoming,state.selected.size?state.selected:null);
+   state.apiSnapshot=incoming;
    state.pending=false;change(next,'Updated saved observations; assignments and measured values retained.');settings();closeEditor();
    if(active()&&roster.some(m=>!absent.has(m.name)))await run();
   }catch(error){state.pending=false;notice(error.message,true);availability();}
  }
  function snapshot(){capture();return M.validatePlan(state.plan);}
+ function exportApi(format){
+  if(!active()||!state.apiSnapshot||state.pending)return;
+  try{
+   const E=globalThis.BearAllianceExport,data=state.apiSnapshot;
+   download(E.filename(data,format),format==='csv'?E.csv(data):E.json(data),format==='csv'?'text/csv;charset=utf-8':'application/json');
+   $('alliancedownloadstatus').textContent='Downloaded '+data.members.length+' members · snapshot '+date(data.generated_at)+'.';
+  }catch(error){$('alliancedownloadstatus').textContent='Download failed: '+error.message;}
+ }
  function exportPlan(){
   if(!ensureSavedDrafts())return;
   try{
@@ -311,6 +321,7 @@
    if($('error').style.display==='block')state.mode=previous;persist();render();
   };
   $('allianceopen').onclick=open;$('allianceclose').onclick=close;
+  $('alliancedownloadcsv').onclick=()=>exportApi('csv');$('alliancedownloadjson').onclick=()=>exportApi('json');
   $('alliancedialog').addEventListener('close',()=>{if(location.hash==='#roster')history.replaceState(null,'',location.pathname+location.search);});
   $('rostersource').onchange=()=>source($('rostersource').value).catch(error=>notice(error.message,true));
   $('comparegroup').onchange=()=>scope($('comparegroup').value).catch(error=>notice(error.message,true));
@@ -426,7 +437,7 @@
     fetch('./data/alliance-api.json',{cache:'no-store'}).then(r=>{if(!r.ok)throw Error('The saved roster is not available yet.');return r.json();}),
     fetch('./alliance-profiles.json').then(r=>{if(!r.ok)throw Error('Cannot load initial stat estimates.');return r.json();}).then(profiles=>{state.bands=profiles.bands;return profiles;})
    ]);
-   state.bands=profiles.bands;state.plan=M.mergeSnapshot(state.plan,data);persist();settings();
+   state.bands=profiles.bands;state.plan=M.mergeSnapshot(state.plan,data);state.apiSnapshot=data;persist();settings();
    busy(false);
    if(active()){rebuild();render();await run();}else await generate();
    notice(restored?'Restored your local plan and updated the saved observations.':'Loaded '+members().length+' CNQ members. Enter trap coordinates and assign groups when ready.');
