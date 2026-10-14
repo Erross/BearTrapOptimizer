@@ -128,3 +128,5 @@ Live verification on 2026-10-12: the API returned 98 CNQ roster members, and all
 98 profiles and city coordinates were saved using 100 provider requests. Both
 the import and Pages publication succeeded. The one-time recovery grant was
 cleared after use; the failed and successful reservations remain charged.
+
+Live export verification on 2026-10-14: the owner refresh saved 100 members using 102 provider requests. Requested top-level sections were retained for 100 hero responses, 100 ranking responses and 100 governor-gear responses. Main-page CSV and JSON downloads were verified against the saved roster; unavailable/hidden values remain provider observations rather than simulated estimates.
