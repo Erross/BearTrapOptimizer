@@ -1,4 +1,4 @@
-importScripts('./combat.js?v=20261012-simple1', './profile-model.js?v=20261012-simple1', './engine.js?v=20261013-alliance1');
+importScripts('./combat.js?v=20261012-simple1', './profile-model.js?v=20261012-simple1', './engine.js?v=20261014-groups1');
 let profilesPromise;
 self.onmessage=async function({data}){
   const {id,path,payload}=data;

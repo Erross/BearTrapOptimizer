@@ -39,6 +39,7 @@ class Element {
   addEventListener() {}
   scrollIntoView() {}
   focus() {}
+  select() {this.selectedText = true;}
   showModal() {this.open = true;}
   close() {this.open = false;}
 }
@@ -140,6 +141,25 @@ async function main(){
  assert.equal(nodes.allianceopen.textContent,'CNQ roster & traps · '+published.members.length);
  assert(ui.state.plan.players.every(p=>p.group==='none'));
  assert.equal(state('result.runs.length'),6);
+ const clipboard=[];
+ context.navigator={clipboard:{writeText:async text=>clipboard.push(text)}};
+ const launchTexts=nodes.openinggroups.innerHTML.match(/<p>[^<]*<\/p>/g)||[];
+ assert(launchTexts.length);
+ assert(launchTexts.every(text=>!ui.state.plan.players.some(p=>text.includes(p.governorId))),
+  'Opening lists must show names without governor IDs');
+ assert(!nodes.leaderroles.innerHTML.includes(' · '+ui.state.plan.players[0].governorId+'<'),
+  'Leader role lists must also show display names');
+ const copyGroup=nodes.openinggroups.querySelectorAll('[data-copy-launch-group]')[0];
+ await copyGroup.onclick();
+ assert(clipboard[0].includes(ui.playerName(state('result.roster.find(m=>m.name===result.runs[chosen].selected_hosts[0])'))));
+ assert(!ui.state.plan.players.some(p=>clipboard[0].includes(p.governorId)));
+ await nodes.copyalllaunchgroups.onclick();
+ assert(clipboard.at(-1).includes(clipboard[0]));
+ context.navigator.clipboard.writeText=async()=>{throw Error('Clipboard blocked');};
+ await copyGroup.onclick();
+ assert.equal(nodes.launchcopytext.hidden,false);
+ assert.equal(nodes.launchcopytext.value,clipboard[0]);
+ assert(nodes.launchcopytext.selectedText,'Blocked clipboard must offer selected text for manual copying');
  const downloads=[];context.collectDownload=(...args)=>downloads.push(args);
  vm.runInContext('download=collectDownload',context);
  const requestsBeforeDownload=fetched.length,planBeforeDownload=JSON.stringify(ui.state.plan);

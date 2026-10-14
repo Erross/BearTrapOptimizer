@@ -110,6 +110,17 @@ def main():
             cfg=replace(c,damage_model='sqrt',duration_s=300)
             cases.append({'method':'simulate','args':[[asdict(m) for m in typed],asdict(cfg),asdict(setting)],
                           'expected':simulate(typed,cfg,setting,audit=True)})
+    # Proximity order must affect the actual planned starts in both engines,
+    # while selection still takes the strongest or explicitly chosen hosts.
+    nearby=[replace(m,host_strength=i+1,outbound_s=t,return_s=t,join_slots=0)
+            for i,(m,t) in enumerate(zip(typed,[1,40,10,30,10]))]
+    for cadence in ('groups','waves'):
+        for selected in ((),tuple(m.name for m in nearby[1:4])):
+            setting=Strategy(host_count=4,host_names=selected,cadence=cadence,
+                             opening_wave_count=3,wave_interval_s=30)
+            cfg=Mechanics(duration_s=600,countdown_s=60)
+            cases.append({'method':'simulate','args':[[asdict(m) for m in nearby],asdict(cfg),asdict(setting)],
+                          'expected':simulate(nearby,cfg,setting,audit=True)})
     p={'roster':profile_roster({'n':8})['roster'],'mechanics':{'damage_model':'sqrt','duration_s':300,'countdown_s':60},
        'strategies':[{'name':'Everyone together','host_count':8,'cadence':'synchronized'},
                      {'name':'Selected waves','host_count':4,'cadence':'groups','opening_wave_count':3,'wave_interval_s':30,'host_allocation':'small','reserve_lead_troops':True},

@@ -20,3 +20,5 @@ body{background:var(--bg)}.layout{display:block}.main{max-width:1400px;margin:au
 .saved-strategy>div{min-width:0}.approach-card h3{overflow-wrap:anywhere}
 
 .legend-swatch{width:34px;height:12px;flex:0 0 34px}#individuallegend{margin:14px 0 8px}
+
+.launch-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}.launch-heading button,.launch-groups button{font-size:12px;min-height:36px;background:#fff}.launch-groups button{margin-bottom:10px}.launch-groups p{user-select:text}.launch-copy-text{width:100%;min-height:120px;font-size:13px;padding:10px}.launch-copy-text[hidden]{display:none}
