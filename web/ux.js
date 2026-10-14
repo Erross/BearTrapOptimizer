@@ -132,10 +132,8 @@ function renderComparison(){
  }).join('')+'</tbody></table>';
  for(const button of $('comparisontable').querySelectorAll('[data-view-plan]'))button.onclick=()=>selectPlan(button.dataset.viewPlan,true);
 }
-function individualPlayerLabel(member){
- const name=window.BearAllianceUI?.active()?window.BearAllianceUI.playerName(member):member.name;
- return name+' – '+fmt(member.power_m*1e6);
-}
+function playerDisplayName(member){return window.BearAllianceUI?.active()?window.BearAllianceUI.playerName(member):member.name;}
+function individualPlayerLabel(member){return playerDisplayName(member)+' – '+fmt(member.power_m*1e6);}
 renderResults=function(){
  if(!result)return;updateBadge();renderSelectedSummary();renderLegend();renderComparison();
  const old=$('individual').value;

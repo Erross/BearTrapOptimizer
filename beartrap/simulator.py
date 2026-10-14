@@ -49,6 +49,12 @@ def simulate(members, mechanics=Mechanics(), strategy=Strategy(), audit=False, t
     join_travel = join_travel_matrix(members, travel_times)
     ratings, relative_scores, eligible = starter_pool(members,mechanics,strategy)
     hosts = [i for i in eligible if names[i] in strategy.host_names] if strategy.host_names else eligible[:strategy.host_count]
+    # Choose leaders by strength first, then schedule successive opening groups
+    # from the shortest travel to the longest. Keep simultaneous dispatch order.
+    opening_waves = min(len(hosts), strategy.opening_wave_count) if strategy.opening_wave_count else math.ceil(len(hosts)/strategy.group_size)
+    if (strategy.cadence == "groups" and opening_waves > 1 and strategy.wave_interval_s > 0
+            or strategy.cadence == "waves" and len(hosts) > 1):
+        hosts.sort(key=lambda i: members[i].outbound_s)
     host_set = set(hosts)
     n = len(members)
     minimum_join_travel = [min((join_travel[i][host] for host in eligible if host != i),
@@ -66,7 +72,7 @@ def simulate(members, mechanics=Mechanics(), strategy=Strategy(), audit=False, t
     for rank,i in enumerate(hosts):
         phases[i] = (0 if strategy.cadence == "synchronized" else
                      int(rank*reference_cycle/max(1,len(hosts))) if strategy.cadence == "staggered" else
-                     (rank%3)*90 if strategy.cadence == "waves" else
+                     (rank*min(3,len(hosts))//len(hosts))*90 if strategy.cadence == "waves" else
                      ((rank*min(len(hosts),strategy.opening_wave_count)//len(hosts)) if strategy.opening_wave_count else rank//strategy.group_size)*strategy.wave_interval_s if strategy.cadence == "groups" else rank*strategy.spacing_s)
         next_start[i] = phases[i]
     group_cycle = 0

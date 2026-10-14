@@ -20,6 +20,21 @@ class GroupTests(unittest.TestCase):
         self.assertEqual(r['group_cycle_s'],360)
         self.assertEqual([x['start_s'] for x in r['rallies'] if x['host']=='P00'],[0,360,720,1080,1440])
         with self.assertRaises(ValueError):simulate(ms,Mechanics(),replace(s,wave_cycle_s=300))
+    def test_nearer_opening_groups_keep_the_selected_leaders(self):
+        ms=[replace(m,host_strength=i+1,outbound_s=t,return_s=t,join_slots=0)
+            for i,(m,t) in enumerate(zip(self.roster(6),[1,40,10,30,10,20]))]
+        c=Mechanics(duration_s=600,countdown_s=60)
+        for cadence in ('groups','waves'):
+            s=Strategy(host_count=5,cadence=cadence,opening_wave_count=3,wave_interval_s=30)
+            r=simulate(ms,c,s,audit=True)
+            # P00 is nearest but is still outside the five strongest leaders.
+            self.assertEqual(r['selected_hosts'],['P04','P02','P05','P03','P01'])
+            starts=r['planned_initial_starts']
+            self.assertLess(starts['P04'],starts['P03'])
+            self.assertLessEqual(starts['P03'],starts['P01'])
+            self.assertEqual(r['initial_starts'],starts)
+        explicit=simulate(ms,c,replace(s,host_names=('P01','P02','P03')),audit=True)
+        self.assertEqual(explicit['selected_hosts'],['P02','P03','P01'])
     def test_hard_starter_rules_also_apply_to_final_push(self):
         ms=[replace(m,host_strength=i+1,rally_capacity=200000+i*100000) for i,m in enumerate(self.roster(5))]
         r=simulate(ms,Mechanics(),Strategy(host_count=1,host_min_relative_score=60,host_min_rally_capacity=500000,final_push=True),audit=True)

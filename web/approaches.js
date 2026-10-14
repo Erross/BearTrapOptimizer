@@ -155,6 +155,16 @@ renderComparison=function(){
  }).join('');
  for(const button of $('comparisontable').querySelectorAll('[data-choose-approach]'))button.onclick=()=>selectPlan(button.dataset.chooseApproach);
 };
+async function copyLaunchGroups(text,button){
+ try{
+  await navigator.clipboard.writeText(text);
+  button.textContent='Copied';$('launchcopystatus').textContent='Copied. Paste into alliance chat.';
+  $('launchcopytext').hidden=true;
+ }catch(error){
+  const field=$('launchcopytext');field.value=text;field.hidden=false;field.focus();field.select();
+  $('launchcopystatus').textContent='Select and copy the text below, then paste into alliance chat.';
+ }
+}
 renderAdvisor=function(){
  if(!result)return;
  const r=result.runs[chosen],s=r.strategy,regular=new Set(r.selected_hosts),joining=result.roster.filter(m=>!regular.has(m.name));
@@ -163,8 +173,14 @@ renderAdvisor=function(){
  const own=s.host_allocation==='full'?'Use a full march in your own rally':s.host_allocation==='small'?'Keep '+(s.small_host_fraction*100)+'% of your maximum march for your own rally':'Split troops between your own rally and joins';
  const rule=[approachNames[0],approachNames[4],approachNames[5]].includes(s.name)?'Every eligible attending player leads and joins.':'The highest-rated eligible leaders start; the other players join. Ratings use the entered leader bonuses, with rally capacity breaking ties.';
  $('planbrief').innerHTML='<p><b>Who leads:</b> '+esc(rule)+'</p><p><b>Troops:</b> '+esc(own)+'. '+(s.troop_split==='equal'?'Share remaining troops across joining marches.':'Fill each joining march before sending the next.')+' '+esc(capLabel(s))+'. '+esc(joinNames[s.join_policy])+'.</p><p><b>Troop mix:</b> '+esc(formationExplanation(s))+'</p><p><b>After the opening:</b> '+(r.group_cycle_s?'Repeat groups every '+time(r.group_cycle_s)+' on the shared clock.':'Restart your own rally when its troops return, allowing '+result.mechanics.reaction_s+'s to send again.')+' All rallies must hit before '+time(result.mechanics.duration_s)+'.</p><div class="plan-metrics"><span><b>'+pct(r.summary.ready_wait_fraction)+'</b> ready-troop waiting</span><span><b>'+r.summary.rallies+'</b> rallies hit in time</span><span><b>'+pct(r.summary.mean_fill)+'</b> average rally fill</span></div>'+(r.summary.starters_without_first_rally?'<p class="stale">'+r.summary.starters_without_first_rally+' selected starters could not start with this stock, troop mix and event timing. Refine them in Setup.</p>':'');
- $('openinggroups').innerHTML='<h3>Opening launch groups</h3><div class="launch-groups">'+groups.map(([t,names],i)=>'<div><span>'+ (t===null?'Could not start':'Wave '+(i+1)+' · '+time(t))+'</span><strong>'+names.length+' '+(names.length===1?'starter':'starters')+'</strong><details><summary>Show players</summary><p>'+names.map(esc).join(', ')+'</p></details></div>').join('')+'</div>';
- const playerRows=list=>list.map(m=>[esc(m.name),'TC'+m.town_level,Number(m.power_m).toFixed(1)+'M',exactNumber(m.rally_capacity)]);
+ const launchGroups=groups.map(([t,names],i)=>({label:t===null?'Could not start':'Group '+(i+1)+' · '+time(t),names:names.map(name=>playerDisplayName({name}))}));
+ const copyText=group=>group.label+'\n'+group.names.join(', ');
+ const hasWaves=['groups','waves'].includes(s.cadence)&&Object.values(r.planned_initial_starts).some(t=>t>0);
+ const travelNote=hasWaves?(window.BearAllianceUI?.active()&&['1','2'].includes(window.BearAllianceUI.state.plan.comparisonGroup)?'Earlier groups use the shortest travel to '+BearAllianceModel.groupLabel(window.BearAllianceUI.state.plan.comparisonGroup)+'.':'Earlier groups use the shortest configured travel to the bear. Select a Bear trap to use city positions.'):new Set(Object.values(r.planned_initial_starts)).size===1?'All starters share the same opening time.':'Groups reflect the simulated opening launch times.';
+ $('openinggroups').innerHTML='<div class="launch-heading"><h3>Opening launch groups</h3><button type="button" id="copyalllaunchgroups">Copy all groups</button></div><p class="fine">'+esc(travelNote)+'</p><div class="launch-groups">'+launchGroups.map((g,i)=>'<div><span>'+esc(g.label)+'</span><strong>'+g.names.length+' '+(g.names.length===1?'starter':'starters')+'</strong><button type="button" data-copy-launch-group="'+i+'">Copy '+(groups[i][0]===null?'players':'group '+(i+1))+'</button><details><summary>Show players</summary><p>'+g.names.map(esc).join(', ')+'</p></details></div>').join('')+'</div><p id="launchcopystatus" class="fine" role="status"></p><textarea id="launchcopytext" class="launch-copy-text" aria-label="Launch groups to copy" readonly hidden></textarea>';
+ $('copyalllaunchgroups').onclick=()=>copyLaunchGroups(launchGroups.map(copyText).join('\n\n'),$('copyalllaunchgroups'));
+ for(const button of $('openinggroups').querySelectorAll('[data-copy-launch-group]'))button.onclick=()=>copyLaunchGroups(copyText(launchGroups[Number(button.dataset.copyLaunchGroup)]),button);
+ const playerRows=list=>list.map(m=>[esc(playerDisplayName(m)),'TC'+m.town_level,Number(m.power_m).toFixed(1)+'M',exactNumber(m.rally_capacity)]);
  $('leaderroles').innerHTML='<div class="role-lists"><details><summary>Who sends rallies? ('+regular.size+')</summary>'+table(['Player','Town Center','Power','Rally capacity'],playerRows(result.roster.filter(m=>regular.has(m.name))))+'</details><details><summary>Who should only join? ('+joining.length+')</summary>'+(joining.length?table(['Player','Town Center','Power','Rally capacity'],playerRows(joining)):'<p>Everyone eligible starts in this approach.</p>')+'</details></div>';
  $('advisorSchedule').onclick=()=>activatePage('plantab');
 };
