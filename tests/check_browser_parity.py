@@ -11,6 +11,7 @@ from beartrap.simulator import simulate
 from beartrap.analysis import compare, calibrate, search
 from beartrap.combat import formation_plan, effective_components
 from beartrap.profiles import profile_roster
+from beartrap.wave_planner import optimize_waves
 
 ROOT=Path(__file__).resolve().parents[1]
 
@@ -166,6 +167,20 @@ def main():
                              'mechanics':{'duration_s':120,'countdown_s':30,'damage_model':'sqrt'},
                              'search_goal':goal,'opening_limit_s':60}
         cases.append({'method':'search','args':[coordinate_search],'expected':search(coordinate_search)})
+    opening_members=[replace(m,troops=200001,infantry=None,cavalry=None,archers=None,march_capacity=100000,rally_capacity=200001,
+                             outbound_s=2,return_s=2,join_travel_s=2) for m in small]
+    for fair in (False,True):
+        for window in (0,8):
+            cfg=Mechanics(duration_s=180,countdown_s=60)
+            setting=Strategy(host_count=4,cadence='groups',opening_wave_count=2,wave_interval_s=20,
+                             host_allocation='small',small_host_fraction=.00001,reserve_lead_troops=True,
+                             troop_split='concentrated',first_wave_join=fair,join_window_s=window)
+            cases.append({'method':'simulate','args':[[asdict(m) for m in opening_members],asdict(cfg),asdict(setting)],
+                          'expected':simulate(opening_members,cfg,setting,audit=True)})
+    wave_payload={'roster':[asdict(m) for m in opening_members],
+                  'mechanics':{'duration_s':180,'countdown_s':60},'host_count':4,
+                  'normalization':{'enabled':False},'opening_limit_s':120}
+    cases.append({'method':'optimize_waves','args':[wave_payload],'expected':optimize_waves(wave_payload)})
     js="const fs=require('fs'),e=require('./web/engine.js');const cases=JSON.parse(fs.readFileSync(0,'utf8'));console.log(JSON.stringify(cases.map(c=>e[c.method](...c.args))));"
     result=subprocess.run(['node','-e',js],input=json.dumps([{k:v for k,v in c.items() if k!='expected'} for c in cases]),
                           text=True,capture_output=True,cwd=ROOT,check=True)

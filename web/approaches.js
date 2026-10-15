@@ -3,7 +3,7 @@
 const approachNames=['Everyone together','Strongest leaders only','Selected leaders in waves','Selected waves + troop limit','Everyone in waves','Everyone in waves + troop limit'];
 let profileMeta=null,profileNeedsRebuild=false;
 let capRefreshTimer=null,capRefreshRequested=false;
-controls.push('simpleprofile','frontwaves','frontgap','joinmarchcap');
+controls.push('simpleprofile','frontwaves','frontgap','joinmarchcap','firstwavejoin');
 $('resultcontext').hidden=true;
 
 function coherentApproaches(request){
@@ -66,7 +66,7 @@ updateBadge=function(){
  $('advisorassumptions').textContent=(synthetic?(profileMeta?.label||'Illustrative alliance'):'Your edited players')+' · TC'+Math.min(...towns)+'–'+Math.max(...towns)+' · '+Math.round(Math.min(...powers))+'–'+Math.round(Math.max(...powers))+'M power'+(synthetic?' · assumed mix; refine in Setup.':' · '+estimated+' estimated troop stocks; refine in Setup.');
 };
 const previousBusy=busy;
-busy=function(on,message=''){previousBusy(on,message);$('simpleprofile').disabled=on||!synthetic;$('frontwaves').disabled=on;$('frontgap').disabled=on;$('joinmarchcap').disabled=false;$('frontcap').disabled=false;setStrategyBuilderBusy(on);if(!on&&capRefreshRequested)setTimeout(flushCapRefresh,0);};
+busy=function(on,message=''){previousBusy(on,message);$('simpleprofile').disabled=on||!synthetic;$('frontwaves').disabled=on;$('frontgap').disabled=on;$('firstwavejoin').disabled=on;$('optimizewaves').disabled=on||!roster.some(m=>!absent.has(m.name));$('joinmarchcap').disabled=false;$('frontcap').disabled=false;setStrategyBuilderBusy(on);if(!on&&capRefreshRequested)setTimeout(flushCapRefresh,0);};
 
 function profileTable(){
  if(!profileMeta){$('profiletable').innerHTML='<p>Using the current saved or edited roster. Player details and troop inventories are available in the other Setup pages.</p>';return;}
@@ -106,7 +106,7 @@ run=async function(options={}){
   const shownNames=result?[...visible].map(i=>result.runs[i]?.strategy.name):[];
   result=next;syncAddedStrategyResults(result.runs);searchData=null;$('searchpanel').hidden=true;
   const previousIndex=result.runs.findIndex(r=>r.strategy.name===(options.selectedName||previous));
-  chosen=previousIndex>=0?previousIndex:result.runs.reduce((best,r,i)=>r.total_damage>result.runs[best].total_damage?i:best,0);
+  const eligible=result.runs.map((r,i)=>({r,i})).filter(({r})=>!r.strategy.first_wave_join||!r.summary.first_wave_missing_count);chosen=previousIndex>=0?previousIndex:eligible.length?eligible.reduce((a,b)=>b.r.total_damage>a.r.total_damage?b:a).i:0;
   const changedCap=num('joinmarchcap')!==request.strategies[3].join_march_cap;
   visible=options.capOnly||options.preserveLines?new Set(result.runs.map((r,i)=>shownNames.includes(r.strategy.name)||r.strategy.name===options.selectedName?i:-1).filter(i=>i>=0)):new Set(result.runs.map((_,i)=>i));resultsDirty=changedCap;renderResults();profileTable();renderAddedStrategies();
   busy(false,'Compared '+result.runs.length+' approaches. Choose a card to inspect its leaders and waves.');
@@ -148,10 +148,10 @@ renderCharts=function(){
  $('timingnote').textContent='All rallies must hit before '+time(result.mechanics.duration_s)+'. Results compare assumed troops and bonuses; validate with battle reports.';
 };
 renderComparison=function(){
- if(!result)return;const baseline=result.runs[0].total_damage,best=Math.max(...result.runs.map(r=>r.total_damage));
+ if(!result)return;const baseline=result.runs[0].total_damage,best=Math.max(...result.runs.filter(r=>!r.strategy.first_wave_join||!r.summary.first_wave_missing_count).map(r=>r.total_damage));
  $('comparisontable').innerHTML=result.runs.map((r,i)=>{
   const facts=openingFacts(r),delta=baseline?r.total_damage/baseline-1:null;
-  return '<article class="approach-card '+(i===chosen?'selected':'')+'" style="--approach-color:'+colors[i%colors.length]+'"><div class="card-top"><span class="line-swatch"></span>'+(r.total_damage===best?'<span class="best-tag">Highest damage</span>':i===0?'<span class="baseline-tag">Baseline</span>':'')+'</div><h3>'+esc(strategyTitle(r.strategy))+'</h3><p class="card-mix">'+esc(strategyMixLabel(r.strategy))+'</p><div class="approach-score '+(delta<0?'negative':'positive')+'">'+(delta===null?'—':i===0?'Reference':changeText(delta))+'<small>'+(i===0?'Everyone starts at the opening':'damage vs everyone together')+'</small></div><dl><div><dt>Starters</dt><dd>'+r.selected_hosts.length+' of '+result.roster.length+'</dd></div><div><dt>Opening</dt><dd>'+facts.waves+' '+(facts.waves===1?'wave':'waves')+(facts.waves>1?' · '+facts.gap+'s apart':'')+'</dd></div><div><dt>Join troop limit</dt><dd>'+(r.strategy.join_march_cap?Math.round(r.strategy.join_march_cap).toLocaleString():'None')+'</dd></div><div><dt>Join only</dt><dd>'+(result.roster.length-r.selected_hosts.length)+' players</dd></div></dl><button data-choose-approach="'+i+'" aria-label="View plan: '+esc(strategyTitle(r.strategy))+'">'+(i===chosen?'Selected approach':'View this approach')+'</button></article>';
+  return '<article class="approach-card '+(i===chosen?'selected':'')+'" style="--approach-color:'+colors[i%colors.length]+'"><div class="card-top"><span class="line-swatch"></span>'+(r.total_damage===best?'<span class="best-tag">Highest damage</span>':i===0?'<span class="baseline-tag">Baseline</span>':'')+'</div><h3>'+esc(strategyTitle(r.strategy))+'</h3><p class="card-mix">'+esc(strategyMixLabel(r.strategy))+'</p><div class="approach-score '+(delta<0?'negative':'positive')+'">'+(delta===null?'—':i===0?'Reference':changeText(delta))+'<small>'+(i===0?'Everyone starts at the opening':'damage vs everyone together')+'</small></div><dl><div><dt>Starters</dt><dd>'+r.selected_hosts.length+' of '+result.roster.length+'</dd></div><div><dt>Opening</dt><dd>'+facts.waves+' '+(facts.waves===1?'wave':'waves')+(facts.waves>1?' · '+facts.gap+'s apart':'')+'</dd></div><div><dt>Join troop limit</dt><dd>'+(r.strategy.join_march_cap?Math.round(r.strategy.join_march_cap).toLocaleString():'None')+'</dd></div><div><dt>Join only</dt><dd>'+(result.roster.length-r.selected_hosts.length)+' players</dd></div><div><dt>Opening joins</dt><dd>'+r.summary.first_wave_joiners+' / '+result.roster.length+'</dd></div></dl><button data-choose-approach="'+i+'" aria-label="View plan: '+esc(strategyTitle(r.strategy))+'">'+(i===chosen?'Selected approach':'View this approach')+'</button></article>';
  }).join('');
  for(const button of $('comparisontable').querySelectorAll('[data-choose-approach]'))button.onclick=()=>selectPlan(button.dataset.chooseApproach);
 };
@@ -173,6 +173,7 @@ renderAdvisor=function(){
  const own=s.host_allocation==='full'?'Use a full march in your own rally':s.host_allocation==='small'?'Keep '+(s.small_host_fraction*100)+'% of your maximum march for your own rally':'Split troops between your own rally and joins';
  const rule=[approachNames[0],approachNames[4],approachNames[5]].includes(s.name)?'Every eligible attending player leads and joins.':'The highest-rated eligible leaders start; the other players join. Ratings use the entered leader bonuses, with rally capacity breaking ties.';
  $('planbrief').innerHTML='<p><b>Who leads:</b> '+esc(rule)+'</p><p><b>Troops:</b> '+esc(own)+'. '+(s.troop_split==='equal'?'Share remaining troops across joining marches.':'Fill each joining march before sending the next.')+' '+esc(capLabel(s))+'. '+esc(joinNames[s.join_policy])+'.</p><p><b>Troop mix:</b> '+esc(formationExplanation(s))+'</p><p><b>After the opening:</b> '+(r.group_cycle_s?'Repeat groups every '+time(r.group_cycle_s)+' on the shared clock.':'Restart your own rally when its troops return, allowing '+result.mechanics.reaction_s+'s to send again.')+' All rallies must hit before '+time(result.mechanics.duration_s)+'.</p><div class="plan-metrics"><span><b>'+pct(r.summary.ready_wait_fraction)+'</b> ready-troop waiting</span><span><b>'+r.summary.rallies+'</b> rallies hit in time</span><span><b>'+pct(r.summary.mean_fill)+'</b> average rally fill</span></div>'+(r.summary.starters_without_first_rally?'<p class="stale">'+r.summary.starters_without_first_rally+' selected starters could not start with this stock, troop mix and event timing. Refine them in Setup.</p>':'');
+ $('planbrief').innerHTML+='<p><b>Opening joins:</b> '+r.summary.first_wave_joiners+' of '+result.roster.length+' players joined a first-wave rally.'+(s.first_wave_join&&r.summary.first_wave_missing_count?' <strong>This plan fails the opening requirement.</strong> Missing: '+r.first_wave_missing.map(name=>esc(playerDisplayName({name}))).join(', '):'')+'</p><p><b>Joining time:</b> '+(s.join_window_s?'Aim to arrive within '+s.join_window_s+' seconds before departure. Troops can wait at home for that window.':'Send to an eligible gathering rally as soon as troops are available.')+'</p>';
  const launchGroups=groups.map(([t,names],i)=>({label:t===null?'Could not start':'Group '+(i+1)+' · '+time(t),names:names.map(name=>playerDisplayName({name}))}));
  const copyText=group=>group.label+'\n'+group.names.join(', ');
  const hasWaves=['groups','waves'].includes(s.cadence)&&Object.values(r.planned_initial_starts).some(t=>t>0);
@@ -212,7 +213,7 @@ $('generate').onclick=async()=>{
  $('undodemo').onclick=async()=>{roster=backup.roster;absent=new Set(backup.absent);estimatedStocks=new Set(backup.estimated);synthetic=backup.synthetic;profileMeta=backup.profileMeta;profileNeedsRebuild=false;editingMember=null;editingTroops=null;renderRoster();await run();};
 };
 for(const id of ['n','simpleprofile'])$(id).addEventListener('input',()=>{if(synthetic)profileNeedsRebuild=true;markResultsDirty('Alliance profile changed.');});
-for(const id of ['frontwaves','frontgap'])$(id).addEventListener('input',()=>markResultsDirty('Approach timing changed.'));
+for(const id of ['frontwaves','frontgap','firstwavejoin'])$(id).addEventListener('input',()=>markResultsDirty('Approach timing changed.'));
 $('frontcap').oninput=()=>{$('joinmarchcap').value=$('frontcap').value;queueCapRefresh();};
 $('joinmarchcap').oninput=queueCapRefresh;
 for(const id of demoControlIds)if(id!=='n')$(id).addEventListener('input',()=>{$('simpleprofile').value='custom';if(synthetic){profileNeedsRebuild=true;markResultsDirty('Custom player assumptions changed.');}});
@@ -221,5 +222,20 @@ for(const id of ['projectfile','rosterfile']){
  $(id).onchange=async event=>{const previousMeta=profileMeta,previousDirty=profileNeedsRebuild;profileMeta=null;profileNeedsRebuild=false;await importPrevious(event);if($('error').style.display==='block'){profileMeta=previousMeta;profileNeedsRebuild=previousDirty;}profileTable();updateBadge();};
 }
 $('individual').onchange=()=>renderCharts();
+$('optimizewaves').onclick=async()=>{
+ if(running||!ensureSavedDrafts())return;
+ if(addedStrategies.length>=maxAddedStrategies){showError(Error('Remove an added strategy to make room for the optimized plan.'));return;}
+ busy(true,'Testing wave recycling, joining times and opening participation…');
+ try{
+  const request=JSON.parse(JSON.stringify(payload())),search=await api('optimize_waves',request);
+  const candidate={...search.best.strategy,name:nextStrategyName('Optimized waves')};
+  busy(false);
+  if(!await applyStrategySnapshots([...addedStrategies,{strategy:candidate,capMode:candidate.join_march_cap?'fixed':'none'}],candidate.name))return;
+  $('waveoptimization').hidden=false;
+  $('waveoptimizationnote').textContent=search.note+' Tested '+search.tested.length+' plans.';
+  $('waveoptimizationtable').innerHTML=table(['Starters','Waves','Gap','Join cap','Join window','Opening joins','Damage vs winner'],search.tested.slice(0,8).map(r=>[r.selected_hosts.length,r.strategy.opening_wave_count,r.strategy.wave_interval_s+'s',r.strategy.join_march_cap?exactNumber(r.strategy.join_march_cap):'None',r.strategy.join_window_s+'s',r.first_wave_joiners+' / '+request.roster.length+(r.opening_feasible?'':' · fails'),pct(r.total_damage/search.best.total_damage)]));
+  $('status').textContent='Best tested wave plan added. Everyone has an opening join; later waiting is allowed.';
+ }catch(error){busy(false);showError(error);}
+};
 initializeStrategyBuilder();
 if(window.BearAllianceUI)window.BearAllianceUI.start();else generate();

@@ -157,6 +157,8 @@ class Strategy:
     host_min_rally_capacity: int = 0
     join_march_cap: int = 0
     opening_wave_count: int = 0
+    first_wave_join: bool = False
+    join_window_s: int = 0
 
     @classmethod
     def parse(cls, row):
@@ -196,6 +198,10 @@ class Strategy:
             raise ValueError("Joining-march cap must be 0 (no alliance limit) or 1–2M")
         if not isinstance(obj.opening_wave_count, int) or not 0 <= obj.opening_wave_count <= 100:
             raise ValueError("Opening waves must be 0 (use group size) or 1–100")
+        if not isinstance(obj.first_wave_join, bool):
+            raise ValueError("First-wave joining must be true or false")
+        if type(obj.join_window_s) is not int or not 0 <= obj.join_window_s <= 600:
+            raise ValueError("Joining window must be 0 (send immediately) or 1–600 seconds")
         return obj
 
 
