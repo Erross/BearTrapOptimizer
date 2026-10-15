@@ -61,7 +61,7 @@ function setStrategyBuilderBusy(on){
 function fillStrategyEditor(s,capMode){
  strategyEditorBase=cloneStrategyData(s);
  const values={planname:s.name,planhosts:s.host_count,plancadence:s.cadence,planwaves:s.opening_wave_count||Math.max(1,Math.ceil(s.host_count/(s.group_size||10))),plangap:s.wave_interval_s??60,planformation:s.formation,planinf:s.infantry_pct,plancav:s.cavalry_pct,plancapmode:capMode,plancap:s.join_march_cap||num('joinmarchcap'),planown:s.host_allocation,planownpct:100*(s.small_host_fraction??.05),plansplit:s.troop_split,planjoin:s.join_policy,planspacing:s.spacing_s??25,planrepeat:s.group_repeat||'ready',plancycle:s.wave_cycle_s||0};
- for(const [id,value]of Object.entries(values))$(id).value=value;
+ values.planjoinwindow=s.join_window_s??0;for(const [id,value]of Object.entries(values))$(id).value=value;$('planfirstwave').checked=!!s.first_wave_join;
  updateStrategyEditorFields();
 }
 function openStrategyEditor(index=null){
@@ -93,11 +93,12 @@ function updateStrategyEditorFields(){
  $('plantemplate').disabled=running||editingStrategy!==null;
 }
 function readStrategyEditor(){
- const s={...strategyEditorBase,name:$('planname').value.trim(),host_names:[],host_count:num('planhosts'),cadence:$('plancadence').value,
+ const s={...strategyEditorBase,first_wave_join:$('planfirstwave').checked,join_window_s:num('planjoinwindow'),name:$('planname').value.trim(),host_names:[],host_count:num('planhosts'),cadence:$('plancadence').value,
   opening_wave_count:num('planwaves'),wave_interval_s:num('plangap'),formation:$('planformation').value,infantry_pct:num('planinf'),cavalry_pct:num('plancav'),
   join_march_cap:$('plancapmode').value==='none'?0:$('plancapmode').value==='dial'?num('joinmarchcap'):num('plancap'),
   host_allocation:$('planown').value,small_host_fraction:num('planownpct')/100,troop_split:$('plansplit').value,join_policy:$('planjoin').value,
   spacing_s:num('planspacing'),group_repeat:$('planrepeat').value,wave_cycle_s:num('plancycle')};
+ if(!Number.isInteger(s.join_window_s)||s.join_window_s<0||s.join_window_s>600)throw Error('Joining window must be 0–600 seconds.');
  const whole=(v,min,max)=>Number.isInteger(v)&&v>=min&&v<=max;
  if(!whole(s.host_count,1,100)||!whole(s.opening_wave_count,1,100)||!whole(s.wave_interval_s,0,600))throw Error('Use 1–100 starters and waves, and a 0–600s wave interval.');
  if(![s.infantry_pct,s.cavalry_pct].every(v=>Number.isFinite(v)&&v>=0&&v<=100)||s.infantry_pct+s.cavalry_pct>100)throw Error('Infantry and cavalry must total at most 100%. Archers use the remainder.');

@@ -360,6 +360,15 @@ async function main() {
   assert.equal(state('addedStrategies.length'), 3);
   nodes.strategycancel.onclick();
   nodes.error.style.display = 'none';
+  const beforeOptimize = state('JSON.stringify(roster)');
+  await nodes.optimizewaves.onclick();
+  noError();
+  assert.equal(state('addedStrategies.length'), 4);
+  assert.equal(state('result.runs[chosen].strategy.first_wave_join'), true);
+  assert.equal(state('result.runs[chosen].summary.first_wave_missing_count'), 0);
+  assert.equal(state('JSON.stringify(roster)'), beforeOptimize, 'Optimization must preserve player inputs');
+  assert.equal(nodes.waveoptimization.hidden, false);
+  assert(nodes.waveoptimizationnote.textContent.includes('Best tested total alliance damage'));
   console.log('Named mixes, edit/copy/remove, saved comparisons, cap dial and equivalent waves pass.');
 }
 main().catch(error => {console.error(error); process.exitCode = 1;});

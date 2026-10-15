@@ -94,7 +94,7 @@ def search(payload):
         return ((row["ready_wait_fraction"],-row["total_damage"]) if goal=="flow" else
                 (-row["total_damage"],row["ready_wait_fraction"]))
     def valid(row):
-        return not row["starters_without_first_rally"] and (not opening_limit or row["opening_last_start_s"]<=opening_limit)
+        return (not custom.first_wave_join or not row["first_wave_missing_count"]) and not row["starters_without_first_rally"] and (not opening_limit or row["opening_last_start_s"]<=opening_limit)
     tested=[]
     seen=set()
     best_run=None
