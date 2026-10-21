@@ -91,3 +91,19 @@ class HistoryTests(unittest.TestCase):
         self.snapshot['members'][0]['governor_id'] = '../other'
         with self.assertRaises(ValueError):
             self.run_archive()
+
+    def test_malformed_or_unchecked_profile_does_not_block_power(self):
+        self.record['input']['stock']['9'] = None
+        result = self.run_archive({'123': self.record})
+        self.assertEqual(len(result['power']), 1)
+        self.assertEqual(result['troops'], [])
+        self.run_archive({})
+        capture = json.loads((self.directory / 'index.json').read_text())['profileCapture']
+        self.assertEqual(capture['notChecked'], 1)
+        self.assertEqual(capture['unavailable'], 0)
+
+    def test_clock_skew_does_not_claim_capture_before_submission(self):
+        self.record['updatedAt'] = '2026-10-22T00:00:00Z'
+        result = self.run_archive({'123': self.record})
+        self.assertIsNone(result['troops'][0]['capturedAt'])
+        self.assertEqual(result['troops'][0]['at'], '2026-10-22T00:00:00+00:00')

@@ -135,7 +135,7 @@ def archive(snapshot, records=None, directory=DIRECTORY, captured_at=None):
                         point['capturedAt'] = captured if captured >= point['at'] else None
                         append(history['troops'], point)
                         saved += 1
-                except (ValueError, TypeError, KeyError, OverflowError):
+                except (ValueError, TypeError, KeyError, AttributeError, OverflowError):
                     errors += 1
         paths += save(path, history)
     index = {'version': 1, 'updatedAt': captured,
