@@ -3,19 +3,12 @@
 const $=id=>document.getElementById(id),A=BearAllianceModel,M=BearPersonalModel,PLAN='BearTrapOptimizer:CNQ:2399:plan:v1';
 let snapshot=null,records=[],busy=false;
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-function key(){const v=$('adminkey').value.trim();if(v.length<32)throw Error('Enter the organizer key stored in Cloudflare ADMIN_TOKEN.');return v;}
-async function action(fn){if(busy)return;busy=true;for(const id of ['admininit','adminload','adminissue','adminapply','adminkey','adminlock','adminplayer'])$(id).disabled=true;try{await fn();}catch(error){$('adminstatus').textContent=error.message;}finally{busy=false;for(const id of ['admininit','adminload','adminissue','adminkey','adminlock','adminplayer'])$(id).disabled=false;$('adminapply').disabled=!records.length;}}
-function clearReview(){records=[];$('adminprofiles').textContent='No submissions loaded.';$('adminapply').disabled=true;$('adminissued').hidden=true;$('adminnewcode').value='';}
+function key(){const v=$('adminkey').value.trim();if(v.length<32)throw Error('Organizer key must contain at least 32 characters. Enter the value stored in Cloudflare ADMIN_TOKEN.');return v;}
+async function action(fn){if(busy)return;busy=true;for(const id of ['admininit','adminload','adminapply','adminkey','adminlock'])$(id).disabled=true;try{await fn();}catch(error){$('adminstatus').textContent=error.message;}finally{busy=false;for(const id of ['admininit','adminload','adminkey','adminlock'])$(id).disabled=false;$('adminapply').disabled=!records.length;}}
+function clearReview(){records=[];$('adminprofiles').textContent='No submissions loaded.';$('adminapply').disabled=true;}
 $('adminkey').addEventListener('input',clearReview);
-$('adminplayer').addEventListener('change',()=>{$('adminrotateconfirm').checked=false;$('adminissued').hidden=true;$('adminnewcode').value='';});
 $('adminlock').onclick=()=>{$('adminkey').value='';clearReview();$('adminstatus').textContent='Access key cleared.';};
-$('admininit').onclick=()=>action(async()=>{await BearCloud.request('/api/admin/init',key(),'POST');$('adminstatus').textContent='Database initialized. Existing profiles were preserved. You can now create player codes.';});
-$('adminissue').onclick=()=>action(async()=>{
- const id=$('adminplayer').value;if(!id||!snapshot)throw Error('Choose a player first.');if(!$('adminrotateconfirm').checked)throw Error('Tick the confirmation for the selected player before issuing a code.');
- const selected=$('adminplayer').selectedOptions[0].textContent;
- const result=await BearCloud.request('/api/admin/players/'+id+'/key',key(),'POST');
- $('adminnewcode').value=result.code;$('adminissuedname').textContent='New code for '+selected+':';$('adminissued').hidden=false;$('adminrotateconfirm').checked=false;$('adminstatus').textContent='Code created. The previous code for this player no longer works.';
-});
+$('admininit').onclick=()=>action(async()=>{await BearCloud.request('/api/admin/init',key(),'POST');$('adminstatus').textContent='Database initialized. Existing profiles were preserved. Players can now load and save their setups without a code.';});
 $('adminload').onclick=()=>action(async()=>{
  const result=await BearCloud.request('/api/admin/profiles',key());
  const roster=A.mergeSnapshot(A.emptyPlan(),snapshot).players;
@@ -36,5 +29,5 @@ $('copyworker').onclick=async()=>{
  catch(_){$('workercopytext').value=code;$('workercopytext').hidden=false;$('workercopytext').focus();$('workercopytext').select();$('workercopystatus').textContent='Select and copy the code below.';}
  }catch(error){$('workercopystatus').textContent=error.message;}
 };
-(async()=>{try{const response=await fetch('./data/alliance-api.json',{cache:'no-store'});if(!response.ok)throw Error('Cannot load CNQ roster.');snapshot=await response.json();const players=A.mergeSnapshot(A.emptyPlan(),snapshot).players.filter(p=>p.active).sort((a,b)=>a.api.name.localeCompare(b.api.name));$('adminplayer').innerHTML='<option value="">Choose player</option>'+players.map(p=>'<option value="'+p.governorId+'">'+esc(p.api.name)+'</option>').join('');}catch(error){$('adminstatus').textContent=error.message;}})();
+(async()=>{try{const response=await fetch('./data/alliance-api.json',{cache:'no-store'});if(!response.ok)throw Error('Cannot load CNQ roster.');snapshot=await response.json();}catch(error){$('adminstatus').textContent=error.message;}})();
 })();

@@ -5,8 +5,9 @@ const API='https://bear-optimizer-api.ewanrross.workers.dev';
 async function request(path,key,method='GET',data){
  const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),15000);
  try{
-  const response=await fetch(API+path,{method,signal:controller.signal,cache:'no-store',credentials:'omit',headers:{Authorization:'Bearer '+key,...(data?{'Content-Type':'application/json'}:{})},...(data?{body:JSON.stringify(data)}:{})});
+  const response=await fetch(API+path,{method,signal:controller.signal,cache:'no-store',credentials:'omit',headers:{...(key?{Authorization:'Bearer '+key}:{}),...(data?{'Content-Type':'application/json'}:{})},...(data?{body:JSON.stringify(data)}:{})});
   let value;try{value=await response.json();}catch(_){throw Error('The Cloudflare Worker is not ready. Its placeholder code must be replaced.');}
+  if(response.status===401&&!key)throw Error('The backend still requires player codes. The organizer must deploy the updated Worker code.');
   if(!response.ok)throw Error(value.error||'Shared saving failed.');return value;
  }catch(error){if(error.name==='AbortError')throw Error('Shared saving timed out. Your local entries are preserved.');if(error instanceof TypeError)throw Error('Cannot reach shared saving. Check the Worker deployment and connection. Your local entries are preserved.');throw error;}
  finally{clearTimeout(timer);}

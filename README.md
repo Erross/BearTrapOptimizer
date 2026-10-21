@@ -38,7 +38,10 @@ counts in the alliance model** updates aggregate troop counts, joining queues,
 capacity and hosting eligibility on this device; review the model's tier and bonus
 assumptions and compare again. Exact tier inventories remain in the personal
 profile. Shared online saving uses the separately deployed Cloudflare Worker and D1 database.
-See [Cloudflare setup](docs/CLOUDFLARE.md). Local-only use remains available.
+See [Cloudflare setup](docs/CLOUDFLARE.md). Player profiles are currently open to
+view and edit without codes; organizer setup and bulk review require the private
+organizer key. Submitted counts are reviewed before applying them to the model.
+Local-only use remains available.
 
 ## Map zoom and distant members
 

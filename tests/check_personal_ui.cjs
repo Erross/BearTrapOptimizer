@@ -103,12 +103,10 @@ async function main(){
  // Exercise cloud controls through the actual personal-page bridge.
  for(const file of ['cloud-client.js','cloud-personal.js'])vm.runInContext(fs.readFileSync(path.join(root,'web',file),'utf8'),context);
  const calls=[];context.BearCloud.request=async(route,key,method,data)=>{calls.push({route,key,method,data});return method==='PUT'?{revision:3,updatedAt:'2026-10-21T20:00:00Z'}:{input,revision:2,updatedAt:'2026-10-21T19:00:00Z'};};
- nodes.cloudcode.value='private-test-code';await nodes.cloudload.onclick();
- assert.equal(nodes.cloudcode.value,'private-test-code','Loading same player must retain code for subsequent saving');
+ await nodes.cloudload.onclick();
  assert.equal(nodes.cloudsave.disabled,false);
- await nodes.cloudsave.onclick();assert.equal(calls.at(-1).data.revision,2);assert.equal(calls.at(-1).key,'private-test-code');
- nodes.cloudcode.handlers.input();assert.equal(nodes.cloudsave.disabled,true);
- nodes.personalplayer.value=second;nodes.personalplayer.handlers.change({});assert.equal(nodes.cloudcode.value,'');assert.equal(nodes.cloudsave.disabled,true);
+ await nodes.cloudsave.onclick();assert.equal(calls.at(-1).data.revision,2);assert.equal(calls.at(-1).key,'');
+ nodes.personalplayer.value=second;nodes.personalplayer.handlers.change({});assert.equal(nodes.cloudsave.disabled,true);
  console.log('Personal roster selection, presets, local/cloud saves, model apply, copy and import checks pass.');
 }
 main().catch(error=>{console.error(error);process.exitCode=1;});
