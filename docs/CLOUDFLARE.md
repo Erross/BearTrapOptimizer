@@ -17,11 +17,13 @@ No game API is involved. Local browser saves and JSON export/import remain avail
    `web/cloudflare-worker.js` in the repo.
 5. On Organizer, enter your ADMIN_TOKEN and click Initialize database. This
    creates a table if absent; it does not drop or clear existing data.
-6. On Optimize Me, choose a player name and click Load shared profile. No player
-   code is needed. If none exists, the entered local setup remains. Complete
-   a valid setup, then Save online. Loading an existing setup replaces local
-   form entries. Export a local draft first if you need to preserve both.
-7. On another device, choose that name and load the shared profile.
+6. On Optimize Me, choose your name. The page checks for an online setup
+   automatically. Existing local drafts and edits made while checking are preserved;
+   use the clearly labelled online-copy button if you want to replace them.
+   Complete your troops, limits and heroes, then **Save online & show setup**.
+   Missing fields are highlighted. **Preview without saving online** works locally.
+7. On another device, choose that name to load the saved setup automatically.
+   If an online copy changes during editing, explicitly choose which copy to keep.
 8. On Organizer, Review submitted profiles, select desired rows, and Apply
    selected counts. Reopen the alliance optimizer and compare again. Nothing
    automatically replaces the organizer's model before this review.
