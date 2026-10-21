@@ -114,16 +114,16 @@ function build(options={}){
   $('personalerror').hidden=true;$('personalresult').hidden=false;
   $('personalresultname').textContent=p.api.name+' · '+out.joins+' joining marches'+(out.own.enabled?' + special own rally':'');
   $('personalresultnote').textContent=out.note;
-  $('personalnumbers').innerHTML=[[fmt(out.perJoin),'troops in each join'],[String(out.joins),'normal joining marches'],[String(out.presets),'saved preset slots']].map(([v,l])=>'<div class="personal-number"><strong>'+v+'</strong><span>'+l+'</span></div>').join('');
+  $('personalnumbers').innerHTML=[[fmt(out.perJoin),'troops in each join'],[String(out.joins),'normal joining marches'],[out.usedPresets+' / '+out.presets,'preset slots used / available']].map(([v,l])=>'<div class="personal-number"><strong>'+v+'</strong><span>'+l+'</span></div>').join('');
   $('personalwarnings').innerHTML=out.warnings.map(t=>'<p class="notice">'+esc(t)+'</p>').join('');
   $('personalpacket').innerHTML=troopTable(out.packet);$('personalleftover').innerHTML=troopTable(out.leftover);
   $('personalallocation').textContent=fmt(out.joinTotal)+' troops across joins; '+fmt(out.own.total||0)+' reserved for your own rally'+(out.own.tier==='lower'?' outside the T8–T10 stock':'')+'; '+fmt(out.leftoverTotal)+' listed troops unallocated. Lower tiers outside the table are not automatically included.';
-  const rows=out.marches.map(m=>['Join '+m.number,m.hero||'No hero',m.slot?'Preset '+m.slot:'Manual setup',fmt(out.perJoin)]);
+  const rows=out.setups.map(s=>[(s.numbers.length>1?'Joins '+s.numbers[0]+'–'+s.numbers[s.numbers.length-1]:'Join '+s.numbers[0]),s.hero||'No hero',s.slot?'Preset '+s.slot+(!s.hero?' · reusable':''):'Manual setup',fmt(out.perJoin)]);
   if(out.own.enabled)rows.push(['Own rally · special',out.own.heroes.join(' / '),out.own.slot?'Preset '+out.own.slot:'Manual setup',fmt(out.own.total)]);
-  $('personalpresettbl').innerHTML='<table><thead><tr><th>March</th><th>First hero / leader team</th><th>Save to</th><th>Troops</th></tr></thead><tbody>'+rows.map(row=>'<tr>'+row.map(v=>'<td>'+esc(v)+'</td>').join('')+'</tr>').join('')+'</tbody></table>';
+  $('personalpresettbl').innerHTML='<table><thead><tr><th>March</th><th>First hero / leader team</th><th>Preset to use</th><th>Troops</th></tr></thead><tbody>'+rows.map(row=>'<tr>'+row.map(v=>'<td>'+esc(v)+'</td>').join('')+'</tr>').join('')+'</tbody></table>';
   const steps=[];
-  for(const m of out.marches){
-   steps.push((m.number===1?'Select ': 'Keep the same troop counts; change the first hero to ')+(m.hero?m.hero+' in the first hero slot.':'no hero: remove all heroes.')+(m.number===1?' Enter the counts in the joining table above.':'')+' Recheck the troop numbers and capacity. '+(m.slot?'Save as preset '+m.slot+'.':'No saved slot remains: set up this march manually when sending.'));
+  for(const [i,m] of out.setups.entries()){
+   steps.push((i===0?'Select ': 'Keep the same troop counts; change the first hero to ')+(m.hero?m.hero+' in the first hero slot.':'no hero: remove all heroes.')+(i===0?' Enter the counts in the joining table above.':'')+' Recheck the troop numbers and capacity. '+(m.slot?'Save as preset '+m.slot+'.':'No saved slot remains: set up this march manually when sending.')+(!m.hero?(m.slot?' Reuse this one preset for every hero-free joining march, even while another hero-free march is away.':' Use this same hero-free formation for each remaining join.'):''));
   }
   if(out.own.enabled)steps.push('Own rally: select '+out.own.heroes.join(', ')+'. Enter '+M.TYPES.map(k=>fmt(out.own.troops[k])+' '+k).join(', ')+' at '+(out.own.tier==='lower'?'your confirmed lower tier':'T'+out.own.tier)+'. '+(out.own.slot?'Save as preset '+out.own.slot+'.':'Use manual setup; your saved slots are assigned to joins.'));
   steps.push('Do not reuse a hero already away in another march. For a hero-free join, remove all heroes and recheck the capacity. Saved presets may load ratios or adjust counts: verify the exact counts on deployment.');

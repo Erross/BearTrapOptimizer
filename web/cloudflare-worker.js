@@ -85,12 +85,18 @@ function build(input){
  const count=total(packet);if(!count)throw Error('There are too few troops for identical non-empty joining presets. Enter more troops or reduce the joining-march count.');
  const leftover=matrix(remaining);
  for(const t of TIERS)for(const k of TYPES)leftover[t][k]-=packet[t][k]*joins;
- const marches=assigned.map((hero,i)=>({number:i+1,hero,slot:i<presets?i+1:null}));
- if(ownEnabled&&presets>joins)own.slot=joins+1;
- const manual=marches.filter(m=>!m.slot).length+(ownEnabled&&!own.slot?1:0);
+ const setups=[],byHero=new Map();
+ const marches=assigned.map((hero,i)=>{
+  let setup=byHero.get(hero);
+  if(!setup){setup={hero,slot:setups.length<presets?setups.length+1:null,numbers:[]};setups.push(setup);byHero.set(hero,setup);}
+  setup.numbers.push(i+1);
+  return {number:i+1,hero,slot:setup.slot};
+ });
+ if(ownEnabled&&presets>setups.length)own.slot=setups.length+1;
+ const manual=setups.filter(s=>!s.slot).length+(ownEnabled&&!own.slot?1:0);
  if(manual)warnings.push(manual+' march setup'+(manual===1?' needs':'s need')+' manual selection because you have fewer saved presets than different march setups.');
  if(total(leftover))warnings.push('Some T8–T10 troops remain unallocated because of the march limit or identical-preset rounding. They are listed below.');
- return {joins,presets,packet,perJoin:count,joinTotal:count*joins,leftover,leftoverTotal:total(leftover),own,marches,warnings,limit,manual,
+ return {joins,presets,setups,usedPresets:setups.filter(s=>s.slot).length+(own.slot?1:0),requiredPresets:setups.length+(ownEnabled?1:0),packet,perJoin:count,joinTotal:count*joins,leftover,leftoverTotal:total(leftover),own,marches,warnings,limit,manual,
   note:'The special own-rally march is separate: '+joins+' joining marches'+(ownEnabled?' + 1 own rally':'')+'. Counts are identical for every join. Highest tiers fill the shared limit first; this is not a claim of the best damage ratio.'};
 }
 function suggestLeaders(entries,observed=[]){
