@@ -115,6 +115,22 @@ class OwnerImportTests(unittest.TestCase):
         self.assertEqual(self.provider.paths, [])
         self.assertEqual(self.reservations, [])
 
+    def test_owner_twice_daily_schedule_is_allowed(self):
+        env = owner_env()
+        env.update(GITHUB_EVENT_NAME="schedule", MIGHTPULSE_SCHEDULE="30 13,23 * * *")
+        self.run_import(env=env)
+        self.assertTrue(self.provider.paths)
+
+    def test_other_schedules_and_non_owner_scheduled_runs_are_blocked(self):
+        for change in ({"MIGHTPULSE_SCHEDULE": "* * * * *"},
+                       {"GITHUB_ACTOR": "Other"}, {"GITHUB_REF": "refs/heads/test"}):
+            env = owner_env()
+            env.update(GITHUB_EVENT_NAME="schedule", MIGHTPULSE_SCHEDULE="30 13,23 * * *")
+            env.update(change)
+            with self.assertRaises(ImportBlocked):
+                self.run_import(env=env)
+        self.assertEqual(self.provider.paths, [])
+
     def test_missing_or_header_injected_key_cannot_call_provider(self):
         for key in ("", "short", KEY + "\nX-Api-Key: other"):
             with self.subTest(key_length=len(key)):
@@ -437,12 +453,19 @@ class OwnerImportTests(unittest.TestCase):
             request, None, 302, "redirect", {}, "https://elsewhere.example/"
         ))
 
-    def test_workflow_has_only_manual_trigger_and_fixed_owner_guard(self):
+    def test_workflow_has_only_approved_schedule_and_manual_trigger(self):
         text = (ROOT / ".github/workflows/mightpulse-owner-refresh.yml").read_text()
         trigger = text.split("on:", 1)[1].split("concurrency:", 1)[0]
         self.assertIn("workflow_dispatch:", trigger)
         self.assertNotIn("pull_request", trigger)
-        self.assertNotIn("schedule:", trigger)
+        self.assertIn('cron: "30 13,23 * * *"', trigger)
+        self.assertEqual(trigger.count("cron:"), 1)
+        self.assertIn("needs: warm_map", text)
+        self.assertIn("needs.warm_map.result == 'success'", text)
+        warm = text.split("  warm_map:", 1)[1].split("  import:", 1)[0]
+        self.assertNotIn("MIGHTPULSE_API_KEY", warm)
+        self.assertIn("contents: read", warm)
+        self.assertIn("persist-credentials: false", warm)
         self.assertNotIn("push:", trigger)
         self.assertIn("github.actor_id == '33665337'", text)
         self.assertIn("github.ref == 'refs/heads/main'", text)
