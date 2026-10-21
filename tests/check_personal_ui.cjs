@@ -64,7 +64,7 @@ parseElements(fs.readFileSync(path.join(root,'web/optimize-me.html'),'utf8'));
 const document={getElementById(id){assert(nodes[id], 'Missing personal element: '+id);return nodes[id];},createElement(){return new Element();}};
 const storage=new Map(),localStorage={getItem:k=>storage.get(k)??null,setItem:(k,v)=>storage.set(k,v),removeItem:k=>storage.delete(k)};
 const published=require('../web/data/alliance-api.json');
-const context=vm.createContext({document,localStorage,console,URL,URLSearchParams,Blob,setTimeout,location:{search:''},navigator:{clipboard:{writeText:async text=>{context.copied=text;}}},fetch:async()=>({ok:true,json:async()=>published})});
+const context=vm.createContext({window:{},document,localStorage,console,URL,URLSearchParams,Blob,setTimeout,location:{search:''},navigator:{clipboard:{writeText:async text=>{context.copied=text;}}},fetch:async()=>({ok:true,json:async()=>published})});
 for(const file of ['alliance-model.js','personal-model.js','personal-ui.js'])vm.runInContext(fs.readFileSync(path.join(root,'web',file),'utf8'),context);
 const PROFILES='BearTrapOptimizer:personal-profiles:v1',PLAN='BearTrapOptimizer:CNQ:2399:plan:v1';
 const submit=()=>nodes.personalform.handlers.submit({preventDefault(){}});
@@ -100,6 +100,15 @@ async function main(){
  await nodes.personalimport.onchange({target:{files:[{size:1000,text:async()=>JSON.stringify({schema:'wrong'})}],value:'bad.json'}});
  assert.equal(nodes.personalstock10archers.value,before);
  assert.equal(nodes.personalerror.hidden,false);
- console.log('Personal roster selection, presets, local saves, model apply, copy and import checks pass.');
+ // Exercise cloud controls through the actual personal-page bridge.
+ for(const file of ['cloud-client.js','cloud-personal.js'])vm.runInContext(fs.readFileSync(path.join(root,'web',file),'utf8'),context);
+ const calls=[];context.BearCloud.request=async(route,key,method,data)=>{calls.push({route,key,method,data});return method==='PUT'?{revision:3,updatedAt:'2026-10-21T20:00:00Z'}:{input,revision:2,updatedAt:'2026-10-21T19:00:00Z'};};
+ nodes.cloudcode.value='private-test-code';await nodes.cloudload.onclick();
+ assert.equal(nodes.cloudcode.value,'private-test-code','Loading same player must retain code for subsequent saving');
+ assert.equal(nodes.cloudsave.disabled,false);
+ await nodes.cloudsave.onclick();assert.equal(calls.at(-1).data.revision,2);assert.equal(calls.at(-1).key,'private-test-code');
+ nodes.cloudcode.handlers.input();assert.equal(nodes.cloudsave.disabled,true);
+ nodes.personalplayer.value=second;nodes.personalplayer.handlers.change({});assert.equal(nodes.cloudcode.value,'');assert.equal(nodes.cloudsave.disabled,true);
+ console.log('Personal roster selection, presets, local/cloud saves, model apply, copy and import checks pass.');
 }
 main().catch(error=>{console.error(error);process.exitCode=1;});

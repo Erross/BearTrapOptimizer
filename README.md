@@ -37,7 +37,8 @@ player JSON file to transfer devices or collect member submissions. **Use these
 counts in the alliance model** updates aggregate troop counts, joining queues,
 capacity and hosting eligibility on this device; review the model's tier and bonus
 assumptions and compare again. Exact tier inventories remain in the personal
-profile. Shared online saving requires a separate backend and is not connected.
+profile. Shared online saving uses the separately deployed Cloudflare Worker and D1 database.
+See [Cloudflare setup](docs/CLOUDFLARE.md). Local-only use remains available.
 
 ## Map zoom and distant members
 
