@@ -104,7 +104,7 @@ const storage=new Map();
 const fetched=[];
 const location={hash:'',pathname:'/',search:''};
 const history={replaceState(a,b,path){location.hash=path.includes('#')?'#'+path.split('#')[1]:'';}};
-const localStorage={getItem:k=>storage.get(k)??null,setItem:(k,v)=>storage.set(k,v)};
+const localStorage={getItem:k=>storage.get(k)??null,setItem:(k,v)=>storage.set(k,v),removeItem:k=>storage.delete(k)};
 const fetch=async url=>{fetched.push(url);assert(['./data/alliance-api.json','./alliance-profiles.json'].includes(url),'Unexpected network request: '+url);return {ok:true,json:async()=>JSON.parse(JSON.stringify(url.includes('alliance-api')?published:require('../web/alliance-profiles.json')))};};
 const context = vm.createContext({document, window: {addEventListener() {}}, console,
   Blob, URL, setTimeout, clearTimeout, Worker: WorkerStub, fetch, localStorage, location, history, ...nodes});
@@ -119,7 +119,7 @@ nodes.n.value = '4';
 nodes.duration.value = '2';
 nodes.countdown.value = '30';
 
-for(const file of ['ux.js','strategy-builder.js','alliance-model.js','alliance-export.js','alliance-ui.js','approaches.js'])vm.runInContext(fs.readFileSync(path.join(root,'web',file),'utf8'),context);
+for(const file of ['ux.js','strategy-builder.js','alliance-model.js','alliance-export.js','alliance-ui.js','approaches.js','personal-model.js','personal-context.js'])vm.runInContext(fs.readFileSync(path.join(root,'web',file),'utf8'),context);
 const state=expression=>vm.runInContext(expression,context);
 const ui=context.window.BearAllianceUI;
 const clone=value=>JSON.parse(JSON.stringify(value));
@@ -256,7 +256,11 @@ async function main(){
  assert(context.BearAllianceModel.travel(ui.state.plan,ui.state.plan.players[0]).stale,'Editing stats must not silently confirm an obsolete measured march');
  const saved=state('allianceProjectSnapshot()');
  assert.equal(saved.alliancePlan.players[0].group,'1');
- assert(storage.size===1);
+ assert(storage.has('BearTrapOptimizer:CNQ:2399:plan:v1'));
+ const personal=JSON.parse(storage.get('BearTrapOptimizer:personal-context:v1'));
+ assert.equal(personal.version,1);
+ assert.equal(personal.fingerprint,context.BearPersonalModel.fingerprint(ui.snapshot()));
+ assert(Object.keys(personal.players).length>0,'Current comparison must carry member start instructions');
  // Plan import restores assignment and measured stats, plus added comparisons.
  const imported=clone(saved);imported.alliancePlan.players[0].group='2';imported.alliancePlan.comparisonGroup='2';
  await nodes.alliancefile.onchange({target:{files:[file(imported)],value:'plan.json'}});noError();

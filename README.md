@@ -12,6 +12,33 @@ The [beginner UX audit](docs/UX_AUDIT.md) records the page-by-page critique and 
 
 In GitHub, enable **Settings → Pages → Source: GitHub Actions**. The included `pages.yml` workflow validates both engines and publishes the web folder on pushes to main. Alternatively publish the `web` directory contents from a dedicated Pages branch.
 
+## Optimize Me
+
+Open **Optimize Me** from the header. Select a member, enter T8/T9/T10 infantry,
+cavalry and archers, normal joining queues, saved formation slots, and available
+heroes with their first Expedition skill levels. Reserve a separate troop packet
+and leader team for your own Bear rally. The special own-rally march does not
+consume a joining queue: five joining queues plus your own rally is six marches.
+
+The planner produces identical joining troop counts, assigns supported offensive
+joiners without reusing your leaders, and gives preset-saving instructions. Extra
+joins use no hero and require a confirmed hero-free capacity. Troops are conserved;
+highest tiers fill any shared capacity limit first. This is inventory allocation,
+not a calibrated damage optimizer or proof of an ideal troop ratio. Leader
+suggestions use visible equipment as a heuristic; confirm your team in game.
+
+Run and select an alliance comparison before opening the page for personal launch
+groups. Changed model inputs invalidate those instructions. Assumed travel and
+conflicts between personal choices and the selected alliance plan are identified.
+The page cannot see live rally countdowns or space.
+
+Personal entries automatically save per player in this browser. Export/import a
+player JSON file to transfer devices or collect member submissions. **Use these
+counts in the alliance model** updates aggregate troop counts, joining queues,
+capacity and hosting eligibility on this device; review the model's tier and bonus
+assumptions and compare again. Exact tier inventories remain in the personal
+profile. Shared online saving requires a separate backend and is not connected.
+
 ## Map zoom and distant members
 
 In **CNQ roster & traps**, use **+ / −**, **Fit nearby** or **Fit all** to zoom the

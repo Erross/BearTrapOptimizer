@@ -27,6 +27,8 @@ jobs:
       - run: node tests/check_alliance_model.cjs
       - run: node tests/check_alliance_ui.cjs
       - run: node tests/check_alliance_export.cjs
+      - run: node tests/check_personal_model.cjs
+      - run: node tests/check_personal_ui.cjs
   deploy:
     needs: validate
     environment:
