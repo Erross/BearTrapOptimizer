@@ -43,6 +43,9 @@ view and edit without codes; organizer setup and bulk review require the private
 organizer key. Submitted counts are reviewed before applying them to the model.
 Local-only use remains available.
 
+CNQ joining recommendations are restricted to Chenko, Yeonwoo, Amane and
+Amadeus. Hilde and every other listed hero are own-rally options only.
+
 All hero-free joining marches reuse a single saved preset, even while another
 hero-free march is away. Preset requirements count distinct formations; any freed
 slot can save the separate own-rally formation.
