@@ -43,6 +43,10 @@ view and edit without codes; organizer setup and bulk review require the private
 organizer key. Submitted counts are reviewed before applying them to the model.
 Local-only use remains available.
 
+All hero-free joining marches reuse a single saved preset, even while another
+hero-free march is away. Preset requirements count distinct formations; any freed
+slot can save the separate own-rally formation.
+
 ## Alliance summary
 
 Open **Alliance summary** from the main page or Optimize Me. The directory shows

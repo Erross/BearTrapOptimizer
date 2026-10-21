@@ -76,11 +76,17 @@ async function main(){
  nodes.personalplayer.value=first;nodes.personalplayer.handlers.change({});
  nodes.personalown.checked=false;nodes.personaljoins.value='5';nodes.personalpresets.value='2';nodes.personalcapacity.value='100000';nodes.personalbare.value='90000';nodes.personalcap.value='0';
  nodes.personalstock10archers.value='200000';
+ for(const h of context.BearPersonalModel.HEROES)nodes['personalhas'+h.id].checked=false;
  nodes.personalform.handlers.input();submit();
  assert.equal(nodes.personalerror.hidden,true,nodes.personalerror.textContent);
  assert.equal(nodes.personalresult.hidden,false);
  assert(nodes.personalnumbers.innerHTML.includes('40,000'));
- assert(nodes.personalpresettbl.innerHTML.includes('Manual setup'));
+ assert(!nodes.personalpresettbl.innerHTML.includes('Manual setup'));
+ assert(nodes.personalpresettbl.innerHTML.includes('Joins 1–5'));
+ assert(nodes.personalpresettbl.innerHTML.includes('Preset 1 · reusable'));
+ assert.equal((nodes.personalsetupsteps.innerHTML.match(/Save as preset/g)||[]).length,1);
+ assert(nodes.personalsetupsteps.innerHTML.includes('Reuse this one preset'));
+ assert(nodes.personalnumbers.innerHTML.includes('1 / 2'));
  assert(nodes.personaltiming.innerHTML.includes('No current selected alliance comparison'));
  await nodes.personalcopy.onclick();assert(context.copied.includes('40,000 archers'));
  nodes.personalapply.onclick();
