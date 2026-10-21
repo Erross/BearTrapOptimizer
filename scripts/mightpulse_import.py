@@ -383,9 +383,13 @@ def write_json(path: Path, value):
 
 
 def publish_file(path: Path, message: str):
+    return publish_files([path], message)
+
+
+def publish_files(paths: list[Path], message: str):
     child_env = {k: v for k, v in os.environ.items() if k != "MIGHTPULSE_API_KEY"}
     for args in (
-        ["add", "--", str(path.relative_to(ROOT))],
+        ["add", "--", *[str(path.relative_to(ROOT)) for path in paths]],
         ["commit", "-m", message],
         ["push", "origin", "HEAD:main"],
     ):
@@ -407,7 +411,9 @@ def main():
             read_json(SNAPSHOT_PATH, {}), datetime.now(timezone.utc), persist,
         )
         write_json(SNAPSHOT_PATH, snapshot)
-        publish_file(SNAPSHOT_PATH, "Update cached alliance observations from MightPulse")
+        from alliance_history import capture
+        history_paths = capture(snapshot)
+        publish_files([SNAPSHOT_PATH, *history_paths], "Update alliance observations and player history")
         print(f"Snapshot saved: {len(snapshot['members'])} members; "
               f"{snapshot['upstream_requests']} provider calls.")
     except ImportBlocked as error:

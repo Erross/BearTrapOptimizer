@@ -204,3 +204,11 @@ Tests cover troop/slot conservation, damage attribution, host-stat versus power 
 The project repository is [Erross/BearTrapOptimizer](https://github.com/Erross/BearTrapOptimizer).
 GitHub Pages publishes only `web/`; the Python reference, research notes and tests stay in the repository.
 New API requests still default to the legacy model for backward compatibility; set `damage_model="sqrt"` or `"weighted"` to use troop-aware damage. The updated browser defaults to `"sqrt"`.
+
+### Player history
+
+`history.html` graphs each player's power, Town Center level and submitted troop counts. Each successful owner import archives the roster and reads the public player-profile API (up to six reads concurrently, 12-second timeout per read, no credentials). Public troop counts and their save timestamps are retained under `web/data/history/{governorId}.json`; names and active/former status are listed in `index.json`. No additional Worker deployment is needed. These files are public, like the existing player submissions.
+
+The archive retains source timestamps, deduplicates repeated cached observations, preserves departed members by governor ID and never substitutes zero for an unavailable profile. Troop points include T8–T10 stock plus a separately entered lower-tier own-rally reserve, counted once. This is submitted Bear inventory, not an inferred or live whole-city count. Unchanged profile submissions do not create new points; edits overwritten between twice-daily captures cannot be recovered. A failed profile read does not prevent roster history from advancing. A corrupt archive stops publication rather than erasing old history.
+
+To recover earlier committed power/level snapshots without making provider calls, run `python scripts/alliance_history.py --backfill`. To capture current public troop submissions separately, add `--capture-profiles`. The normal import handles future captures and publishes the current snapshot and history in one commit; API budget reservation still happens before the provider calls.
