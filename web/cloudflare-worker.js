@@ -16,7 +16,7 @@ const HEROES=[
  {id:'50018',name:'Marlin',type:'archers'},
  {id:'50017',name:'Saul',type:'archers'},
  {id:'50005',name:'Gordon',type:'cavalry'},
- {id:'50013',name:'Hilde',type:'cavalry',join:true,priority:5},
+ {id:'50013',name:'Hilde',type:'cavalry'},
  {id:'50008',name:'Diana',type:'archers'},
  {id:'50000',name:'Forrest',type:'infantry'},
  {id:'50002',name:'Edwin',type:'cavalry'},
