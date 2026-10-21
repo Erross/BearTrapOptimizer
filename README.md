@@ -43,6 +43,25 @@ view and edit without codes; organizer setup and bulk review require the private
 organizer key. Submitted counts are reviewed before applying them to the model.
 Local-only use remains available.
 
+## Alliance summary
+
+Open **Alliance summary** from the main page or Optimize Me. The directory shows
+CNQ members, Town Center levels, power, rank, coordinates, and online troop
+submissions. Select a player’s name to open their Optimize Me update page.
+Search, filter missing/older submissions, or sort by power, level, troops or save time.
+
+Roster observation/publication times are shown separately from each player's
+server-recorded submission time. Position observations have their own timestamps.
+Troop totals cover checked online submissions only; missing or failed reads are
+unknown, not zero. Local drafts and inferred simulator stocks are excluded.
+Tier breakdowns include a separately labelled lower-tier own-rally reserve when used.
+Profiles older than seven days are flagged; the page shows times in your timezone.
+
+The page works with the existing open-profile Worker: no redeployment is needed.
+It reads profiles in batches of at most six, once on opening or explicit refresh,
+with no MightPulse refresh calls or automatic writes. If the first batch entirely
+fails, it stops and offers a retry rather than waiting through every member.
+
 ## Map zoom and distant members
 
 In **CNQ roster & traps**, use **+ / −**, **Fit nearby** or **Fit all** to zoom the
