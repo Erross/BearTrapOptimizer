@@ -65,11 +65,15 @@ def authorize(env: dict) -> None:
         "GITHUB_REPOSITORY": REPOSITORY,
         "GITHUB_ACTOR": OWNER_LOGIN,
         "GITHUB_ACTOR_ID": OWNER_ACTOR_ID,
-        "GITHUB_EVENT_NAME": "workflow_dispatch",
         "GITHUB_REF": "refs/heads/main",
     }
     if any(env.get(k) != v for k, v in expected.items()):
-        raise ImportBlocked("Only the repository owner's manual main-branch refresh is allowed.")
+        raise ImportBlocked("Only the repository owner's main-branch refresh is allowed.")
+    event = env.get("GITHUB_EVENT_NAME")
+    if event not in {"workflow_dispatch", "schedule"} or (
+        event == "schedule" and env.get("MIGHTPULSE_SCHEDULE") != "30 13,23 * * *"
+    ):
+        raise ImportBlocked("Only manual refreshes or the approved twice-daily schedule are allowed.")
     if not re.fullmatch(r"\d+", env.get("GITHUB_RUN_ID", "")) or not re.fullmatch(
         r"[1-9]\d*", env.get("GITHUB_RUN_ATTEMPT", "")
     ):

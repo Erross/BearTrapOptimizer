@@ -1,7 +1,14 @@
 name: Owner-only alliance refresh
 on:
+  schedule:
+    - cron: "30 13,23 * * *"
   workflow_dispatch:
     inputs:
+      refresh_map:
+        description: "Open kingdom 2399, request Update Map and wait five minutes before importing"
+        type: boolean
+        required: false
+        default: true
       member_ids:
         description: "Optional saved-roster governor IDs, separated by commas; blank refreshes everyone"
         type: string
@@ -11,8 +18,33 @@ concurrency:
   group: owner-only-mightpulse-refresh
   cancel-in-progress: false
 jobs:
+  warm_map:
+    if: github.repository == 'Erross/BearTrapOptimizer' && github.actor == 'Erross' && github.actor_id == '33665337' && github.ref == 'refs/heads/main' && (github.event_name == 'schedule' || inputs.refresh_map)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install -r scripts/requirements-map-refresh.txt
+      - run: python -m playwright install --with-deps chromium
+      - name: Open kingdom map, request refresh and wait five minutes
+        run: python scripts/mightpulse_map_refresh.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: kingdom-map-refresh
+          path: artifacts/mightpulse-map/
+          retention-days: 7
   import:
-    if: github.repository == 'Erross/BearTrapOptimizer' && github.actor == 'Erross' && github.actor_id == '33665337' && github.ref == 'refs/heads/main'
+    needs: warm_map
+    if: always() && (needs.warm_map.result == 'success' || (github.event_name == 'workflow_dispatch' && !inputs.refresh_map && needs.warm_map.result == 'skipped')) && github.repository == 'Erross/BearTrapOptimizer' && github.actor == 'Erross' && github.actor_id == '33665337' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 40
     permissions:
@@ -35,6 +67,7 @@ jobs:
       - name: Refresh only the configured alliance
         env:
           MIGHTPULSE_API_KEY: ${{ secrets.MIGHTPULSE_API_KEY }}
+          MIGHTPULSE_SCHEDULE: ${{ github.event.schedule }}
           MIGHTPULSE_MEMBER_IDS: ${{ inputs.member_ids }}
         run: python scripts/mightpulse_import.py
       - name: Record the published snapshot source

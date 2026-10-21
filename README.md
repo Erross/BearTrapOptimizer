@@ -50,6 +50,14 @@ All hero-free joining marches reuse a single saved preset, even while another
 hero-free march is away. Preset requirements count distinct formations; any freed
 slot can save the separate own-rally formation.
 
+## Automatic roster refresh
+
+The owner-only MightPulse workflow targets **13:30 and 23:30 UTC** daily. It
+opens kingdom 2399, requests Update Map when available, keeps the browser open
+for five minutes, then imports CNQ observations and republishes the site. Failed
+or still-pending map refreshes stop before the API pull. GitHub start times may
+be delayed. See [refresh controls and limits](docs/PRIVATE_API_IMPORT.md).
+
 ## Alliance summary
 
 Open **Alliance summary** from the main page or Optimize Me. The directory shows

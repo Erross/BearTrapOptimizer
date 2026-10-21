@@ -1,6 +1,6 @@
 # Owner-only MightPulse import
 
-The manual, owner-only importer publishes a saved snapshot. The public planner
+The owner-only importer runs twice daily or on demand and publishes a saved snapshot. The public planner
 loads that file; opening the app and running comparisons never call MightPulse.
 
 ## Use the imported roster
@@ -49,15 +49,26 @@ cannot be changed through workflow inputs or the public app.
 3. In Actions, run **Owner-only alliance refresh** on main.
    Only Erross (GitHub actor ID 33665337) is accepted. Initial setup requires
    the repository's workflow token to be allowed to write repository contents.
-4. Later, enter comma-separated governor IDs to update selected members.
+4. Daily runs target **13:30 UTC** and **23:30 UTC**. Each opens the public
+   kingdom 2399 map in Chromium, clicks **Update Map** when ready (or respects an
+   existing refresh/cooldown), and keeps the page open for five minutes. The API
+   import starts afterward and the successful snapshot is deployed to Pages.
+   GitHub scheduling/runner delays and browser setup can shift actual start times.
+   The schedule stays in UTC through daylight saving changes.
+5. Manual runs default to the same map preflight. Uncheck **refresh_map** if you
+   deliberately want an API-only import after refreshing the map yourself.
+6. Later, enter comma-separated governor IDs to update selected members.
    IDs must exist in the saved roster and the provider's current response.
 
 ## Bounded traffic
 
 - The saved JSON snapshot supplies the public planner; no public provider
   refresh endpoint exists.
-- No refresh occurs on page load, push, pull request, slider change or simulation.
+- No provider import occurs on planner page load, push, pull request, slider change or simulation.
+- The only automatic import trigger is the approved twice-daily UTC schedule.
 - The workflow and Python importer both check owner, repository and main branch.
+- Scheduled imports also check the exact approved cron expression. Manual owner
+  dispatch remains available; forks and other event types remain blocked.
 - Full refresh reserves at most 102 requests for 100 profiles and one board.
 - Starts are paced at at most 50 requests/minute with five concurrent lookups.
 - One-hour cooldown and a 500-request/day UTC application budget are enforced.
@@ -79,6 +90,26 @@ The quota ledger lives at .api-state/mightpulse-budget.json. It contains
 timestamps, request reservations and workflow IDs; no credentials. Do not delete
 or reset it during operation. These caps govern this importer, not other use of
 the same MightPulse key outside the application.
+
+## Map preflight and failed refreshes
+
+The map job runs without the MightPulse API secret or any saved browser login.
+It uses only the public page and normal Update Map control. It does not bypass
+CAPTCHAs, verification or site cooldowns. The API import is skipped when opening
+fails, verification is required, the map is still queued/updating after five
+minutes, or its visible location timestamp cannot confirm recent data. Existing
+published observations stay available. A map report and successful screenshot
+are retained as a workflow artifact for seven days.
+
+The map job and the API import are separate jobs. The importer checks out current
+main after the five-minute preflight, so it does not write a five-minute-old
+checkout over newer code. An API failure does not erase the last good snapshot.
+Two full daily imports reserve at most 204 calls, within the unchanged 500/day
+application cap. Other use of the same API key is outside this ledger.
+
+GitHub may delay/drop scheduled jobs under load and can disable a public repo's
+schedules after 60 days without repository activity. Check Actions if a refresh
+is overdue. Normal successful imports commit new observations and quota state.
 
 ## Data and deployment boundaries
 
