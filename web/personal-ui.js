@@ -5,7 +5,7 @@ const PLAN='BearTrapOptimizer:CNQ:2399:plan:v1',PROFILES='BearTrapOptimizer:pers
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const fmt=n=>Number(n).toLocaleString(),clock=n=>Math.floor(n/60)+':'+String(Math.floor(n%60)).padStart(2,'0');
 const labels={infantry:'Infantry',cavalry:'Cavalry',archers:'Archers'};
-const state={plan:null,snapshot:null,profiles:{},current:null,output:null,input:null,text:'',loading:false};
+const state={plan:null,snapshot:null,profiles:{},current:null,output:null,input:null,text:'',loading:false,edits:0};
 function stored(key){try{return JSON.parse(localStorage.getItem(key)||'null');}catch(_){return null;}}
 function write(key,value){try{localStorage.setItem(key,JSON.stringify(value));return true;}catch(_){$('personalsavenote').textContent='Browser saving is unavailable. Export your player file to keep your entries.';return false;}}
 function person(){return state.plan?.players.find(p=>p.active&&p.governorId===state.current);}
@@ -24,16 +24,25 @@ function read(){
 }
 function save(){
  if(!person()||state.loading)return;
- state.profiles[state.current]={input:read(),updatedAt:new Date().toISOString()};
+ state.profiles[state.current]={...state.profiles[state.current],input:read(),updatedAt:new Date().toISOString()};
  write(PROFILES,{version:1,players:state.profiles,last:state.current});
 }
 function stockTotal(){
  const sum=M.TIERS.reduce((s,t)=>s+M.TYPES.reduce((n,k)=>n+(Number($('personalstock'+t+k).value)||0),0),0);
  $('personalstocktotal').textContent=fmt(sum)+' T8–T10 troops entered. Your own-rally packet is reserved before splitting joins.';
 }
-function dirty(){
- if(state.loading)return;state.output=null;$('personalresult').hidden=true;$('personalerror').hidden=true;
- $('personalownsettings').hidden=!$('personalown').checked;stockTotal();save();
+const errorFields=['personalplayer','personaljoins','personalpresets','personalcapacity','personalbare','personalcap','personalowncapacity','personalstock10infantry'];
+function clearErrors(){for(const id of [...errorFields,...M.TYPES.map(k=>'personallead'+k)]){const field=$(id),hint=document.getElementById(id+'error');field.setAttribute('aria-invalid','false');if(hint)hint.hidden=true;}}
+function reportError(error){
+ const message=error.message||String(error);$('personalerror').textContent=message;$('personalerror').hidden=false;
+ const mappings=[[/Choose your name|Choose a player/i,'personalplayer'],[/Joining marches must/i,'personaljoins'],[/Saved preset/i,'personalpresets'],[/capacity without heroes/i,'personalbare'],[/Joining march capacity/i,'personalcapacity'],[/Alliance joining limit/i,'personalcap'],[/Own-rally march capacity|own-rally troops exceed/i,'personalowncapacity'],[/available infantry hero|available infantry leader/i,'personalleadinfantry'],[/available cavalry hero|available cavalry leader/i,'personalleadcavalry'],[/available archers hero|available archers leader/i,'personalleadarchers'],[/too few troops|at least one tier/i,'personalstock10infantry']];
+ const id=mappings.find(([pattern])=>pattern.test(message))?.[1];
+ if(id){const field=$(id),hint=document.getElementById(id+'error');field.setAttribute('aria-invalid','true');if(hint){hint.textContent=message;hint.hidden=false;}field.scrollIntoView({behavior:'smooth',block:'center'});field.focus({preventScroll:true});}
+ else $('personalerror').scrollIntoView({behavior:'smooth',block:'center'});
+}
+function dirty(event){
+ if(state.loading||event?.target?.id==='personalplayer')return;state.edits++;if(person())state.profiles[state.current]={...state.profiles[state.current],edited:true};clearErrors();state.output=null;$('personalresult').hidden=true;$('personalerror').hidden=true;
+ $('personalownsettings').hidden=!$('personalown').checked;stockTotal();save();if(window.BearCloudDraftChanged)window.BearCloudDraftChanged();
 }
 function leaderOptions(selected={}){
  for(const type of M.TYPES){
@@ -48,9 +57,8 @@ function suggest(){
 }
 function selectPlayer(skipSave=false){
  if(skipSave!==true)save();state.loading=true;const previousPlayer=state.current;state.current=$('personalplayer').value;
- if(previousPlayer!==state.current&&window.BearCloudSelectionChanged)window.BearCloudSelectionChanged();
  state.output=null;$('personalresult').hidden=true;$('personalerror').hidden=true;
- const p=person();if(!p){state.loading=false;return;}
+ const p=person();if(!p){state.loading=false;if(window.BearCloudSelectionChanged)window.BearCloudSelectionChanged();return;}
  const saved=state.profiles[state.current]?.input,c=context(),pc=c?.players?.[state.current];
  const heroData=observed();
  for(const t of M.TIERS)for(const k of M.TYPES)$('personalstock'+t+k).value=saved?.stock?.[t]?.[k]??0;
@@ -75,7 +83,8 @@ function selectPlayer(skipSave=false){
  $('personalownsettings').hidden=!$('personalown').checked;
  $('personalcapacitynote').textContent=saved?'Loaded your saved personal entries. Update counts for this event.':p.stats.march_capacity?'March capacity comes from your entered alliance stats. Confirm it with your current heroes.':pc?.capacity?'Joining capacity is an alliance-model estimate. Verify it in game. Own-rally and hero-free capacities must also be checked.':'Enter your actual march capacities from the deployment screen.';
  $('personalactionstatus').textContent='';$('personalstatus').textContent=p.api.name+' · '+A.groupLabel(p.group)+' · saved roster '+(state.plan.snapshotAt?new Date(state.plan.snapshotAt).toLocaleDateString():'date unknown');
- state.loading=false;stockTotal();save();
+ state.loading=false;stockTotal();save();clearErrors();
+ if(previousPlayer!==state.current&&window.BearCloudSelectionChanged)window.BearCloudSelectionChanged();
 }
 function troopTable(packet){return '<table><thead><tr><th>Tier</th>'+M.TYPES.map(k=>'<th>'+labels[k]+'</th>').join('')+'<th>Total</th></tr></thead><tbody>'+M.TIERS.map(t=>'<tr><th scope="row">T'+t+' / '+({10:'X',9:'IX',8:'VIII'}[t])+'</th>'+M.TYPES.map(k=>'<td>'+fmt(packet[t][k])+'</td>').join('')+'<td>'+fmt(M.TYPES.reduce((n,k)=>n+packet[t][k],0))+'</td></tr>').join('')+'</tbody></table>';}
 function timing(p,input){
@@ -97,10 +106,11 @@ function timing(p,input){
  if(c.strategy.join_window_s)text.push('The selected alliance plan uses delayed joining ('+c.strategy.join_window_s+' seconds before departure). The simple immediate-joining routine below differs: follow the organizer\'s chosen timing.');
  return {html:text.map(t=>'<p>'+esc(t)+'</p>').join(''),text:text.join('\n')};
 }
-function build(){
+function build(options={}){
+ clearErrors();
  try{
   const p=person();if(!p)throw Error('Choose your name first.');
-  const input=read(),out=M.build(input);state.output=out;state.input=input;save();
+  const input=read();if(!M.total(M.matrix(input.stock)))throw Error('Enter available troops in at least one tier before building your setup.');const out=M.build(input);state.output=out;state.input=input;save();
   $('personalerror').hidden=true;$('personalresult').hidden=false;
   $('personalresultname').textContent=p.api.name+' · '+out.joins+' joining marches'+(out.own.enabled?' + special own rally':'');
   $('personalresultnote').textContent=out.note;
@@ -127,18 +137,19 @@ function build(){
   $('personaljoinsteps').innerHTML=joins.map(s=>'<li>'+esc(s)+'</li>').join('');
   state.text=p.api.name+' — Bear setup\n'+out.note+'\n\nEACH JOIN:\n'+M.TIERS.map(t=>'T'+t+': '+M.TYPES.map(k=>fmt(out.packet[t][k])+' '+k).join(', ')).join('\n')+'\n\n'+rows.map(row=>row.join(' · ')).join('\n')+'\n\nSETUP:\n'+steps.map((s,i)=>(i+1)+'. '+s).join('\n')+'\n\nTIMING:\n'+instructions.text+'\n\nJOINING:\n'+joins.join('\n');
   $('personalactionstatus').textContent='Setup ready. Counts and heroes are saved on this device.';
-  $('personalresult').scrollIntoView({behavior:'smooth',block:'start'});
- }catch(error){$('personalresult').hidden=true;$('personalerror').textContent=error.message;$('personalerror').hidden=false;$('personalerror').scrollIntoView({behavior:'smooth',block:'center'});}
+  if(options.scroll!==false)$('personalresult').scrollIntoView({behavior:'smooth',block:'start'});return out;
+ }catch(error){$('personalresult').hidden=true;reportError(error);return null;}
 }
 function download(name,content){const u=URL.createObjectURL(new Blob([content],{type:'application/json'})),a=document.createElement('a');a.href=u;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(u),1000);}
 async function start(){
  $('personalinventory').innerHTML=M.TIERS.map(t=>'<tr><th scope="row">T'+t+' / '+({10:'X',9:'IX',8:'VIII'}[t])+'</th>'+M.TYPES.map(k=>'<td><input id="personalstock'+t+k+'" type="number" inputmode="numeric" min="0" max="5000000" step="1" value="0" aria-label="T'+t+' '+k+' available"></td>').join('')+'</tr>').join('');
  $('personalheroes').innerHTML=M.HEROES.map(h=>'<div class="personal-hero"><label><input id="personalhas'+h.id+'" type="checkbox"> '+esc(h.name)+'<small>'+labels[h.type]+(h.join?' · offensive joiner':' · own-rally option')+'</small></label><select id="personalskill'+h.id+'" aria-label="'+esc(h.name)+' first Expedition skill level">'+Array.from({length:6},(_,i)=>'<option value="'+i+'">'+(i?'Lv '+i:'Unknown')+'</option>').join('')+'</select></div>').join('');
- $('personalleaders').innerHTML=M.TYPES.map(k=>'<label>'+labels[k]+' leader<select id="personallead'+k+'"><option value="">Choose '+k+' hero</option></select></label>').join('');
+ $('personalleaders').innerHTML=M.TYPES.map(k=>'<label>'+labels[k]+' leader<select id="personallead'+k+'" aria-describedby="personallead'+k+'error"><option value="">Choose '+k+' hero</option></select><small id="personallead'+k+'error" class="field-error" hidden></small></label>').join('');
  $('personalform').addEventListener('input',dirty);
  $('personalform').addEventListener('change',e=>{if(e.target.id==='personalplayer')return;if(e.target.id.startsWith('personalhas'))leaderOptions();dirty();});
  $('personalplayer').addEventListener('change',selectPlayer);
- $('personalform').addEventListener('submit',e=>{e.preventDefault();build();});
+ $('personalform').addEventListener('submit',e=>{e.preventDefault();if(window.BearCloudSave)return window.BearCloudSave();return build();});
+ $('personalpreview').onclick=()=>{if(build())$('personalresultsave').textContent='Setup preview. Your draft is on this device; use Save online & show setup to share your changes.';};
  $('personalsuggest').addEventListener('click',suggest);
  $('personalcopy').onclick=async()=>{try{await navigator.clipboard.writeText(state.text);$('personalactionstatus').textContent='Instructions copied.';}catch(_){$('personalcopytext').value=state.text;$('personalcopytext').hidden=false;$('personalcopytext').focus();$('personalcopytext').select();$('personalactionstatus').textContent='Select and copy the instructions below.';}};
  $('personalexport').onclick=()=>{if(!state.output)return;download('bear-player-'+state.current+'.json',JSON.stringify({schema:'bear-personal-profile',version:1,governorId:state.current,name:person().api.name,updatedAt:new Date().toISOString(),input:read()},null,2));};
@@ -177,9 +188,12 @@ async function start(){
   else $('personalstatus').textContent='Choose your player. Counts, heroes and presets are saved separately for each person on this device.';
  }catch(error){$('personalstatus').textContent=error.message;$('personalerror').textContent='Cannot load the alliance roster. Open the alliance optimizer to restore your saved plan, then retry.';$('personalerror').hidden=false;}
 }
-window.BearPersonalProfiles={current:()=>person(),read,load(input){
- M.build(input);if(!person())throw Error('Choose a player first.');
- state.profiles[state.current]={input,updatedAt:new Date().toISOString()};selectPlayer(true);build();
-}};
+window.BearPersonalProfiles={current:()=>person(),read,build,reportError,stamp:()=>state.edits,
+ hasDraft(){const p=state.profiles[state.current];return !!p?.edited||(!p?.syncedInput&&M.total(M.matrix(read().stock))>0);},
+ markSaved(input){if(!person())return;state.profiles[state.current]={...state.profiles[state.current],edited:JSON.stringify(read())!==JSON.stringify(input),syncedInput:JSON.stringify(input)};save();},
+ load(input){
+  M.build(input);if(!person())throw Error('Choose a player first.');
+  state.profiles[state.current]={input,edited:false,syncedInput:JSON.stringify(input),updatedAt:new Date().toISOString()};selectPlayer(true);
+ }};
 start();
 })();

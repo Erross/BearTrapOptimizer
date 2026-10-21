@@ -27,10 +27,10 @@ class Element {
       ? this.children.filter(element => element.tag === selector) : [];
   }
   querySelector() {return new Element();}
-  setAttribute() {}
+  setAttribute(name,value) {this.attributes ??= {};this.attributes[name]=value;}
   addEventListener(type, fn) {this.handlers ??= {}; this.handlers[type]=fn;}
   scrollIntoView() {}
-  focus() {}
+  focus() {this.focused=true;}
   select() {this.selectedText = true;}
   showModal() {this.open = true;}
   close() {this.open = false;}
@@ -100,13 +100,60 @@ async function main(){
  await nodes.personalimport.onchange({target:{files:[{size:1000,text:async()=>JSON.stringify({schema:'wrong'})}],value:'bad.json'}});
  assert.equal(nodes.personalstock10archers.value,before);
  assert.equal(nodes.personalerror.hidden,false);
- // Exercise cloud controls through the actual personal-page bridge.
- for(const file of ['cloud-client.js','cloud-personal.js'])vm.runInContext(fs.readFileSync(path.join(root,'web',file),'utf8'),context);
- const calls=[];context.BearCloud.request=async(route,key,method,data)=>{calls.push({route,key,method,data});return method==='PUT'?{revision:3,updatedAt:'2026-10-21T20:00:00Z'}:{input,revision:2,updatedAt:'2026-10-21T19:00:00Z'};};
- await nodes.cloudload.onclick();
+ // Exercise direct save, validation and asynchronous cloud behavior through real handlers.
+ vm.runInContext(fs.readFileSync(path.join(root,'web/cloud-client.js'),'utf8'),context);
+ const calls=[];
+ const response={input,revision:2,updatedAt:'2026-10-21T19:00:00Z'};
+ context.BearCloud.request=async(route,key,method,data)=>{calls.push({route,key,method,data});return method==='PUT'?{revision:3,updatedAt:'2026-10-21T20:00:00Z'}:response;};
+ vm.runInContext(fs.readFileSync(path.join(root,'web/cloud-personal.js'),'utf8'),context);
+ await submit();
+ assert.equal(calls.at(-1).method,'PUT');assert.equal(calls.at(-1).data.revision,2);assert.equal(calls.at(-1).key,'');
+ assert.equal(nodes.cloudbadge.textContent,'Saved online');assert.equal(nodes.cloudsave.disabled,false);
+ // Validation focuses a specific field and never submits invalid entries.
+ const beforeInvalid=calls.length;nodes.personalcapacity.value='';
+ await submit();assert.equal(calls.length,beforeInvalid);
+ assert.equal(nodes.personalcapacity.attributes['aria-invalid'],'true');assert.equal(nodes.personalcapacity.focused,true);
+ assert.equal(nodes.personalcapacityerror.hidden,false);
+ nodes.personalcapacity.value='100000';nodes.personalform.handlers.input();
+ const deferred=()=>{let resolve;const promise=new Promise(r=>{resolve=r;});return {promise,resolve};};
+ // Late automatic prefill must preserve edits typed during the request.
+ const late=deferred();context.BearCloud.request=()=>late.promise;
+ const checking=context.window.BearCloudSelectionChanged();
+ nodes.personalstock10archers.value='333333';nodes.personalform.handlers.input();
+ late.resolve(response);await checking;
+ assert.equal(nodes.personalstock10archers.value,'333333');assert.equal(nodes.cloudload.hidden,false);
+ // Explicitly choosing an online copy replaces the old local draft.
+ context.BearCloud.request=async()=>response;await nodes.cloudload.onclick();
+ assert.equal(nodes.personalstock10archers.value,300000);assert.equal(nodes.cloudload.hidden,true);
+ // A failed check leaves the draft usable and offers an explicit retry.
+ context.BearCloud.request=async()=>{throw Error('Service unavailable');};
+ await context.window.BearCloudSelectionChanged();
+ assert.equal(nodes.cloudretry.hidden,false);assert.equal(nodes.cloudsave.disabled,false);
+ assert.equal(nodes.personalstock10archers.value,300000);
+ // A response for the previous player cannot change the newly selected player.
+ const stale=deferred();context.BearCloud.request=()=>stale.promise;
+ const oldCheck=context.window.BearCloudSelectionChanged();
+ nodes.personalplayer.value=second;nodes.personalplayer.handlers.change({});
+ stale.resolve(response);await oldCheck;await new Promise(r=>setTimeout(r,0));
+ assert.equal(context.window.BearPersonalProfiles.current().governorId,second);
+ assert.equal(String(nodes.personalstock10archers.value),'12345');
+ // Return to the complete profile and exercise a stale-write conflict.
+ context.BearCloud.request=async()=>response;
+ nodes.personalplayer.value=first;nodes.personalplayer.handlers.change({});await new Promise(r=>setTimeout(r,0));
+ nodes.personalstock10archers.value='444444';nodes.personalform.handlers.input();
+ let writes=0;context.BearCloud.request=async(route,key,method)=>{if(method==='PUT'){writes++;throw Error('Profile changed. Load again.');}return response;};
+ await submit();assert.equal(writes,1);assert.equal(nodes.cloudreplace.hidden,false);
+ await submit();assert.equal(writes,1,'A retry must not silently overwrite a newer online copy');
+ await nodes.cloudload.onclick();assert.equal(nodes.personalstock10archers.value,300000);
+ assert.equal(nodes.cloudreplace.hidden,true);
+ // Edits made while a PUT is pending stay marked as a draft.
+ const saving=deferred();context.BearCloud.request=async(route,key,method)=>method==='PUT'?saving.promise:response;
+ const saveTask=submit();assert.equal(nodes.cloudsave.disabled,true);
+ nodes.personalstock10archers.value='555555';nodes.personalform.handlers.input();
+ saving.resolve({revision:4,updatedAt:'2026-10-21T20:10:00Z'});await saveTask;
+ assert.equal(nodes.cloudbadge.textContent,'Earlier entries saved');
+ assert.equal(nodes.personalstock10archers.value,'555555');assert.equal(context.window.BearPersonalProfiles.hasDraft(),true);
  assert.equal(nodes.cloudsave.disabled,false);
- await nodes.cloudsave.onclick();assert.equal(calls.at(-1).data.revision,2);assert.equal(calls.at(-1).key,'');
- nodes.personalplayer.value=second;nodes.personalplayer.handlers.change({});assert.equal(nodes.cloudsave.disabled,true);
  console.log('Personal roster selection, presets, local/cloud saves, model apply, copy and import checks pass.');
 }
 main().catch(error=>{console.error(error);process.exitCode=1;});
