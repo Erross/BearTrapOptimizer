@@ -17,42 +17,52 @@ No game API is involved. Local browser saves and JSON export/import remain avail
    `web/cloudflare-worker.js` in the repo.
 5. On Organizer, enter your ADMIN_TOKEN and click Initialize database. This
    creates a table if absent; it does not drop or clear existing data.
-6. Choose a member and confirm code issuance. Save the returned player code and
-   privately give it to that player. Issuing again invalidates their old code
-   while preserving the profile. The server stores only a hash of the code.
-7. On Optimize Me, choose that name, enter the private player code, and Load
-   shared profile. If none exists, the entered local setup remains. Complete
+6. On Optimize Me, choose a player name and click Load shared profile. No player
+   code is needed. If none exists, the entered local setup remains. Complete
    a valid setup, then Save online. Loading an existing setup replaces local
    form entries. Export a local draft first if you need to preserve both.
-8. On a second device, choose that name and load with the same player code.
-9. On Organizer, Review submitted profiles, select the desired rows, and Apply
+7. On another device, choose that name and load the shared profile.
+8. On Organizer, Review submitted profiles, select desired rows, and Apply
    selected counts. Reopen the alliance optimizer and compare again. Nothing
    automatically replaces the organizer's model before this review.
 
-The organizer key and player code are held only in the page's current memory and
-inputs, not persistent browser storage. Player profile data continues to save
-locally. Clear access key or close Organizer when finished. Codes are bearer
-credentials: anyone possessing one can use its access. Lost codes are replaced,
-not recovered. The model's aggregate troop/queue/capacity inputs are updated;
-its existing tier, strength, bonus and geometry assumptions remain for review.
+**Open mode:** anyone can view or change a known player's shared profile by
+selecting that name. Names do not prove identity. Numeric validation cannot
+verify that plausible troop numbers are truthful. The organizer reviews counts
+before applying them to their local model. Existing saved profiles are retained;
+legacy edit-code hashes are unused, and issuing player codes is disabled.
+
+The organizer key stays only in current page memory/inputs, not persistent
+browser storage. Clear access key or close Organizer when finished. Player data
+continues to save locally. Exact tier inventories stay in shared profiles; the
+model's aggregate troop/queue/capacity inputs are updated, and its existing tier,
+strength, bonus and geometry assumptions remain for review.
 
 ## Verification and limits
 
 `GET /health` identifies the deployed Worker but does not test DB readiness.
 Initialization and an authenticated save/load test verify the database binding.
-Unauthenticated profile reads/writes must return 401. A different player's code
-must fail. An older revision must return 409 instead of overwriting newer data.
+Player reads/writes work without credentials. Organizer actions without a valid
+key must return 401. An older revision returns 409 instead of replacing newer data.
+Saving a player again within 10 seconds returns 429. The write condition enforces
+both checks atomically, including simultaneous first submissions.
 Load again before resolving a conflict; export unsaved local edits first.
 
 The Worker permits browser requests only from `https://erross.github.io`.
-CORS is not authentication; every data request also requires an organizer or
-player credential. IDs are restricted to the CNQ roster present when the
-bundle was generated. Responses use no-store, writes validate the same full
-setup as the client, and request bodies are capped at 20 KB. Queries use bound
-parameters. Server errors return no SQL, credentials or raw exception details.
-The long random codes resist guessing; this first version does not include
-user accounts, email recovery, a custom abuse rate limiter or an audit history.
-Cloudflare platform limits still apply. Do not expose the organizer key to members.
+CORS is not authentication: player endpoints are deliberately public, while
+organizer endpoints still require the secret. IDs are restricted to the CNQ
+roster present when the bundle was generated. Responses use no-store. Bodies
+are limited to 20 KB. Only supported hero names/levels and fixed troop fields
+are retained; numeric strings become bounded integers, extra fields are dropped,
+and malformed values, invalid heroes, duplicate heroes and totals above five
+million troops are rejected. The allocation validator also checks stock/capacity
+and hero availability. Queries use bound parameters; displayed text is escaped.
+Server errors expose no SQL, credentials or raw exception details.
+
+The 10-second cooldown is per player, not a global or per-IP abuse defense.
+Open mode does not prevent impersonation or all malicious traffic. There are no
+user accounts, edit history or automated identity checks. Platform limits still
+apply. Do not share the organizer key with members.
 
 The public Worker URL is configured in `web/cloud-client.js`. Change it if the
 account/Worker name changes. ADMIN_TOKEN is set only in Cloudflare. The DB binding
@@ -74,5 +84,6 @@ that module again in Cloudflare. GitHub publishing alone does not deploy the
 Cloudflare Worker. Adding new roster IDs also requires a regenerated Worker.
 
 The backend test uses Node 22+ built-in SQLite to exercise real SQL statements,
-authentication, key rotation, stale revisions, body validation and imports.
+organizer authentication, open saves, cooldowns, concurrent/stale revisions,
+strict validation, legacy data preservation and imports.
 It does not substitute for a live Cloudflare test after deployment.
