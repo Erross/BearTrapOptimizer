@@ -17,7 +17,7 @@ function render(){
   const d=p.data;
   const detail=d?'<details><summary>Troops by tier</summary><div class="tier-lines">'+M.TIERS.map(t=>'T'+t+': '+M.TYPES.map(k=>fmt(d.stock[t][k])+' '+names[k]).join(' · ')).join('<br>')+(M.TYPES.some(k=>d.lower[k])?'<br>Lower-tier own reserve: '+M.TYPES.map(k=>fmt(d.lower[k])+' '+names[k]).join(' · '):'')+'</div></details>':'';
   const cell=(label,value,cls='')=>'<td data-label="'+label+'" class="'+cls+'">'+value+'</td>';
-  return '<tr>'+cell('Player','<div><a class="member-name" href="./optimize-me.html?player='+encodeURIComponent(p.id)+'">'+esc(p.name)+'</a><small>'+esc(p.rank)+' · Update setup →</small><small>'+(p.x!=null&&p.y!=null?'X '+p.x+' · Y '+p.y:'Coordinates unavailable')+'</small>'+(p.x!=null&&p.y!=null?'<small>Position observed: '+esc(date(p.positionAt))+'</small>':'')+'</div>')+
+  return '<tr>'+cell('Player','<div><a class="member-name" href="./optimize-me.html?player='+encodeURIComponent(p.id)+'">'+esc(p.name)+'</a><small>'+esc(p.rank)+' · Update setup →</small><small><a href="./history.html?player='+encodeURIComponent(p.id)+'">View history →</a></small><small>'+(p.x!=null&&p.y!=null?'X '+p.x+' · Y '+p.y:'Coordinates unavailable')+'</small>'+(p.x!=null&&p.y!=null?'<small>Position observed: '+esc(date(p.positionAt))+'</small>':'')+'</div>')+
    cell('Town Center',p.level?'TC '+p.level:'Unknown','numeric')+cell('Power',fmt(p.power),'numeric')+
    cell('Submitted troops','<div>'+(d?'<b>'+fmt(d.total)+'</b><small>'+d.joins+' joins · '+d.presets+' presets'+(d.own?' · own rally':' · joins only')+'</small>':'Unknown')+detail+'</div>','numeric')+
    M.TYPES.map(k=>cell(names[k],d?fmt(d.types[k]):'—','numeric')).join('')+
