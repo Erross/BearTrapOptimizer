@@ -47,7 +47,8 @@ function suggest(){
  const selected=M.suggestLeaders(read().heroes,observed());leaderOptions(selected);dirty();
 }
 function selectPlayer(skipSave=false){
- if(skipSave!==true)save();state.loading=true;state.current=$('personalplayer').value;
+ if(skipSave!==true)save();state.loading=true;const previousPlayer=state.current;state.current=$('personalplayer').value;
+ if(previousPlayer!==state.current&&window.BearCloudSelectionChanged)window.BearCloudSelectionChanged();
  state.output=null;$('personalresult').hidden=true;$('personalerror').hidden=true;
  const p=person();if(!p){state.loading=false;return;}
  const saved=state.profiles[state.current]?.input,c=context(),pc=c?.players?.[state.current];
@@ -176,5 +177,9 @@ async function start(){
   else $('personalstatus').textContent='Choose your player. Counts, heroes and presets are saved separately for each person on this device.';
  }catch(error){$('personalstatus').textContent=error.message;$('personalerror').textContent='Cannot load the alliance roster. Open the alliance optimizer to restore your saved plan, then retry.';$('personalerror').hidden=false;}
 }
+window.BearPersonalProfiles={current:()=>person(),read,load(input){
+ M.build(input);if(!person())throw Error('Choose a player first.');
+ state.profiles[state.current]={input,updatedAt:new Date().toISOString()};selectPlayer(true);build();
+}};
 start();
 })();
