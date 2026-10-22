@@ -1,3 +1,33 @@
+# App-wide UI/UX consistency review — 21 October 2026
+
+Scope: Optimize Me, Alliance summary, History, Alliance optimizer (including setup, custom strategies and roster/trap dialogs), and Organizer. This pass changes presentation and validation feedback; it does not change combat calculations, stored profile formats, API permissions, or refresh scheduling.
+
+## Changes
+
+- All five pages share the same navigation labels, order, active-page treatment, colors, heading sizes, spacing, focus rings and minimum control sizes. Player context follows setup/history navigation.
+- Mobile navigation wraps into explicit links. Tables scroll within their own regions and support keyboard focus. Form text stays legible without iOS input zoom.
+- Failed actions collect invalid entries, display a linked error summary, mark individual fields, and focus the first problem. Correcting one field retains the other field warnings. Dialog errors stay inside the open dialog.
+- Personal setup has working step links, clearly selected hero cards, separate approved joining/own-rally hero groups, conditional own-rally/lower-tier requirements, and an explanation of why hero-free capacity is needed. The save area no longer covers phone content. Results link back to editable entries.
+- Comparison and strategy inputs reject missing/out-of-range values before running. Corrected inconsistent number steps that made valid defaults (50,000 troop caps, 5% own-rally allocation and 4s timing calibration) fail browser validation. Invalid strategy ratios mark both percentage fields.
+- Unsaved player edits take the organizer straight to the relevant editor and save control. Setup header and tabs stay together; roster dialog headers have an opaque background.
+- Summary has a clear search/filter reset. History has an explicit retry that preserves selection. Routine Organizer review appears before one-time Cloudflare setup, with focused key errors and a visible route onward to the optimizer.
+
+## Verification
+
+- Existing Python suite: 110 tests passed; 120 browser/Python parity cases passed.
+- Existing JavaScript model, UI state, personal/cloud save, summary, history, alliance UI and export checks passed.
+- Optional real Chromium test: `node tests/check_app_ux.cjs` with Playwright installed (`BEAR_BROWSER_EXECUTABLE` optionally selects a local Chromium binary). It serves the app locally and mocks all external requests; no real profiles are written.
+- Browser coverage: all five pages at 1440, 768, 390 and 320 px; consistent navigation, one current-page marker, no page-level horizontal overflow; valid comparison/strategy defaults; multiple missing entries and retained field warnings; errors inside trap dialogs; one reusable hero-free preset; preview without online writes; successful save and draft retention after a failed save; directory reset; history retry; organizer-key focus.
+- Visually inspected desktop/phone pages and phone setup, model and trap dialogs. Chromium responsive testing does not substitute for a physical iPhone/Safari check.
+
+## Delivery state
+
+Implemented and tested before publication. The user authorized publishing this pass. No Cloudflare Worker redeployment is required.
+
+---
+
+## Previous review
+
 # Beginner walkthrough and UX changes
 
 ## Second usability pass · 12 October 2026

@@ -5,7 +5,15 @@
  const state={plan:M.emptyPlan(),apiSnapshot:null,bands:null,mode:'cnq',filter:'all',page:0,selected:new Set(),compiled:null,editorId:null,pending:false,started:false,map:{view:null,drag:null,suppressClick:false}};
  const active=()=>state.mode==='cnq',members=()=>state.plan.players.filter(p=>p.active);
  const date=value=>value?new Date(typeof value==='number'?value*1000:value).toLocaleString([], {month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}):'Not imported';
- const notice=(message,error=false)=>{$('alliancestatus').textContent=message;$('alliancestatus').classList.toggle('problem',error);};
+ const notice=(message,error=false)=>{
+  $('alliancestatus').textContent=message;$('alliancestatus').classList.toggle('problem',error);
+  if(error&&window.BearUI){
+   const fields=/both X and Y for Bear trap ([12])/i.exec(message);
+   const ids=fields?['trapx'+fields[1],'trapy'+fields[1]].filter(id=>$(id).value===''):/Enter outbound travel/i.test(message)?['membermeasuredtravel']:/Choose a trap, attendance or role/i.test(message)?['bulkgroup','bulkattendance','bulkrole']:[];
+   const scope=$('alliancedialog').open?$('alliancedialog'):$('advisorinput');
+   window.BearUI.feedback(scope,ids.map(id=>({field:$(id),message})),message);
+  }
+ };
  function persist(){
   state.plan.useAlliance=active();
   try{localStorage.setItem(KEY,JSON.stringify(M.validatePlan(state.plan)));}
@@ -376,7 +384,7 @@
   $('applyalliancebulk').onclick=()=>{
    try{
     capture();const next=M.clone(state.plan),group=$('bulkgroup').value,attendance=$('bulkattendance').value,role=$('bulkrole').value;
-    if([group,attendance,role].every(v=>v==='keep')){notice('Choose a trap, attendance or role to apply.');return;}
+    if([group,attendance,role].every(v=>v==='keep')){notice('Choose a trap, attendance or role to apply.',true);return;}
     for(const p of next.players)if(state.selected.has(p.governorId)){
      if(group!=='keep')p.group=group;if(attendance!=='keep')p.attending=attendance==='yes';if(role!=='keep')p.canHost=role==='yes';
     }

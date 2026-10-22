@@ -30,11 +30,14 @@ function draw(){
 }
 async function select(){
  const ticket=++sequence,id=$('historyplayer').value;
+ if($('historyretry'))$('historyretry').hidden=true;
  history=null;$('historystatus').textContent='Loading history…';$('historyplot').innerHTML='';$('historyrows').innerHTML='';$('historylatest').textContent='';$('historychange').textContent='';$('historyrange').textContent='';$('historycoverage').textContent='';
  const person=selectedPerson();$('historytown').disabled=id==='alliance';if(id==='alliance'&&$('historymetric').value==='townLevel')$('historymetric').value='power';$('historyupdate').hidden=!person.active;$('historyupdate').href='./optimize-me.html?player='+encodeURIComponent(id);
  const url=new URL(location.href);url.searchParams.set('player',id);window.history.replaceState(null,'',url);
- try{const result=await read('./data/history/'+encodeURIComponent(id)+'.json');if(ticket!==sequence)return;if(result.version!==1||result.id!==id)throw Error('invalid');history=result;$('historystatus').textContent='Archive updated '+utc(index.updatedAt)+(person.id==='alliance'||person.active?'':' · Former alliance member');draw();}catch(error){if(ticket===sequence)$('historystatus').textContent='Could not load this history. Reload the page to try again.';}
+ if(window.BearUI)for(const a of document.querySelectorAll('.app-nav a'))if(/optimize-me\.html/.test(a.getAttribute('href')))a.href='./optimize-me.html'+(id==='alliance'?'':'?player='+encodeURIComponent(id));
+ try{const result=await read('./data/history/'+encodeURIComponent(id)+'.json');if(ticket!==sequence)return;if(result.version!==1||result.id!==id)throw Error('invalid');history=result;$('historystatus').textContent='Archive updated '+utc(index.updatedAt)+(person.id==='alliance'||person.active?'':' · Former alliance member');draw();}catch(error){if(ticket===sequence){$('historystatus').textContent='Could not load this history. Your selection is preserved. Try again below.';if($('historyretry'))$('historyretry').hidden=false;}}
 }
+if($('historyretry'))$('historyretry').onclick=()=>index?select():location.reload();
 $('historyplayer').addEventListener('change',select);$('historymetric').addEventListener('change',draw);$('historyperiod').addEventListener('change',draw);
 (async()=>{try{
  index=await read('./data/history/index.json');if(index.version!==1||!index.players?.length)throw Error('invalid');
@@ -43,5 +46,5 @@ $('historyplayer').addEventListener('change',select);$('historymetric').addEvent
  $('historyplayer').disabled=false;const capture=index.profileCapture;
  $('historycapture').textContent=capture?'Last troop check: '+utc(capture.at)+' · '+capture.saved+' saved submissions · '+capture.checked+' profiles checked · '+capture.unavailable+' unavailable'+(capture.notChecked?' · '+capture.notChecked+' not checked':'')+'.':'Troop capture starts with the next successful alliance refresh.';
  await select();
- }catch(error){$('historystatus').textContent='Could not load the history archive. Reload the page to try again.';}})();
+ }catch(error){if($('historyretry'))$('historyretry').hidden=false;$('historystatus').textContent='Could not load the history archive. Reload the page to try again.';}})();
 })();

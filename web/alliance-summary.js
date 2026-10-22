@@ -43,9 +43,9 @@ async function refresh(){
  }
  const all=S.totals(S.rows(plan,snapshot,records));render();
  $('summarystatus').dataset.error=String(all.unavailable>0);
- $('summarystatus').textContent=stopped?'Online submissions could not be checked. Roster details remain available; use Refresh shared data to retry.':all.unavailable?'Checked '+ids.length+' members. '+all.unavailable+' submissions could not be read; their troop counts are excluded. Refresh to retry.':'Checked all '+ids.length+' members. '+all.saved+' have submitted troops; '+all.missing+' have not submitted yet.';
+ $('summarystatus').textContent=stopped?'Online submissions could not be checked. Roster details remain available; use Check online submissions to retry.':all.unavailable?'Checked '+ids.length+' members. '+all.unavailable+' submissions could not be read; their troop counts are excluded. Refresh to retry.':'Checked all '+ids.length+' members. '+all.saved+' have submitted troops; '+all.missing+' have not submitted yet.';
  $('summarychecked').textContent=(all.unavailable?'Check finished':'Submissions checked')+' '+date(new Date().toISOString())+'. Individual save times are shown beside each player.';
- busy=false;$('summaryrefresh').disabled=false;$('summaryrefresh').textContent='Refresh shared data';
+ busy=false;$('summaryrefresh').disabled=false;$('summaryrefresh').textContent='Check online submissions';
 }
 async function start(){
  $('summarytimezone').textContent='Times are shown in '+Intl.DateTimeFormat().resolvedOptions().timeZone+'. “7+ days old” refers to the troop submission, not the roster.';
@@ -59,7 +59,8 @@ async function start(){
   $('alliancedetails').textContent=plan.players.filter(p=>p.active).length+' members · Kingdom '+plan.kingdomId+' · Leader: '+(a.leader_name||'Unknown')+(a.power!=null?' · Alliance power: '+fmt(a.power):'')+(a.power_rank!=null?' · Power rank: #'+a.power_rank:'');
   $('rosterdate').textContent='Levels, power & ranks observed: '+date(S.timestamp(snapshot.roster_freshness?.cached_at)||S.timestamp(snapshot.generated_at))+'. Snapshot published: '+date(S.timestamp(snapshot.generated_at))+'.';
   render();await refresh();
- }catch(error){$('summarystatus').textContent='Cannot load the published alliance roster. Use Refresh shared data to retry.';$('summarystatus').dataset.error='true';$('summaryrefresh').disabled=false;}
+ }catch(error){$('summarystatus').textContent='Cannot load the published alliance roster. Use Check online submissions to retry.';$('summarystatus').dataset.error='true';$('summaryrefresh').disabled=false;}
 }
 start();
+if(document.getElementById('summaryreset'))$('summaryreset').onclick=()=>{$('summarysearch').value='';$('summaryfilter').value='all';render();$('summarysearch').focus();};
 })();
