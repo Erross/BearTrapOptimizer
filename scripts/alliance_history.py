@@ -94,6 +94,34 @@ def append(series, point):
         series.sort(key=lambda p: p['at'])
 
 
+def archive_alliance(snapshot, directory=DIRECTORY, inventories=None, captured_at=None, coverage=None):
+    """Aggregate current members only. Failed reads may retain labelled last-known counts."""
+    path = directory / 'alliance.json'
+    history = load(path, {'version': 1, 'id': 'alliance', 'power': [], 'troops': []})
+    if history.get('version') != 1 or history.get('id') != 'alliance':
+        raise ValueError('Unknown alliance history')
+    at = stamp(snapshot.get('roster_freshness', {}).get('cached_at')) or stamp(snapshot.get('generated_at'))
+    captured = stamp(captured_at or snapshot['generated_at'])
+    if not at or not captured:
+        raise ValueError('Missing alliance observation time')
+    roster = sorted({str(m.get('governor_id', m.get('fid'))) for m in snapshot['members']})
+    power = snapshot.get('alliance', {}).get('power')
+    if isinstance(power, int) and not isinstance(power, bool) and power >= 0:
+        append(history['power'], {'at': at, 'power': power, 'members': len(roster)})
+    if inventories is not None:
+        types = {k: sum(p['types'][k] for _, p, _ in inventories) for k in TYPES}
+        stock = {str(t): {k: sum(p['stock'][str(t)][k] for _, p, _ in inventories) for k in TYPES}
+                 for t in (10, 9, 8)}
+        point = {'at': captured, 'capturedAt': captured, 'total': sum(types.values()) if inventories else None,
+                 'types': types, 'stock': stock, 'members': len(roster),
+                 'memberIds': sorted(identity for identity, _, _ in inventories), 'rosterIds': roster,
+                 'reported': len(inventories), 'carried': sum(retained for _, _, retained in inventories),
+                 'oldestSubmission': min((p['at'] for _, p, _ in inventories), default=None),
+                 **(coverage or {})}
+        append(history['troops'], point)
+    return save(path, history)
+
+
 def archive(snapshot, records=None, directory=DIRECTORY, captured_at=None):
     """Preserve departed players and previous points; missing/error reads add no zero."""
     index = load(directory / 'index.json', {'version': 1, 'players': []})
@@ -108,6 +136,7 @@ def archive(snapshot, records=None, directory=DIRECTORY, captured_at=None):
     captured = stamp(captured_at or snapshot['generated_at'])
     paths = []
     checked = saved = errors = not_checked = 0
+    inventories = []
     for member in snapshot['members']:
         identity = str(member.get('governor_id', member.get('fid')))
         if not re.fullmatch(r'[1-9]\d{0,19}', identity):
@@ -122,6 +151,8 @@ def archive(snapshot, records=None, directory=DIRECTORY, captured_at=None):
             append(history['power'], {'at': at, 'power': power,
                                      'townLevel': level if isinstance(level, int) and level > 0 else None})
         if records is not None:
+            current = None
+            resolved = False
             record = records.get(identity)
             if identity not in records:
                 not_checked += 1
@@ -131,17 +162,25 @@ def archive(snapshot, records=None, directory=DIRECTORY, captured_at=None):
                 try:
                     point = inventory(record)
                     checked += 1
+                    resolved = True
+                    current = point
                     if point:
                         point['capturedAt'] = captured if captured >= point['at'] else None
                         append(history['troops'], point)
                         saved += 1
                 except (ValueError, TypeError, KeyError, AttributeError, OverflowError):
                     errors += 1
+            if current is not None:
+                inventories.append((identity, current, False))
+            elif not resolved and history['troops']:
+                inventories.append((identity, history['troops'][-1], True))
         paths += save(path, history)
     index = {'version': 1, 'updatedAt': captured,
              'players': sorted(players.values(), key=lambda p: (p['name'].casefold(), p['id']))}
     if records is not None:
         index['profileCapture'] = {'at': captured, 'checked': checked, 'saved': saved, 'unavailable': errors, 'notChecked': not_checked}
+    paths += archive_alliance(snapshot, directory, inventories if records is not None else None, captured,
+                              {'unavailable': errors, 'notChecked': not_checked, 'checked': checked})
     paths += save(directory / 'index.json', index)
     return paths
 
@@ -157,6 +196,7 @@ if __name__ == '__main__':
     import argparse
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--backfill', action='store_true', help='Recover committed roster snapshots without provider calls')
+    parser.add_argument('--alliance-only', action='store_true', help='Backfill only alliance power; preserve player capture metadata')
     parser.add_argument('--capture-profiles', action='store_true', help='Read current public player submissions')
     args = parser.parse_args()
     if args.backfill:
@@ -164,7 +204,10 @@ if __name__ == '__main__':
                                           'web/data/alliance-api.json'], cwd=ROOT, text=True).splitlines()
         for commit in commits:
             snapshot = json.loads(subprocess.check_output(['git', 'show', commit + ':web/data/alliance-api.json'], cwd=ROOT))
-            archive(snapshot)
+            if args.alliance_only:
+                archive_alliance(snapshot)
+            else:
+                archive(snapshot)
         print(f'Archived {len(commits)} committed roster snapshots.')
     if args.capture_profiles:
         capture(load(ROOT / 'web/data/alliance-api.json', {}))
