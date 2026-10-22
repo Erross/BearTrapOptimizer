@@ -93,6 +93,7 @@ function updateStrategyEditorFields(){
  $('plantemplate').disabled=running||editingStrategy!==null;
 }
 function readStrategyEditor(){
+ const invalid=(message,fields)=>{const error=Error(message);error.fields=fields;throw error;};
  const s={...strategyEditorBase,first_wave_join:$('planfirstwave').checked,join_window_s:num('planjoinwindow'),name:$('planname').value.trim(),host_names:[],host_count:num('planhosts'),cadence:$('plancadence').value,
   opening_wave_count:num('planwaves'),wave_interval_s:num('plangap'),formation:$('planformation').value,infantry_pct:num('planinf'),cavalry_pct:num('plancav'),
   join_march_cap:$('plancapmode').value==='none'?0:$('plancapmode').value==='dial'?num('joinmarchcap'):num('plancap'),
@@ -101,7 +102,7 @@ function readStrategyEditor(){
  if(!Number.isInteger(s.join_window_s)||s.join_window_s<0||s.join_window_s>600)throw Error('Joining window must be 0–600 seconds.');
  const whole=(v,min,max)=>Number.isInteger(v)&&v>=min&&v<=max;
  if(!whole(s.host_count,1,100)||!whole(s.opening_wave_count,1,100)||!whole(s.wave_interval_s,0,600))throw Error('Use 1–100 starters and waves, and a 0–600s wave interval.');
- if(![s.infantry_pct,s.cavalry_pct].every(v=>Number.isFinite(v)&&v>=0&&v<=100)||s.infantry_pct+s.cavalry_pct>100)throw Error('Infantry and cavalry must total at most 100%. Archers use the remainder.');
+ if(['strict','adaptive'].includes(s.formation)&&(![s.infantry_pct,s.cavalry_pct].every(v=>Number.isFinite(v)&&v>=0&&v<=100)||s.infantry_pct+s.cavalry_pct>100))invalid('Infantry and cavalry must total at most 100%. Archers use the remainder.',['planinf','plancav']);
  if(!whole(s.join_march_cap,0,2000000)||($('plancapmode').value==='fixed'&&!s.join_march_cap))throw Error('Use a positive fixed troop cap, or choose no cap.');
  if(!Number.isFinite(s.small_host_fraction)||s.small_host_fraction<.00001||s.small_host_fraction>1)throw Error('Own-rally troops must be greater than 0% and at most 100% of a march.');
  return {strategy:s,capMode:$('plancapmode').value};

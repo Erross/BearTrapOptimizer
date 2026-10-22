@@ -3,8 +3,22 @@
 const $=id=>document.getElementById(id),A=BearAllianceModel,M=BearPersonalModel,PLAN='BearTrapOptimizer:CNQ:2399:plan:v1';
 let snapshot=null,records=[],busy=false;
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-function key(){const v=$('adminkey').value.trim();if(v.length<32)throw Error('Organizer key must contain at least 32 characters. Enter the value stored in Cloudflare ADMIN_TOKEN.');return v;}
-async function action(fn){if(busy)return;busy=true;for(const id of ['admininit','adminload','adminapply','adminkey','adminlock'])$(id).disabled=true;try{await fn();}catch(error){$('adminstatus').textContent=error.message;}finally{busy=false;for(const id of ['admininit','adminload','adminkey','adminlock'])$(id).disabled=false;$('adminapply').disabled=!records.length;}}
+function key(){const v=$('adminkey').value.trim();if(v.length<32){const message='Organizer key must contain at least 32 characters. Enter the value stored in Cloudflare ADMIN_TOKEN.';throw Error(message);}return v;}
+async function action(fn){
+ if(busy)return;
+ const applying=document.activeElement?.id==='adminapply';let failure=null;
+ busy=true;$('adminstatus').textContent='Working… Please wait.';
+ if(window.BearUI)window.BearUI.clearFeedback();
+ for(const id of ['admininit','adminload','adminapply','adminkey','adminlock'])$(id).disabled=true;
+ try{await fn();}catch(error){failure=error;$('adminstatus').textContent=error.message;}
+ finally{
+  busy=false;for(const id of ['admininit','adminload','adminkey','adminlock'])$(id).disabled=false;$('adminapply').disabled=!records.length;
+  if(failure&&window.BearUI){
+   const keyError=/Organizer key/.test(failure.message),scope=applying?$('adminapply').closest('section'):$('organizeraccess');
+   window.BearUI.feedback(scope,keyError?[{field:$('adminkey'),message:failure.message}]:[],failure.message);
+  }
+ }
+}
 function clearReview(){records=[];$('adminprofiles').textContent='No submissions loaded.';$('adminapply').disabled=true;}
 $('adminkey').addEventListener('input',clearReview);
 $('adminlock').onclick=()=>{$('adminkey').value='';clearReview();$('adminstatus').textContent='Access key cleared.';};
@@ -29,5 +43,5 @@ $('copyworker').onclick=async()=>{
  catch(_){$('workercopytext').value=code;$('workercopytext').hidden=false;$('workercopytext').focus();$('workercopytext').select();$('workercopystatus').textContent='Select and copy the code below.';}
  }catch(error){$('workercopystatus').textContent=error.message;}
 };
-(async()=>{try{const response=await fetch('./data/alliance-api.json',{cache:'no-store'});if(!response.ok)throw Error('Cannot load CNQ roster.');snapshot=await response.json();}catch(error){$('adminstatus').textContent=error.message;}})();
+(async()=>{try{const response=await fetch('./data/alliance-api.json',{cache:'no-store'});if(!response.ok)throw Error('Cannot load CNQ roster.');snapshot=await response.json();}catch(error){$('adminstatus').textContent=error.message;if(window.BearUI)window.BearUI.feedback($('organizeraccess'),[],error.message);}})();
 })();

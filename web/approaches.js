@@ -93,6 +93,7 @@ generate=async function(){
 };
 run=async function(options={}){
  if(running||!ensureSavedDrafts())return false;
+ if(window.BearUI&&!window.BearUI.validate($('advisorinput')))return false;
  if(synthetic&&profileNeedsRebuild){if(!await generate())return false;if(!options.selectedName)return true;}
  if(options.custom){
   try{const custom=originalPayload().strategy;custom.name=nextStrategyName('Your custom approach');addStrategySnapshot(custom,custom.join_march_cap?'fixed':'none');options={...options,selectedName:custom.name};}

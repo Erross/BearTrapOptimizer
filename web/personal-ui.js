@@ -27,22 +27,39 @@ function save(){
  state.profiles[state.current]={...state.profiles[state.current],input:read(),updatedAt:new Date().toISOString()};
  write(PROFILES,{version:1,players:state.profiles,last:state.current});
 }
+function selectionHints(){
+ if(!window.BearUI)return;
+ for(const h of M.HEROES)$('personalskill'+h.id).disabled=!$('personalhas'+h.id).checked;
+ for(const k of M.TYPES)$('personallead'+k).required=$('personalown').checked;
+ $('personallowerwrap').hidden=!$('personalown').checked||$('personalowntier').value!=='lower';
+ $('personallowerconfirmed').required=!$('personallowerwrap').hidden;
+ const reserved=$('personalown').checked?M.TYPES.map(k=>$('personallead'+k).value):[];
+ const suitable=M.HEROES.filter(h=>h.join&&$('personalhas'+h.id).checked&&Number($('personalskill'+h.id).value)>0&&!reserved.includes(h.name)).length;
+ $('personalbare').required=Number($('personaljoins').value)>suitable;
+ const missing=Math.max(0,Number($('personaljoins').value)-suitable);
+ $('personalbarehelp').textContent=missing?missing+' joining '+(missing===1?'march needs':'marches need')+' no hero after reserving your own-rally team. Enter the capacity with all heroes removed.':'All joins have an approved hero. Hero-free capacity is not needed for this setup.';
+ const id=state.current;
+ if(id)for(const a of document.querySelectorAll('.app-nav a'))if(/history\.html/.test(a.getAttribute('href')))a.href='./history.html?player='+encodeURIComponent(id);
+}
 function stockTotal(){
+ selectionHints();
  const sum=M.TIERS.reduce((s,t)=>s+M.TYPES.reduce((n,k)=>n+(Number($('personalstock'+t+k).value)||0),0),0);
  $('personalstocktotal').textContent=fmt(sum)+' T8–T10 troops entered. Your own-rally packet is reserved before splitting joins.';
 }
 const errorFields=['personalplayer','personaljoins','personalpresets','personalcapacity','personalbare','personalcap','personalowncapacity','personalstock10infantry'];
-function clearErrors(){for(const id of [...errorFields,...M.TYPES.map(k=>'personallead'+k)]){const field=$(id),hint=document.getElementById(id+'error');field.setAttribute('aria-invalid','false');if(hint)hint.hidden=true;}}
+function clearErrors(){for(const id of [...errorFields,...M.TYPES.map(k=>'personallead'+k)]){const field=$(id),hint=document.getElementById(id+'error');if(!field.dataset?.uiInvalid)field.setAttribute('aria-invalid','false');if(hint)hint.hidden=true;}}
 function reportError(error){
  const message=error.message||String(error);$('personalerror').textContent=message;$('personalerror').hidden=false;
  const mappings=[[/Choose your name|Choose a player/i,'personalplayer'],[/Joining marches must/i,'personaljoins'],[/Saved preset/i,'personalpresets'],[/capacity without heroes/i,'personalbare'],[/Joining march capacity/i,'personalcapacity'],[/Alliance joining limit/i,'personalcap'],[/Own-rally march capacity|own-rally troops exceed/i,'personalowncapacity'],[/available infantry hero|available infantry leader/i,'personalleadinfantry'],[/available cavalry hero|available cavalry leader/i,'personalleadcavalry'],[/available archers hero|available archers leader/i,'personalleadarchers'],[/too few troops|at least one tier/i,'personalstock10infantry']];
- const id=mappings.find(([pattern])=>pattern.test(message))?.[1];
+ const stockMatch=message.match(/(?:Not enough )?T(8|9|10) (infantry|cavalry|archers)/i),ownMatch=message.match(/Own-rally (infantry|cavalry|archers)/i),hero=M.HEROES.find(h=>message.startsWith(h.name+' first Expedition'));
+ const id=stockMatch?'personalstock'+stockMatch[1]+stockMatch[2].toLowerCase():ownMatch?'personalown'+ownMatch[1].toLowerCase():hero?'personalskill'+hero.id:/Reserve at least one troop/i.test(message)?'personalowninfantry':/Confirm that the lower-tier/i.test(message)?'personallowerconfirmed':mappings.find(([pattern])=>pattern.test(message))?.[1];
+ if(window.BearUI&&id){window.BearUI.feedback($('personalform'),[{field:$(id),message}],message);return;}
  if(id){const field=$(id),hint=document.getElementById(id+'error');field.setAttribute('aria-invalid','true');if(hint){hint.textContent=message;hint.hidden=false;}field.scrollIntoView({behavior:'smooth',block:'center'});field.focus({preventScroll:true});}
  else $('personalerror').scrollIntoView({behavior:'smooth',block:'center'});
 }
 function dirty(event){
  if(state.loading||event?.target?.id==='personalplayer')return;state.edits++;if(person())state.profiles[state.current]={...state.profiles[state.current],edited:true};clearErrors();state.output=null;$('personalresult').hidden=true;$('personalerror').hidden=true;
- $('personalownsettings').hidden=!$('personalown').checked;stockTotal();save();if(window.BearCloudDraftChanged)window.BearCloudDraftChanged();
+ $('personalownsettings').hidden=!$('personalown').checked;selectionHints();stockTotal();save();if(window.BearCloudDraftChanged)window.BearCloudDraftChanged();
 }
 function leaderOptions(selected={}){
  for(const type of M.TYPES){
@@ -80,7 +97,7 @@ function selectPlayer(skipSave=false){
   $('personalskill'+h.id).value=entry?.skill??api?.skill_levels?.[0]?.level??0;
  }
  leaderOptions(saved?.leaders||M.suggestLeaders(read().heroes,heroData));
- $('personalownsettings').hidden=!$('personalown').checked;
+ $('personalownsettings').hidden=!$('personalown').checked;selectionHints();
  $('personalcapacitynote').textContent=saved?'Loaded your saved personal entries. Update counts for this event.':p.stats.march_capacity?'March capacity comes from your entered alliance stats. Confirm it with your current heroes.':pc?.capacity?'Joining capacity is an alliance-model estimate. Verify it in game. Own-rally and hero-free capacities must also be checked.':'Enter your actual march capacities from the deployment screen.';
  $('personalactionstatus').textContent='';$('personalstatus').textContent=p.api.name+' · '+A.groupLabel(p.group)+' · saved roster '+(state.plan.snapshotAt?new Date(state.plan.snapshotAt).toLocaleDateString():'date unknown');
  state.loading=false;stockTotal();save();clearErrors();
@@ -143,7 +160,7 @@ function build(options={}){
 function download(name,content){const u=URL.createObjectURL(new Blob([content],{type:'application/json'})),a=document.createElement('a');a.href=u;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(u),1000);}
 async function start(){
  $('personalinventory').innerHTML=M.TIERS.map(t=>'<tr><th scope="row">T'+t+' / '+({10:'X',9:'IX',8:'VIII'}[t])+'</th>'+M.TYPES.map(k=>'<td><input id="personalstock'+t+k+'" type="number" inputmode="numeric" min="0" max="5000000" step="1" value="0" aria-label="T'+t+' '+k+' available"></td>').join('')+'</tr>').join('');
- $('personalheroes').innerHTML=M.HEROES.map(h=>'<div class="personal-hero"><label><input id="personalhas'+h.id+'" type="checkbox"> '+esc(h.name)+'<small>'+labels[h.type]+(h.join?' · offensive joiner':' · own-rally option')+'</small></label><select id="personalskill'+h.id+'" aria-label="'+esc(h.name)+' first Expedition skill level">'+Array.from({length:6},(_,i)=>'<option value="'+i+'">'+(i?'Lv '+i:'Unknown')+'</option>').join('')+'</select></div>').join('');
+ $('personalheroes').innerHTML=M.HEROES.map((h,i)=>(i===0?'<h3 class="hero-group-title">Approved joining heroes</h3>':!h.join&&M.HEROES[i-1]?.join?'<h3 class="hero-group-title">Own-rally options</h3>':'')+'<div class="personal-hero"><label><input id="personalhas'+h.id+'" type="checkbox"> '+esc(h.name)+'<small>'+labels[h.type]+(h.join?' · approved joiner':' · own-rally only')+'</small></label><select id="personalskill'+h.id+'" aria-label="'+esc(h.name)+' first Expedition skill level">'+Array.from({length:6},(_,i)=>'<option value="'+i+'">'+(i?'Lv '+i:'Unknown')+'</option>').join('')+'</select></div>').join('');
  $('personalleaders').innerHTML=M.TYPES.map(k=>'<label>'+labels[k]+' leader<select id="personallead'+k+'" aria-describedby="personallead'+k+'error"><option value="">Choose '+k+' hero</option></select><small id="personallead'+k+'error" class="field-error" hidden></small></label>').join('');
  $('personalform').addEventListener('input',dirty);
  $('personalform').addEventListener('change',e=>{if(e.target.id==='personalplayer')return;if(e.target.id.startsWith('personalhas'))leaderOptions();dirty();});

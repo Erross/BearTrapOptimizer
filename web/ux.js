@@ -43,7 +43,7 @@ function markResultsDirty(reason='Settings changed.'){
 function updateActionAvailability(){
  const draft=stockDraft||memberDraft;
  $('stale').hidden=!result||!(resultsDirty||draft);
- if(result&&(resultsDirty||draft))$('stalereason').textContent=draft?'Player edits are not saved. Save or discard the edits on Alliance setup or Troop mixes before comparing.':dirtyReason+' The graphs and schedule still show the last comparison.';
+ if(result&&(resultsDirty||draft))$('stalereason').textContent=draft?'Player edits are not saved. Save or discard the edits on Alliance setup or Troops & bonuses before comparing.':dirtyReason+' The graphs and schedule still show the last comparison.';
  for(const id of ['save','exportcsv','svgexport','planexport','assignmentexport']){
   $(id).disabled=running||!result||(id==='save'?draft:resultsDirty||draft);
  }
@@ -55,6 +55,7 @@ function updateActionAvailability(){
 }
 busy=function(on,text=''){
  running=on;
+ if(on&&window.BearUI)window.BearUI.clearFeedback();
  const selectors='aside input, aside select, #modeltab input, #modeltab select, #rostertable input, #membereditor input, #stockeditor input, #typeeditor input, #typeeditor select, #troopplayer, #previewhost, #previewcount, #previewsize, #reports, #advisorinput input, #advisorinput select';
  for(const input of document.querySelectorAll(selectors))input.disabled=on;
  for(const id of ['recommend','reviewassumptions','run','generate','search','fit','applyfit','load','rosterimport','applystock','estimatepower'])$(id).disabled=on;
@@ -65,10 +66,15 @@ busy=function(on,text=''){
 };
 showError=function(error){
  $('error').style.display='block';$('error').textContent=error.message||String(error);
- $('status').textContent='Nothing new was applied. Check the message above.';
+ $('status').textContent='Nothing new was applied. Check the highlighted entries.';
+ if(window.BearUI){
+  const scope=document.querySelector('dialog[open]')||(!$('strategyeditor').hidden?$('strategyeditor'):$('advisorinput'));
+  const issues=(error.fields||[]).map(id=>({field:$(id),message:error.message})).filter(issue=>issue.field);
+  window.BearUI.feedback(scope,issues,error.message||String(error));
+ }
 };
 function ensureSavedDrafts(){
- if(stockDraft||memberDraft){showError(new Error('Save or discard the player edits first. Troop edits are on Troop mixes; player details are on Alliance setup.'));return false;}
+ if(stockDraft||memberDraft){if(window.BearUI)activatePage(memberDraft?'membertab':'trooptab');showError(new Error('Save or discard the highlighted player edits before comparing.'));if(window.BearUI)window.BearUI.reveal($(memberDraft?'savemember':'applystock'));return false;}
  return true;
 }
 run=async function(){
