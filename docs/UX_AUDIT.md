@@ -193,3 +193,13 @@ that automatic device saving and explicit online saving are separate.
 Browser checks cover exclusive expansion, Continue, closed-section summaries,
 error reopening, review navigation, local reload before any online write and the
 existing calculation/save/load paths at four viewport widths.
+
+
+### Shop defaults follow-up
+
+Store balances now drive shopping automatically: all listed offers and direct-use
+items start included, and the optimizer allocates across every currency together.
+The offer checklist, price edits and stock limits live in one optional disclosure.
+Old opt-in drafts migrate to included offers once; new exclusions persist. A bulk
+restore action includes all offers again. Existing gear prerequisites, timer
+capacity, reserves, integer pack limits and daily scoring remain enforced.

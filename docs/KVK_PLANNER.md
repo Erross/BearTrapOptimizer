@@ -22,8 +22,15 @@ from equipment levels. Hero enhancement fields use the +level shown in game
 automatically. It uses the increase in event score for each upgrade,
 rather than cumulative score or gear power. It can buy a missing material only
 when an enabled store offer, currency balance and availability window permit it.
-Store defaults remain disabled until the player confirms their actual prices and
-remaining stock. Custom offers and completed upgrade/training batches support
+All listed store offers and direct-use items are included by default. Players
+enter balances and let the optimizer choose purchases across every store. Optional
+settings support exclusions, reserves, price corrections and remaining stock.
+Reference offers cover Swordland, Arena, Trial, Tidal, Championship, Alliance
+and the standard Gem shop. Alliance stock rotates; its default prices use the
+full-price daily offers. Discounts and currently missing offers can be corrected
+in optional settings. Gem shop unlimited stock uses a 100,000-purchase model cap.
+Pre-update opt-in drafts are migrated once; newer exclusions are retained across
+device drafts, online profiles and backups. Custom offers and completed upgrade/training batches support
 other confirmed options. Random chest outcomes are not assumed.
 
 ## Allocation
