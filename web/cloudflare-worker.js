@@ -115,24 +115,170 @@ const api={TYPES,TIERS,HEROES,matrix,total,build,suggestLeaders,fingerprint};
 if(typeof module!=='undefined')module.exports=api;root.BearPersonalModel=api;
 })(typeof globalThis!=='undefined'?globalThis:this);
 
-const ROSTER_IDS=["388886548","389607677","387952781","389524927","389901621","386936962","388247482","389902497","389623333","389918530","389541824","385953353","389721474","386494109","389099163","396332479","386035010","388017689","386809287","388755121","385887895","387739433","389295389","390048976","387165951","390033384","386264253","385985957","390050032","390032922","386576636","386346394","388099273","388804053","389721911","388870381","385936826","386281264","389853430","395551033","389115904","387264538","389164598","388787831","387526235","388017805","388722749","389672797","386019367","388919388","388722422","389508233","387853899","386150135","398345280","387100394","387198762","389476486","388034343","389869414","387017889","386035097","386969604","387215160","387395598","390016201","386625129","387756242","387706049","389869480","388951281","389033280","386740411","389213981","386789579","388672863","386346836","387395306","388017931","389558043","387559257","388116448","387951856","387018511","386084688","387248367","387690075","387559599","387509498","386444908","385920577","388001560","385888111","386511169","388198432","387412006","389754906","389557475","387018686","391421077"];
+/* Editable seed data, not a live game feed. Confirm rules and remaining shop stock in game. */
+(function(root){'use strict';
+const resources=[
+ ['general','General speedups','minutes',null],['construction','Construction speedups','minutes',[30,30,0,0,30]],['research','Research speedups','minutes',[30,30,0,0,30]],['training','Training speedups','minutes',[30,30,0,0,30]],['master','Master skill speedups','minutes',[30,30,0,0,30]],
+ ['truegold','Truegold','items',[2000,2000,0,0,2000]],['dust','Truegold Dust','items',[1000,1000,0,0,1000]],['tempered','Tempered Truegold','items',[30000,30000,0,0,30000]],
+ ['mythic','Usable Mythic hero shards','shards',[0,3040,3040,0,0]],['epic','Usable Epic hero shards','shards',[0,1220,1220,0,0]],['rare','Usable Rare hero shards','shards',[0,350,350,0,0]],
+ ['hammer','Forgehammers','items',[0,0,0,4000,4000]],['widget','Hero exclusive widgets','items',[0,0,0,8000,8000]],['mithril','Mithril','items',[0,0,0,40000,40000]],['common','Common Taming Marks','items',[0,0,1150,0,1150]],['advanced','Advanced Taming Marks','items',[0,0,15000,0,15000]],
+ ['roulette','Hero Roulette spins','spins',[0,8000,8000,0,0]],['emblem','Usable Master Emblems (not General)','items',[0,6000,6000,0,0]],['manuscript',"Master’s Manuscripts",'items',[0,60,60,0,0]],
+ ['spares','Spare Mythic gear · unequipped, usable as fodder','pieces',null],['guides','Charm Guides','items',null],['designs','Charm Designs','items',null],['satin','Satin','items',null],['threads','Gilded Threads','items',null],['visions',"Artisan’s Visions",'items',null],['growth','Growth Manuals','items',null],['potions','Nutrient Potions','items',null],['medallions','Promotion Medallions','items',null]
+].map(([id,name,unit,points])=>({id,name,unit,points}));
+const wallets=[['swordland','Swordland · Relic Coins'],['arena','Arena Tokens'],['trial','Trial Crystals'],['tidal','Tidal Stones'],['championship','Championship Badges'],['alliance','Alliance Tokens'],['gems','Gems · opt-in purchases only']].map(([id,name])=>({id,name}));
+const offers=[];
+function offer(wallet,resource,cost,remaining,quantity=1){offers.push({id:wallet+'_'+resource,name:resources.find(r=>r.id===resource).name,wallet,resource,cost,quantity,remaining,from:1,to:5,enabled:false});}
+for(const args of [['mythic',2500,3],['hammer',1250,10],['satin',1,2500],['threads',100,25],['visions',500,15],['designs',500,20],['guides',500,10],['general',250,20,60],['construction',250,20,60],['research',250,20,60],['training',250,20,60]])offer('swordland',...args);
+for(const args of [['hammer',2500,5],['mythic',2500,3],['epic',500,5],['rare',250,10],['mithril',10000,3],['advanced',4800,1]])offer('arena',...args);
+for(const args of [['mythic',500,5],['designs',250,20],['guides',250,20],['dust',50,300],['mithril',2500,1]])offer('trial',...args);
+for(const args of [['advanced',3000,2],['hammer',1250,10],['mythic',2500,3],['designs',500,20],['guides',500,10],['visions',500,15],['satin',1,2500],['threads',100,25],['general',250,20,60]])offer('tidal',...args);
+root.KvKCatalog={version:1,resources,wallets,offers,days:['City Construction','Basic Skills Up','Pet Training','Hero Development','Power Boost'],sources:[
+ {name:'Preparation scoring · community data extracted from game files',url:'https://ks-toolkit.com/data/events/kingdom-of-power/'},
+ {name:'Swordland · prices and age-dependent stock limits',url:'https://ks-toolkit.com/data/systems/swordland-shop/'},
+ {name:'Arena · prices and availability',url:'https://ks-toolkit.com/data/systems/arena-shop/'},
+ {name:'Trial · prices and age-dependent availability',url:'https://ks-toolkit.com/data/systems/trial-shop/'},
+ {name:'Tidal · prices and stock',url:'https://ks-toolkit.com/data/systems/tidal-shop/'}
+]};
+})(typeof globalThis!=='undefined'?globalThis:this);
+
+/* Each row is an incremental upgrade cost and score increase, never account power.
+ * References are versioned below. Stage mode is opt-in because server rollout varies.
+ */
+(function(root){'use strict';
+const slots=['Head / Cap','Armor / Coat','Legs / Pants','Staff / Weapon','Ring / Belt','Accessory / Watch'];
+const costs=[
+ [1500,15,0,1125],[3800,40,0,1875],[7000,70,0,3000],[9700,95,0,4500],[1000,10,45,5100],[1000,10,50,5400],
+ [1500,15,60,3230],[1500,15,70,3230],[6500,65,40,3225],[8000,80,50,3225],[10000,95,60,3440],[11000,110,70,3440],[13000,130,85,4085],[15000,160,100,4085],
+ [22000,220,40,6250],[23000,230,40,6250],[25000,250,45,6250],[26000,260,45,6250],[28000,280,45,6250],[30000,300,55,6250],[32000,320,55,6250],[35000,340,55,6250],[38000,390,55,6250],[43000,430,75,6250],[45000,460,80,6250],[48000,500,85,6250],
+ [60000,600,120,9000],[70000,700,140,9000],[80000,800,160,9000],[90000,900,180,9000],
+ [108000,1080,220,12000],[114000,1140,230,12000],[121000,1210,240,12000],[128000,1280,250,12000],[154000,1540,300,12000],[163000,1630,320,12000],[173000,1730,340,12000],[183000,1830,360,12000],
+ [220000,2200,430,12000],[233000,2330,460,12000],[247000,2470,490,12000],[264000,2640,520,12000]
+];
+const names=['Not crafted','Green 0★','Green 1★','Blue 0★','Blue 1★','Blue 2★','Blue 3★','Purple 0★','Purple 1★','Purple 2★','Purple 3★','Purple T1 0★','Purple T1 1★','Purple T1 2★','Purple T1 3★','Gold 0★','Gold 1★','Gold 2★','Gold 3★','Gold T1 0★','Gold T1 1★','Gold T1 2★','Gold T1 3★','Gold T2 0★','Gold T2 1★','Gold T2 2★','Gold T2 3★','Gold T3 0★','Gold T3 1★','Gold T3 2★','Gold T3 3★','Red 0★','Red 1★','Red 2★','Red 3★','Red T1 0★','Red T1 1★','Red T1 2★','Red T1 3★','Red T2 0★','Red T2 1★','Red T2 2★','Red T2 3★'];
+const charmCosts=[[5,5],[40,15],[60,40],[80,100],[100,200],[120,300],[140,400],[200,400],[300,400],[420,420],[560,420],[580,600],[610,780],[645,960],[685,1140],[730,1320],[780,1500],[835,1680],[895,1860],[960,2040],[1030,2220]];
+const charmScore=[0,625,1875,5000,13750,25000,37500,50000,63000,77000,92000,108000,126000,147000,171000,198000,228000,261000,297000,336000,378000,423000];
+function empty(){return {stages:false,governor:slots.map(()=>({level:null,stage:0})),charms:Array.from({length:18},()=>({level:null,stage:0})),heroes:Array.from({length:12},()=>({rarity:'unknown',enhancement:0,mastery:0}))};}
+function clean(g){const out=empty();if(!g)return out;out.stages=g.stages===true;
+ for(const [key,count,max]of [['governor',6,costs.length],['charms',18,21]]){if(!Array.isArray(g[key])||g[key].length!==count)throw Error('Enter all '+count+' '+key+' slots, or mark them Unknown.');out[key]=g[key].map(v=>{if(v.level===null||v.level==='')return {level:null,stage:0};const n=Number(v.level),s=Number(v.stage||0),eligible=key==='charms'?n>=5:n>=26;if(!Number.isInteger(n)||n<0||n>max||!Number.isInteger(s)||s<0||s>4||(!out.stages||!eligible)&&s!==0)throw Error('Check gear level and partial stage selections.');return {level:n,stage:s};});}
+ if(!Array.isArray(g.heroes)||g.heroes.length!==12)throw Error('Enter the 12 hero gear slots, or mark them Unknown.');
+ out.heroes=g.heroes.map(v=>{if(!['unknown','other','mythic','red'].includes(v.rarity))throw Error('Choose a hero gear rarity.');const e=Number(v.enhancement),m=Number(v.mastery);if(!Number.isInteger(e)||e<0||e>200||!Number.isInteger(m)||m<0||m>20)throw Error('Hero gear enhancement must be 0–200 and mastery 0–20.');if(v.rarity==='mythic'&&e>100)throw Error('Mythic enhancement stops at 100; select Red for higher gear.');return {rarity:v.rarity,enhancement:e,mastery:m,imbueReady:v.imbueReady===true};});return out;
+}
+function actions(profile){
+ const g=clean(profile.gear),result=[];
+ const possible=Object.fromEntries(root.KvKCatalog.resources.map(r=>[r.id,profile.resources[r.id].stock-profile.resources[r.id].reserve+profile.offers.filter(o=>o.enabled&&o.resource===r.id).reduce((n,o)=>n+o.quantity*o.remaining,0)]));
+ function chain(key,name,current,rows,make,pieces){if(current.level===null)return;let previous=null,spent={},step=0;for(let level=current.level+1;level<=rows.length;level++){
+  const row=rows[level-1],parts=g.stages&&(key.startsWith('charm')?level>5:level>26)?5:1,start=level===current.level+1?current.stage:0;
+  for(let part=start;part<parts;part++){
+   const {consumes,score}=make(row,level,parts),id='gear_'+key+'_'+level+'_'+part;
+   for(const [r,n]of Object.entries(consumes))spent[r]=(spent[r]||0)+n;
+   if(Object.entries(spent).some(([r,n])=>n>(possible[r]||0)))return;
+   const displayTo=(key.startsWith('charm')?'Lv '+level:names[level])+(parts===5?' · step '+(part+1)+'/5':'');step++;result.push({group:key,pieces,step,displayTo,id,name:name+' → '+(key.startsWith('charm')?'Lv '+level:names[level])+(parts===5?' · step '+(part+1)+'/5':''),consumes,points:key.startsWith('charm')?[score*70,0,score*70,score*70,0]:[0,0,0,0,score*36],limit:pieces.length,dependsOn:previous});previous=id;
+  }
+ }}
+ function groups(values,kind){const by=new Map();values.forEach((v,i)=>{if(v.level===null)return;const key=kind+'_'+v.level+'_'+v.stage;if(!by.has(key))by.set(key,{key,state:v,pieces:[]});by.get(key).pieces.push(kind==='gov'?'Governor '+slots[i]:slots[Math.floor(i/3)]+' charm '+(i%3+1));});return [...by.values()];}
+ for(const v of groups(g.governor,'gov'))chain(v.key,'Governor gear',v.state,costs,(row,l,n)=>({consumes:{satin:row[0]/n,threads:row[1]/n,...(row[2]?{visions:row[2]/n}:{})},score:row[3]/n}),v.pieces);
+ for(const v of groups(g.charms,'charm'))chain(v.key,'Charms',v.state,charmCosts,(row,l,n)=>({consumes:{guides:row[0]/n,designs:row[1]/n},score:(charmScore[l]-charmScore[l-1])/n}),v.pieces);
+ g.heroes.forEach((v,i)=>{if(v.rarity==='red'&&v.imbueReady){const index=[120,140,160,180,200].indexOf(v.enhancement);if(index>=0&&v.mastery>=10){const mithril=[10,20,30,40,50][index],spares=[3,5,5,10,10][index];result.push({id:'gear_imbue_'+i,name:['Infantry','Cavalry','Archer'][Math.floor(i/4)]+' '+['helmet','gloves','chest','boots'][i%4]+' · unpaid Red +'+(v.enhancement-100)+' imbuement',consumes:{mithril,spares},points:[0,0,0,mithril*40000,mithril*40000],limit:1,dependsOn:null});}}if(!['mythic','red'].includes(v.rarity)||v.enhancement<20)return;let previous=null,hammers=0,spares=0;for(let l=v.mastery+1;l<=20;l++){const consume={hammer:l*10,...(l>10?{spares:l-10}:{})};hammers+=consume.hammer;spares+=consume.spares||0;if(hammers>(possible.hammer||0)||spares>(possible.spares||0))break;const id='gear_mastery_'+i+'_'+l;result.push({id,name:['Infantry','Cavalry','Archer'][Math.floor(i/4)]+' '+['helmet','gloves','chest','boots'][i%4]+' → mastery '+l,consumes:consume,points:[0,0,0,consume.hammer*4000,consume.hammer*4000],limit:1,dependsOn:previous});previous=id;}});
+ return result;
+}
+root.KvKGear={slots,names,costs,charmCosts,charmScore,empty,clean,actions,sources:[
+ ['Governor material costs','https://ks-toolkit.com/data/gear/governor-gear/'],['Event-specific upgrade scores (first Mythic tiers)','https://kingshotmastery.com/events/kingdom-of-power-kvk-event'],['Charm cumulative scores and materials','https://kingshotdata.com/database/governor-charm/'],['Mastery forging costs and prerequisites','https://kingshotdata.com/database/mastery-forging/'],['Red imbuement material costs','https://www.kingshotcommand.com/tools/mastery-forging'],['Optional partial-stage system','https://kingshotoptimizer.com/charms/references/']
+]};
+})(typeof globalThis!=='undefined'?globalThis:this);
+
+/* Joint inventory/shop/day integer allocation. Runs identically in Node and a browser Worker. */
+(function(root){'use strict';
+const C=root.KvKCatalog,clone=x=>JSON.parse(JSON.stringify(x)),MAX=1e9;
+function number(v,min=0,max=MAX,label='Value'){if(v===''||v===null||typeof v==='boolean'||!Number.isFinite(Number(v))||Number(v)<min||Number(v)>max)throw Error(label+' must be between '+min+' and '+max+'.');return Number(v);}
+function whole(v,min=0,max=MAX,label='Count'){const n=number(v,min,max,label);if(!Number.isSafeInteger(n))throw Error(label+' must be a whole number.');return n;}
+function text(v,label='Name'){if(typeof v!=='string'||!v.trim()||v.length>100)throw Error(label+' needs 1–100 characters.');return v.trim();}
+const days=(v,label)=>{if(!Array.isArray(v)||v.length!==5)throw Error(label+' needs five days.');return v.map(x=>whole(x,0,1e12,label));};
+function empty(){return {version:1,event:'next-kvk',confirmed:false,targets:Array(5).fill(200000),actual:Array(5).fill(0),baseline:Array(5).fill(0),closed:Array(5).fill(false),
+ resources:Object.fromEntries(C.resources.map(r=>[r.id,{stock:0,reserve:0,enabled:false,batch:1,cap:null}])),
+ wallets:Object.fromEntries(C.wallets.map(w=>[w.id,{balance:0,reserve:0,income:Array(5).fill(0)}])),
+ workloads:Object.fromEntries(['construction','research','training','master'].map(k=>[k,Array(5).fill(0)])),
+ gear:root.KvKGear.empty(),offers:clone(C.offers),upgrades:[],rules:Object.fromEntries(C.resources.filter(r=>r.points).map(r=>[r.id,clone(r.points)]))};}
+function clean(input){
+ if(!input||input.version!==1)throw Error('Choose a supported KvK inventory file.');
+ const out=empty();out.event=text(input.event,'Event');if(!/^(next-kvk|\d{4}-\d{2}-\d{2})$/.test(out.event))throw Error('Choose the prep start date or next-kvk.');
+ out.confirmed=input.confirmed===true;out.gear=root.KvKGear.clean(input.gear);for(const k of ['targets','actual','baseline'])out[k]=days(input[k],k);
+ if(!Array.isArray(input.closed)||input.closed.length!==5||input.closed.some(v=>typeof v!=='boolean'))throw Error('Choose whether each day is finished.');out.closed=clone(input.closed);
+ for(const r of C.resources){const v=input.resources?.[r.id];if(!v)throw Error('Missing '+r.name+' inventory.');const x={stock:whole(v.stock,0,MAX,r.name),reserve:whole(v.reserve,0,MAX,r.name+' reserve'),enabled:v.enabled===true,batch:whole(v.batch,1,1e6,r.name+' batch size'),cap:v.cap==null?null:whole(v.cap,0,MAX,r.name+' usable limit')};if(x.reserve>x.stock)throw Error(r.name+' reserve exceeds owned stock.');out.resources[r.id]=x;if(r.points)out.rules[r.id]=days(input.rules?.[r.id]||r.points,r.name+' points');}
+ for(const w of C.wallets){const v=input.wallets?.[w.id];if(!v)throw Error('Missing '+w.name+' balance.');const x={balance:whole(v.balance,0,MAX,w.name),reserve:whole(v.reserve,0,MAX,w.name+' reserve'),income:days(v.income,w.name+' expected income')};if(x.reserve>x.balance)throw Error(w.name+' reserve exceeds the balance.');x.income=x.income.map((n,i)=>out.closed[i]?0:n);out.wallets[w.id]=x;}
+ for(const k of Object.keys(out.workloads))out.workloads[k]=days(input.workloads?.[k],k+' usable timer minutes');
+ const ids=new Set();if(!Array.isArray(input.offers)||input.offers.length>80)throw Error('Use at most 80 shop offers.');
+ out.offers=input.offers.map((v,i)=>{const id='offer_'+i;if(!C.wallets.some(w=>w.id===v.wallet)||!C.resources.some(r=>r.id===v.resource))throw Error('Choose a supported shop currency and material.');const x={id,name:text(v.name),wallet:v.wallet,resource:v.resource,cost:whole(v.cost,1,MAX,'Offer cost'),quantity:whole(v.quantity,1,1e6,'Pack quantity'),remaining:whole(v.remaining,0,100000,'Remaining purchases'),from:whole(v.from,1,5,'Offer first day'),to:whole(v.to,1,5,'Offer last day'),enabled:v.enabled===true};if(x.from>x.to)throw Error('An offer must be available before it expires.');return x;});
+ if(!Array.isArray(input.upgrades)||input.upgrades.length>40)throw Error('Use at most 40 planned upgrades.');
+ out.upgrades=input.upgrades.map(v=>{const id=text(v.id,'Upgrade ID');if(!/^[a-zA-Z0-9_-]+$/.test(id)||ids.has(id))throw Error('Upgrade IDs must be unique letters, numbers or underscores.');ids.add(id);const consumes={};if(!v.consumes||typeof v.consumes!=='object')throw Error('Enter the materials for each upgrade.');for(const [k,n]of Object.entries(v.consumes)){if(!C.resources.some(r=>r.id===k))throw Error('Unknown upgrade material.');if(Number(n)>0)consumes[k]=whole(n,1,MAX,'Upgrade material amount');}if(!Object.keys(consumes).length)throw Error('An upgrade must consume at least one material or timer.');const points=days(v.points,'Upgrade points');if(!points.some(x=>x>0))throw Error('An upgrade needs points on at least one day.');return {id,name:text(v.name),consumes,points,limit:whole(v.limit,1,100000,'Repeat limit'),dependsOn:v.dependsOn?text(v.dependsOn,'Previous upgrade ID'):null};});
+ const byId=new Map(out.upgrades.map(u=>[u.id,u]));for(const u of out.upgrades){const seen=new Set([u.id]);let p=u.dependsOn;while(p){if(!byId.has(p)||seen.has(p))throw Error('Upgrade prerequisites must exist and cannot form a loop.');seen.add(p);p=byId.get(p).dependsOn;}}
+ return out;
+}
+function compile(input,soft=false){
+ const p=clean(input);p.upgrades=[...p.upgrades,...root.KvKGear.actions(p)];const m={optimize:'score',opType:'max',constraints:{},variables:{},ints:{}},meta={};
+ const constraint=(id,bound)=>m.constraints[id]=bound;
+ const variable=(id,data,info)=>{m.variables[id]={score:0,cost:0,deficit:0,...data};m.ints[id]=1;meta[id]=info;return m.variables[id];};
+ function prefix(v,key,day,n){for(let d=day;d<5;d++)v[key+'_'+d]=(v[key+'_'+d]||0)+n;}
+ for(const r of C.resources){const v=p.resources[r.id];for(let d=0;d<5;d++)constraint('resource_'+r.id+'_'+d,{max:v.stock-v.reserve});if(v.cap!=null)constraint('use_'+r.id,{max:v.cap});}
+ for(const w of C.wallets){let budget=p.wallets[w.id].balance-p.wallets[w.id].reserve;for(let d=0;d<5;d++){budget+=p.wallets[w.id].income[d];constraint('wallet_'+w.id+'_'+d,{max:budget});}}
+ for(let d=0;d<5;d++){
+  if(p.closed[d])continue;
+  constraint('target_'+d,{min:Math.max(0,p.targets[d]-p.actual[d]-p.baseline[d])/1000});
+  if(soft){const remaining=Math.max(0,p.targets[d]-p.actual[d]-p.baseline[d])/1000;const v=variable('deficit_'+d,{['target_'+d]:1,deficit:1,['link_deficit_'+d]:1},{kind:'deficit',day:d});delete m.ints['deficit_'+d];constraint('deficit_cap_'+d,{max:remaining});v['deficit_cap_'+d]=1;constraint('link_deficit_'+d,{max:0});constraint('miss_cap_'+d,{max:1});variable('miss_'+d,{missed:1,['miss_cap_'+d]:1,['link_deficit_'+d]:-remaining},{kind:'miss',day:d});}
+  for(const k of Object.keys(p.workloads))constraint('work_'+k+'_'+d,{max:p.workloads[k][d]});
+ }
+ function action(id,name,consumes,points,limit,requires,details={}){
+  constraint('limit_'+id,{max:limit});
+  for(let d=0;d<5;d++)if(!p.closed[d]&&points[d]>0){const v=variable('act_'+id+'_'+d,{score:points[d]/1000,['target_'+d]:points[d]/1000,['limit_'+id]:1},{kind:'action',id,name,day:d,consumes,points:points[d],...details});
+   for(const [r,n]of Object.entries(consumes)){prefix(v,'resource_'+r,d,n);v['use_'+r]=n;if(p.workloads[r])v['work_'+r+'_'+d]=n;}
+   // Cumulative dependencies allow a prerequisite earlier in the same day, never afterward.
+   if(requires)prefix(v,'prereq_'+id,d,1);
+   for(const child of p.upgrades.filter(u=>u.dependsOn===id))prefix(v,'prereq_'+child.id,d,-1);
+  }
+  if(requires)for(let d=0;d<5;d++)constraint('prereq_'+id+'_'+d,{max:0});
+ }
+ for(const r of C.resources){const v=p.resources[r.id];if(!r.points||!v.enabled||['hammer','mithril'].includes(r.id))continue;const general=p.workloads[r.id]?p.resources.general.stock-p.resources.general.reserve+p.offers.filter(o=>o.enabled&&o.resource==='general').reduce((n,o)=>n+o.quantity*o.remaining,0):0;const possible=v.stock-v.reserve+general+p.offers.filter(o=>o.enabled&&o.resource===r.id).reduce((n,o)=>n+o.quantity*o.remaining,0);const limit=Math.floor(Math.min(possible,v.cap??MAX)/v.batch);if(limit)action('direct_'+r.id,r.name,{[r.id]:v.batch},p.rules[r.id].map(n=>n*v.batch),limit);}
+ for(const u of p.upgrades)action(u.id,u.name,u.consumes,u.points,u.limit,u.dependsOn,u.group?{group:u.group,pieces:u.pieces,step:u.step,displayTo:u.displayTo}:{});
+ for(const o of p.offers){if(!o.enabled||!o.remaining)continue;constraint('offer_'+o.id,{max:o.remaining});const w=p.wallets[o.wallet],total=w.balance-w.reserve+w.income.reduce((a,b)=>a+b,0);for(let d=o.from-1;d<o.to;d++)if(!p.closed[d]){const v=variable('buy_'+o.id+'_'+d,{['offer_'+o.id]:1,cost:o.cost/Math.max(1,total)},{kind:'purchase',offer:o,day:d});prefix(v,'resource_'+o.resource,d,-o.quantity);prefix(v,'wallet_'+o.wallet,d,o.cost);}}
+ // General minutes can replace a dedicated speedup once, while its activity workload still limits use.
+ for(let d=0;d<5;d++)if(!p.closed[d])for(const k of Object.keys(p.workloads)){const v=variable('convert_'+k+'_'+d,{}, {kind:'convert',resource:k,day:d});prefix(v,'resource_general',d,1);prefix(v,'resource_'+k,d,-1);constraint('convert_cap_'+k+'_'+d,{max:p.workloads[k][d]});v['convert_cap_'+k+'_'+d]=1;v.use_general=1;v['use_'+k]=-1;constraint('convert_used_'+k+'_'+d,{max:0});v['convert_used_'+k+'_'+d]=1;for(const [id,row]of Object.entries(m.variables))if(meta[id]?.kind==='action'&&meta[id].day===d)row['convert_used_'+k+'_'+d]=-(meta[id].consumes[k]||0);}
+ return {model:m,profile:p,meta};
+}
+function solution(model,solver){const r=solver.Solve(model);if(!r.feasible||r.bounded===false)return null;const result={};for(const [key]of Object.entries(model.variables)){const value=r[key]||0;if(model.ints[key]&&Math.abs(value-Math.round(value))>1e-4)throw Error('Solver returned an incomplete integer plan.');result[key]=model.ints[key]?Math.round(value):value;}
+ for(const [key,bound]of Object.entries(model.constraints)){const v=Object.entries(model.variables).reduce((n,[id,row])=>n+(row[key]||0)*(result[id]||0),0);if(v<(bound.min??bound.equal??-Infinity)-1e-4||v>(bound.max??bound.equal??Infinity)+1e-4)throw Error('The computed plan did not pass resource checks. Reduce the problem or check inputs.');}return result;}
+function total(model,values,key){return Object.entries(model.variables).reduce((n,[id,row])=>n+(row[key]||0)*(values[id]||0),0);}
+function optimize(input,solver){
+ const prepared=compile(input),{profile:p}=prepared;if(!p.confirmed)throw Error('Confirm your event rules, usable items and shop details before calculating.');let {model,meta}=prepared,values=solution(model,solver),allTargets=!!values;
+ if(!values){({model,meta}=compile(p,true));model.optimize='missed';model.opType='min';values=solution(model,solver);if(!values)throw Error('Cannot construct a feasible inventory plan. Check reserves and inputs.');model.constraints.keep_missed={max:total(model,values,'missed')+1e-7};for(const row of Object.values(model.variables))row.keep_missed=row.missed||0;model.optimize='deficit';values=solution(model,solver);if(!values)throw Error('Could not complete the daily milestone optimization.');model.constraints.keep_deficit={max:total(model,values,'deficit')+1e-7};for(const row of Object.values(model.variables))row.keep_deficit=row.deficit||0;model.optimize='score';model.opType='max';values=solution(model,solver);if(!values)throw Error('Could not complete the shortfall optimization.');}
+ const bestScore=total(model,values,'score');model.constraints.keep_score={min:bestScore-1e-7};for(const row of Object.values(model.variables))row.keep_score=row.score||0;model.optimize='cost';model.opType='min';values=solution(model,solver)||values;
+ const days=p.targets.map((target,d)=>({day:d+1,target,actual:p.actual[d],expected:p.closed[d]?0:p.baseline[d],planned:0,actions:[],purchases:[],generalMinutes:{},closed:p.closed[d]})),spending=Object.fromEntries(C.wallets.map(w=>[w.id,0])),used=Object.fromEntries(C.resources.map(r=>[r.id,0])),bought={};
+ for(const [id,info]of Object.entries(meta)){const count=values[id]||0;if(count<1e-6)continue;const day=days[info.day];if(info.kind==='action'){day.planned+=count*info.points;day.actions.push({...info,count});for(const [r,n]of Object.entries(info.consumes))used[r]+=n*count;}if(info.kind==='purchase'){day.purchases.push({...info,count});spending[info.offer.wallet]+=info.offer.cost*count;bought[info.offer.resource]=(bought[info.offer.resource]||0)+info.offer.quantity*count;}if(info.kind==='convert'){day.generalMinutes[info.resource]=count;used.general+=count;used[info.resource]-=count;}}
+ const progress=new Map();for(const day of days){const resolved=[];day.actions.sort((a,b)=>(a.step||0)-(b.step||0));for(const a of day.actions){if(!a.group){resolved.push(a);continue;}for(let n=0;n<a.count;n++){const piece=a.pieces.find(name=>(progress.get(a.group+':'+name)||0)===a.step-1);if(!piece)throw Error('Gear prerequisite assignment failed verification.');progress.set(a.group+':'+piece,a.step);resolved.push({...a,name:piece+' → '+a.displayTo,count:1});}}day.actions=resolved;}
+ for(const day of days){day.projected=day.actual+day.expected+day.planned;day.shortfall=Math.max(0,day.target-day.projected);}
+ const remaining=Object.fromEntries(C.resources.map(r=>[r.id,p.resources[r.id].stock+(bought[r.id]||0)-used[r.id]]));
+ return {version:1,days,allTargets:days.every(d=>d.shortfall<.01),futureTargetsFeasible:allTargets,total:days.reduce((n,d)=>n+d.projected,0),shortfall:days.reduce((n,d)=>n+d.shortfall,0),spending,remaining,used,bought,note:'Optimal for these entered integer actions, rules, budgets and limits when the solver completes. Unentered activities, future shop resets and unconfirmed rewards are excluded. Unreachable plans maximize the number of daily targets met, then minimize remaining target shortfall before maximizing total score. Currency spending is minimized among equally scoring plans, relative to each currency’s available budget.'};
+}
+root.KvKModel={empty,clean,compile,optimize,clone};
+})(typeof globalThis!=='undefined'?globalThis:this);
+
+const ROSTER_IDS=["388886548","389607677","387952781","389524927","389901621","388247482","389623333","386936962","389902497","389918530","389541824","386035010","389721474","385953353","389099163","396332479","386809287","385887895","388017689","388755121","386494109","390033384","389295389","387739433","385985957","390048976","386264253","387165951","385936826","386576636","395551033","390050032","388804053","387264538","388099273","386281264","389115904","389853430","390032922","388722749","389721911","387526235","389164598","389672797","388017805","388787831","388722422","388919388","388951281","386346394","387215160","389508233","385937155","387853899","388034343","387017889","386969604","386019367","389869414","387100394","386150135","389476486","398345280","386035097","389869480","387198762","387756242","386625129","386789579","390016201","389213981","387706049","387395598","389033280","386740411","388672863","389558043","388017931","385920577","387559599","387951856","387018511","387690075","387395306","387248367","387559257","386444908","386346836","388116448","388198432","387412006","386084688","388001560","385888111","386511169","389754906","389557475","391421077","387018686"];
 /* Bundled with the same allocation validator used by Optimize Me. No secrets in source. */
 const ORIGIN='https://erross.github.io';
 const SCHEMA=`CREATE TABLE IF NOT EXISTS player_profiles (
  governor_id TEXT PRIMARY KEY, edit_hash TEXT NOT NULL,
  profile_json TEXT, revision INTEGER NOT NULL DEFAULT 0, updated_at TEXT
 )`;
+const KVK_SCHEMA=`CREATE TABLE IF NOT EXISTS kvk_profiles (governor_id TEXT NOT NULL, event_key TEXT NOT NULL, profile_json TEXT NOT NULL, revision INTEGER NOT NULL DEFAULT 0, updated_at TEXT, PRIMARY KEY(governor_id,event_key))`;
 class ApiError extends Error {constructor(status,message){super(message);this.status=status;}}
 const fail=(status,message)=>{throw new ApiError(status,message);};
 async function digest(text){return new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(text)));}
 const hex=bytes=>Array.from(bytes,b=>b.toString(16).padStart(2,'0')).join('');
 async function sameSecret(a,b){const x=await digest(a),y=await digest(b);let diff=0;for(let i=0;i<x.length;i++)diff|=x[i]^y[i];return diff===0;}
-async function body(request){
+async function body(request,limit=20000){
  if(!request.headers.get('content-type')?.startsWith('application/json'))fail(415,'Send JSON data.');
- if(Number(request.headers.get('content-length'))>20000)fail(413,'Profile is too large.');
+ if(Number(request.headers.get('content-length'))>limit)fail(413,'Profile is too large.');
  const reader=request.body?.getReader();if(!reader)fail(400,'Missing request body.');
  let size=0,chunks=[];
- for(;;){const {done,value}=await reader.read();if(done)break;size+=value.length;if(size>20000){await reader.cancel();fail(413,'Profile is too large.');}chunks.push(value);}
+ for(;;){const {done,value}=await reader.read();if(done)break;size+=value.length;if(size>limit){await reader.cancel();fail(413,'Profile is too large.');}chunks.push(value);}
  const data=new Uint8Array(size);let offset=0;for(const chunk of chunks){data.set(chunk,offset);offset+=chunk.length;}
  try{return JSON.parse(new TextDecoder().decode(data));}catch(_){fail(400,'Invalid JSON.');}
 }
@@ -166,17 +312,36 @@ export default {async fetch(request,env){
   if(request.headers.has('Origin')&&request.headers.get('Origin')!==ORIGIN)fail(403,'Origin is not allowed.');
   if(request.method==='OPTIONS')return new Response(null,{status:204,headers});
   const path=new URL(request.url).pathname;
-  if(path==='/health'&&request.method==='GET')return reply({service:'bear-player-profiles',version:2,mode:'open-profiles'});
+  if(path==='/health'&&request.method==='GET')return reply({service:'bear-player-profiles',version:3,mode:'open-profiles',capabilities:['kvk-profiles']});
   if(!env.DB||typeof env.ADMIN_TOKEN!=='string'||env.ADMIN_TOKEN.length<32)fail(503,'Organizer must configure DB and an ADMIN_TOKEN of at least 32 characters.');
   const token=request.headers.get('Authorization')?.match(/^Bearer ([^\s]{1,512})$/)?.[1];
   if(path.startsWith('/api/admin/')){
    if(!token||!await sameSecret(token,env.ADMIN_TOKEN))fail(401,'Organizer key is incorrect.');
-   if(path==='/api/admin/init'&&request.method==='POST'){await env.DB.prepare(SCHEMA).run();return reply({ok:true});}
+   if(path==='/api/admin/init'&&request.method==='POST'){await env.DB.prepare(SCHEMA).run();await env.DB.prepare(KVK_SCHEMA).run();return reply({ok:true});}
+   if(path==='/api/admin/kvk/profiles'&&request.method==='GET'){
+    const data=await env.DB.prepare('SELECT governor_id,event_key,profile_json,revision,updated_at FROM kvk_profiles ORDER BY updated_at DESC').all();
+    return reply({profiles:data.results.map(r=>({governorId:r.governor_id,event:r.event_key,input:JSON.parse(r.profile_json),revision:r.revision,updatedAt:r.updated_at}))});
+   }
    if(path==='/api/admin/profiles'&&request.method==='GET'){
     const data=await env.DB.prepare('SELECT governor_id,profile_json,revision,updated_at FROM player_profiles WHERE profile_json IS NOT NULL ORDER BY governor_id').all();
     return reply({profiles:data.results.map(r=>({governorId:r.governor_id,input:JSON.parse(r.profile_json),revision:r.revision,updatedAt:r.updated_at}))});
    }
    fail(404,'Unknown organizer action.');
+  }
+  const kvkMatch=path.match(/^\/api\/kvk\/players\/(\d+)$/);
+  if(kvkMatch&&['GET','PUT'].includes(request.method)){
+   const id=kvkMatch[1];if(!ROSTER_IDS.includes(id))fail(404,'Player is not in the CNQ roster.');
+   const event=new URL(request.url).searchParams.get('event')||'next-kvk';if(!/^(next-kvk|\d{4}-\d{2}-\d{2})$/.test(event))fail(400,'Invalid KvK event key.');
+   const row=await env.DB.prepare('SELECT profile_json,revision,updated_at FROM kvk_profiles WHERE governor_id=? AND event_key=?').bind(id,event).first();
+   if(request.method==='GET')return reply({governorId:id,event,input:row?JSON.parse(row.profile_json):null,revision:row?.revision??0,updatedAt:row?.updated_at??null});
+   const data=await body(request,150000);if(!data||!Number.isSafeInteger(data.revision)||data.revision<0)fail(400,'Load the online KvK inventory before saving.');
+   let input;try{input=globalThis.KvKModel.clean(data.input);}catch(error){fail(400,error.message);}
+   if(input.event!==event)fail(400,'The inventory event must match the selected event.');
+   const at=new Date().toISOString(),before=new Date(Date.now()-10000).toISOString();
+   if(data.revision!==(row?.revision??0))fail(409,'Shared KvK data changed. Load again before saving; your local entries are preserved.');
+   if(row?.updated_at&&row.updated_at>before)fail(429,'Please wait 10 seconds between KvK saves for the same player and event.');
+   const changed=await env.DB.prepare('INSERT INTO kvk_profiles (governor_id,event_key,profile_json,revision,updated_at) VALUES (?,?,?,?,?) ON CONFLICT(governor_id,event_key) DO UPDATE SET profile_json=excluded.profile_json,revision=kvk_profiles.revision+1,updated_at=excluded.updated_at WHERE kvk_profiles.revision=? AND (kvk_profiles.updated_at IS NULL OR kvk_profiles.updated_at<=?)').bind(id,event,JSON.stringify(input),data.revision+1,at,data.revision,before).run();
+   if(changed.meta.changes!==1)fail(409,'Shared KvK data changed. Load again before saving; your local entries are preserved.');return reply({ok:true,revision:data.revision+1,updatedAt:at});
   }
   const match=path.match(/^\/api\/players\/(\d+)$/);
   if(!match||!['GET','PUT'].includes(request.method))fail(404,'Unknown profile action.');

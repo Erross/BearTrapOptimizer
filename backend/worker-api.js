@@ -4,17 +4,18 @@ const SCHEMA=`CREATE TABLE IF NOT EXISTS player_profiles (
  governor_id TEXT PRIMARY KEY, edit_hash TEXT NOT NULL,
  profile_json TEXT, revision INTEGER NOT NULL DEFAULT 0, updated_at TEXT
 )`;
+const KVK_SCHEMA=`CREATE TABLE IF NOT EXISTS kvk_profiles (governor_id TEXT NOT NULL, event_key TEXT NOT NULL, profile_json TEXT NOT NULL, revision INTEGER NOT NULL DEFAULT 0, updated_at TEXT, PRIMARY KEY(governor_id,event_key))`;
 class ApiError extends Error {constructor(status,message){super(message);this.status=status;}}
 const fail=(status,message)=>{throw new ApiError(status,message);};
 async function digest(text){return new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(text)));}
 const hex=bytes=>Array.from(bytes,b=>b.toString(16).padStart(2,'0')).join('');
 async function sameSecret(a,b){const x=await digest(a),y=await digest(b);let diff=0;for(let i=0;i<x.length;i++)diff|=x[i]^y[i];return diff===0;}
-async function body(request){
+async function body(request,limit=20000){
  if(!request.headers.get('content-type')?.startsWith('application/json'))fail(415,'Send JSON data.');
- if(Number(request.headers.get('content-length'))>20000)fail(413,'Profile is too large.');
+ if(Number(request.headers.get('content-length'))>limit)fail(413,'Profile is too large.');
  const reader=request.body?.getReader();if(!reader)fail(400,'Missing request body.');
  let size=0,chunks=[];
- for(;;){const {done,value}=await reader.read();if(done)break;size+=value.length;if(size>20000){await reader.cancel();fail(413,'Profile is too large.');}chunks.push(value);}
+ for(;;){const {done,value}=await reader.read();if(done)break;size+=value.length;if(size>limit){await reader.cancel();fail(413,'Profile is too large.');}chunks.push(value);}
  const data=new Uint8Array(size);let offset=0;for(const chunk of chunks){data.set(chunk,offset);offset+=chunk.length;}
  try{return JSON.parse(new TextDecoder().decode(data));}catch(_){fail(400,'Invalid JSON.');}
 }
@@ -48,17 +49,36 @@ export default {async fetch(request,env){
   if(request.headers.has('Origin')&&request.headers.get('Origin')!==ORIGIN)fail(403,'Origin is not allowed.');
   if(request.method==='OPTIONS')return new Response(null,{status:204,headers});
   const path=new URL(request.url).pathname;
-  if(path==='/health'&&request.method==='GET')return reply({service:'bear-player-profiles',version:2,mode:'open-profiles'});
+  if(path==='/health'&&request.method==='GET')return reply({service:'bear-player-profiles',version:3,mode:'open-profiles',capabilities:['kvk-profiles']});
   if(!env.DB||typeof env.ADMIN_TOKEN!=='string'||env.ADMIN_TOKEN.length<32)fail(503,'Organizer must configure DB and an ADMIN_TOKEN of at least 32 characters.');
   const token=request.headers.get('Authorization')?.match(/^Bearer ([^\s]{1,512})$/)?.[1];
   if(path.startsWith('/api/admin/')){
    if(!token||!await sameSecret(token,env.ADMIN_TOKEN))fail(401,'Organizer key is incorrect.');
-   if(path==='/api/admin/init'&&request.method==='POST'){await env.DB.prepare(SCHEMA).run();return reply({ok:true});}
+   if(path==='/api/admin/init'&&request.method==='POST'){await env.DB.prepare(SCHEMA).run();await env.DB.prepare(KVK_SCHEMA).run();return reply({ok:true});}
+   if(path==='/api/admin/kvk/profiles'&&request.method==='GET'){
+    const data=await env.DB.prepare('SELECT governor_id,event_key,profile_json,revision,updated_at FROM kvk_profiles ORDER BY updated_at DESC').all();
+    return reply({profiles:data.results.map(r=>({governorId:r.governor_id,event:r.event_key,input:JSON.parse(r.profile_json),revision:r.revision,updatedAt:r.updated_at}))});
+   }
    if(path==='/api/admin/profiles'&&request.method==='GET'){
     const data=await env.DB.prepare('SELECT governor_id,profile_json,revision,updated_at FROM player_profiles WHERE profile_json IS NOT NULL ORDER BY governor_id').all();
     return reply({profiles:data.results.map(r=>({governorId:r.governor_id,input:JSON.parse(r.profile_json),revision:r.revision,updatedAt:r.updated_at}))});
    }
    fail(404,'Unknown organizer action.');
+  }
+  const kvkMatch=path.match(/^\/api\/kvk\/players\/(\d+)$/);
+  if(kvkMatch&&['GET','PUT'].includes(request.method)){
+   const id=kvkMatch[1];if(!ROSTER_IDS.includes(id))fail(404,'Player is not in the CNQ roster.');
+   const event=new URL(request.url).searchParams.get('event')||'next-kvk';if(!/^(next-kvk|\d{4}-\d{2}-\d{2})$/.test(event))fail(400,'Invalid KvK event key.');
+   const row=await env.DB.prepare('SELECT profile_json,revision,updated_at FROM kvk_profiles WHERE governor_id=? AND event_key=?').bind(id,event).first();
+   if(request.method==='GET')return reply({governorId:id,event,input:row?JSON.parse(row.profile_json):null,revision:row?.revision??0,updatedAt:row?.updated_at??null});
+   const data=await body(request,150000);if(!data||!Number.isSafeInteger(data.revision)||data.revision<0)fail(400,'Load the online KvK inventory before saving.');
+   let input;try{input=globalThis.KvKModel.clean(data.input);}catch(error){fail(400,error.message);}
+   if(input.event!==event)fail(400,'The inventory event must match the selected event.');
+   const at=new Date().toISOString(),before=new Date(Date.now()-10000).toISOString();
+   if(data.revision!==(row?.revision??0))fail(409,'Shared KvK data changed. Load again before saving; your local entries are preserved.');
+   if(row?.updated_at&&row.updated_at>before)fail(429,'Please wait 10 seconds between KvK saves for the same player and event.');
+   const changed=await env.DB.prepare('INSERT INTO kvk_profiles (governor_id,event_key,profile_json,revision,updated_at) VALUES (?,?,?,?,?) ON CONFLICT(governor_id,event_key) DO UPDATE SET profile_json=excluded.profile_json,revision=kvk_profiles.revision+1,updated_at=excluded.updated_at WHERE kvk_profiles.revision=? AND (kvk_profiles.updated_at IS NULL OR kvk_profiles.updated_at<=?)').bind(id,event,JSON.stringify(input),data.revision+1,at,data.revision,before).run();
+   if(changed.meta.changes!==1)fail(409,'Shared KvK data changed. Load again before saving; your local entries are preserved.');return reply({ok:true,revision:data.revision+1,updatedAt:at});
   }
   const match=path.match(/^\/api\/players\/(\d+)$/);
   if(!match||!['GET','PUT'].includes(request.method))fail(404,'Unknown profile action.');

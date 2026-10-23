@@ -60,6 +60,25 @@ async function main(){
  const A=globalThis.BearAllianceModel,plan=A.mergeSnapshot(A.emptyPlan(),require('../web/data/alliance-api.json'));plan.players[0].group='1';plan.players[0].stats.archers_attack_bonus=123;
  const result=globalThis.BearCloud.applyProfiles(plan,[{governorId:id,input}]);assert.equal(result.count,1);assert.equal(result.plan.players[0].stats.troops,250000);assert.equal(result.plan.players[0].group,'1');assert.equal(result.plan.players[0].stats.archers_attack_bonus,123);assert.notEqual(plan.players[0].stats.troops,250000);
  assert.throws(()=>globalThis.BearCloud.applyProfiles(plan,[{governorId:id,input:bad}]));
+ // KvK inventories use their own table and event key, preserving Bear profiles.
+ const K=globalThis.KvKModel,kvk=K.empty(),kvkPath='/api/kvk/players/'+id+'?event=next-kvk';
+ kvk.gear.governor[0].level=3;kvk.gear.charms[0].level=2;kvk.resources.guides.stock=40;kvk.wallets.swordland.balance=5000;
+ assert.equal((await call(kvkPath,{key:''})).data.revision,0);
+ const kvkSave=await call(kvkPath,{key:'',method:'PUT',data:{input:{...kvk,untrusted:'ignored'},revision:0}});assert.equal(kvkSave.status,200);
+ const kvkRead=await call(kvkPath,{key:''});assert.equal(kvkRead.data.input.gear.governor[0].level,3);assert.equal(kvkRead.data.input.gear.charms[0].level,2);assert(!('untrusted' in kvkRead.data.input));
+ assert.equal((await call(path,{key:''})).data.revision,3,'KvK save must not overwrite Bear inventory');
+ assert.equal((await call(kvkPath,{key:'',method:'PUT',data:{input:kvk,revision:0}})).status,409);
+ assert.equal((await call(kvkPath,{key:'',method:'PUT',data:{input:kvk,revision:1}})).status,429);
+ const dated={...kvk,event:'2026-11-02'};assert.equal((await call('/api/kvk/players/'+id+'?event=2026-11-02',{key:'',method:'PUT',data:{input:dated,revision:0}})).status,200);
+ assert.equal((await call(kvkPath,{key:''})).data.revision,1,'Dated events remain separate');
+ assert.equal((await call('/api/admin/kvk/profiles',{key:''})).status,401);assert.equal((await call('/api/admin/kvk/profiles')).data.profiles.length,2);
+ assert.equal((await call('/api/kvk/players/999999999',{key:''})).status,404);
+ assert.equal((await call('/api/kvk/players/'+id+'?event=invalid',{key:''})).status,400);
+ for(const badKvK of [{...kvk,targets:[-1,0,0,0,0]},{...kvk,gear:{...kvk.gear,governor:[{level:999}]}},{...kvk,offers:Array(81).fill(kvk.offers[0])}])assert.equal((await call(kvkPath,{key:'',method:'PUT',data:{input:badKvK,revision:1}})).status,400);
+ sqlite.prepare("UPDATE kvk_profiles SET updated_at='2000-01-01T00:00:00.000Z' WHERE governor_id=? AND event_key='next-kvk'").run(id);
+ const kvkRace=await Promise.all([call(kvkPath,{key:'',method:'PUT',data:{input:kvk,revision:1}}),call(kvkPath,{key:'',method:'PUT',data:{input:kvk,revision:1}})]);assert.equal(kvkRace.filter(r=>r.status===200).length,1);
+ assert.equal((await call('/api/admin/init',{method:'POST'})).status,200);assert.equal((await call(kvkPath,{key:''})).data.revision,2);
+ assert((await call('/health',{key:''})).data.capabilities.includes('kvk-profiles'));
  const actualFetch=globalThis.fetch,network=[];globalThis.fetch=async(url,options)=>{network.push({url,options});return {ok:true,status:200,json:async()=>({ok:true})};};
  try{
   await globalThis.BearCloud.request('/api/players/'+id,'');assert(!('Authorization' in network.at(-1).options.headers));

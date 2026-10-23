@@ -49,3 +49,5 @@ input,select,textarea,section[id]{scroll-margin:90px}dialog input,dialog select{
 @media(max-width:650px){.alliance-dialog-header{flex-direction:row;align-items:start;gap:10px}.alliance-dialog-header button{font-size:12px;max-width:100px;white-space:normal}.alliance-dialog-header h2{font-size:20px}.alliance-dialog-header p{font-size:12px}}
 
 .setup-tab-hint{display:none}@media(max-width:600px){.setup-tab-hint{display:block;margin:0;padding:7px 14px;border-bottom:1px solid var(--line);font-size:11px;color:var(--muted);background:white}}
+
+@media(max-width:600px){.app-nav-links a:last-child{grid-column:auto}}
