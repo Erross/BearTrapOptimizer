@@ -69,7 +69,7 @@ function renderCustom(){
  $('kvkcustomactions').innerHTML=state.upgrades.map((u,i)=>'<article><strong>'+esc(u.name)+'</strong> · '+u.limit+' available · '+Object.entries(u.consumes).map(([r,v])=>fmt(v)+' '+esc(label(r))).join(', ')+'<button type="button" data-remove-action="'+i+'">Remove batch</button></article>').join('');
  for(const b of $('kvkcustomactions').querySelectorAll('button'))b.onclick=()=>{state=read();state.upgrades.splice(Number(b.dataset.removeAction),1);renderCustom();dirty();};
 }
-function render(){$('kvkentryfields').hidden=!current;$('kvkentryfields').disabled=!current;$('kvkchoosefirst').hidden=!!current;renderInventory();renderWallets();renderOffers();renderDays();renderGear();$('kvkresults').hidden=true;last=null;updateEntryReview();}
+function render(){window.BearPlayerSearch?.sync('kvkplayer');$('kvkentryfields').hidden=!current;$('kvkentryfields').disabled=!current;$('kvkchoosefirst').hidden=!!current;renderInventory();renderWallets();renderOffers();renderDays();renderGear();$('kvkresults').hidden=true;last=null;updateEntryReview();}
 function read(){
  const p=M.clone(state);p.event=event;p.confirmed=$('kvkconfirmed').checked;
  p.gear.stages=$('kvkstages').checked;p.gear.exclusive=state.gear.exclusive.map((h,i)=>({...h,hero:$('kvkexclusivehero'+i).value.trim(),level:$('kvkexclusivelevel'+i).value===''?null:n('kvkexclusivelevel'+i),widgets:n('kvkexclusivewidgets'+i)}));

@@ -28,7 +28,7 @@ function draw(){
  svg+='<text x="'+left+'" y="295">'+esc(date(points[0]))+'</text>'+(points.length>1?'<text x="'+right+'" y="295" text-anchor="end">'+esc(date(points.at(-1)))+'</text>':'')+'</svg>';
  $('historyplot').innerHTML=svg;
 }
-async function select(){
+async function select(){window.BearPlayerSearch?.sync('historyplayer');
  const ticket=++sequence,id=$('historyplayer').value;
  if($('historyretry'))$('historyretry').hidden=true;
  history=null;$('historystatus').textContent='Loading history…';$('historyplot').innerHTML='';$('historyrows').innerHTML='';$('historylatest').textContent='';$('historychange').textContent='';$('historyrange').textContent='';$('historycoverage').textContent='';
