@@ -1,6 +1,6 @@
 (function(){'use strict';
 const C=KvKCatalog,G=KvKGear,M=KvKModel,$=id=>document.getElementById(id),esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])),fmt=n=>Number(n).toLocaleString(),label=id=>C.resources.find(r=>r.id===id)?.name||id;
-let state=M.empty(),people=[],current='',event='next-kvk',sequence=0,edits=0,session=null,pending=null,online=null,busy=false,worker=null,job=0,last=null;
+let state=M.empty(),people=[],current='',event='next-kvk',sequence=0,edits=0,session=null,pending=null,online=null,busy=false,worker=null,job=0,last=null,savingTicket=null;
 const key=(id=current,e=event)=>'BearTrapOptimizer:kvk:v1:'+id+':'+e;
 const n=id=>Number($(id).value)||0;
 const input=(id,value,min=0,max=1e9,extra='')=>'<input id="'+id+'" type="number" min="'+min+'" max="'+max+'" step="1" '+(min>0?'required ':'')+'value="'+esc(value)+'" '+extra+'>';
@@ -86,8 +86,9 @@ function restoreInput(input,record){
  }
  return clean;
 }
-function localSave(draft=true){if(!current)return;try{localStorage.setItem(key(),JSON.stringify({input:read(),draft,shopDefaults:2,updatedAt:new Date().toISOString()}));}catch(_){status('Browser saving is unavailable. Download a backup before leaving.',true);}}
-function dirty(e){if(['kvkplayer','kvkdate','kvkstorefilter','kvkimport'].includes(e?.target?.id))return;edits++;$('kvkresults').hidden=true;last=null;$('kvkerror').hidden=true;localSave();status(current?'Draft saved on this device. Recalculate after changing entries.':'Choose your player to start saving an inventory.');updateEntryReview();if(/^kvk(gov|charm|hero|stages|stock|offer)/.test(e?.target?.id||''))gearHints();}
+function saveNotice(message,error=false){$('kvksavestate').textContent=message;$('kvksavebar').dataset.error=String(error);$('kvksaveplayer').textContent=current?$('kvkplayer').selectedOptions[0].textContent+' · KvK':'Your KvK inventory';const saving=savingTicket===sequence;$('kvksave').disabled=!current||saving;$('kvksave').textContent=saving?'Saving…':'Save online';$('kvksavebar').setAttribute('aria-busy',String(saving));}
+function localSave(draft=true){if(!current)return false;try{localStorage.setItem(key(),JSON.stringify({input:read(),draft,shopDefaults:2,updatedAt:new Date().toISOString()}));saveNotice(savingTicket===sequence?'Saving online…':draft?'Device draft · save online to share':'Saved online');return true;}catch(_){status('Browser saving is unavailable. Download a backup before leaving.',true);saveNotice('Device saving unavailable · save online',true);return false;}}
+function dirty(e){if(['kvkplayer','kvkdate','kvkstorefilter','kvkimport'].includes(e?.target?.id))return;edits++;$('kvkresults').hidden=true;last=null;$('kvkerror').hidden=true;const saved=localSave();if(saved||!current)status(current?'Draft saved on this device. Recalculate after changing entries.':'Choose your player to start saving an inventory.');updateEntryReview();if(/^kvk(gov|charm|hero|stages|stock|offer)/.test(e?.target?.id||''))gearHints();}
 const stepIds=['kvkidentity','kvkgear','kvkinventory','kvkshops','kvkgoals','kvkreview'];
 function updateStepNav(){for(const link of document.querySelectorAll('.kvk-step-links a')){if($(link.hash.slice(1))?.open)link.setAttribute('aria-current','step');else link.removeAttribute('aria-current');}}
 function openStep(id){for(const step of stepIds)$(step).open=step===id;updateStepNav();}
@@ -140,16 +141,16 @@ async function checkOnline(force=false){
 function select(){
  if(current)localSave();current=$('kvkplayer').value;event=$('kvkdate').value||'next-kvk';sequence++;session=null;online=null;pending=null;edits=0;$('kvkuseonline').hidden=true;
  try{const saved=current?JSON.parse(localStorage.getItem(key())||'null'):null;state=saved?.input?restoreInput(saved.input,saved):M.empty();state.event=event;render();}catch(error){state=M.empty();state.event=event;render();failure(Error('This saved draft could not be read. Import a backup; the unreadable copy has not been changed.'));}
- if(current)checkOnline();else $('kvkcloudstatus').textContent='Choose your player. Each player and event has a separate draft.';
+ saveNotice(current?'Device draft · save online to share':'Choose your player to save');if(current)checkOnline();else $('kvkcloudstatus').textContent='Choose your player. Each player and event has a separate draft.';
 }
 async function saveOnline(){
  if(!current){BearUI.feedback($('kvkidentity'),[{field:$('kvkplayer'),message:'Choose your player first.'}]);return;}
- if(!validateEntries())return;
+ if(!validateEntries()){saveNotice('Fix highlighted entries to save',true);return;}
  let input;try{input=M.clean(read());}catch(error){failure(error);return;}
- const ticket=sequence,stamp=edits;localSave();$('kvksave').disabled=true;status('Saving KvK inventory online…');
- try{if(pending)await pending;if(ticket!==sequence)return;if(!session)await checkOnline();if(ticket!==sequence)return;if(!session)throw Error('Online KvK storage is not ready. Your draft remains on this device.');const result=await BearCloud.request('/api/kvk/players/'+current+'?event='+encodeURIComponent(event),'','PUT',{revision:session.revision,input});if(ticket!==sequence)return;session.revision=result.revision;if(edits===stamp)localSave(false);status('KvK inventory saved online · '+new Date(result.updatedAt).toLocaleString()+(edits===stamp?'':'. Newer edits remain a device draft.'));$('kvkcloudstatus').textContent='Saved online · '+new Date(result.updatedAt).toLocaleString();}
- catch(error){if(ticket!==sequence)return;if(/changed|Load again/i.test(error.message)){session=null;$('kvkretry').hidden=false;}status('Not saved online: '+error.message+' Your draft is preserved.',true);}
- finally{$('kvksave').disabled=false;}
+ const ticket=sequence,stamp=edits;localSave();savingTicket=ticket;saveNotice('Saving online…');status('Saving KvK inventory online…');
+ try{if(pending)await pending;if(ticket!==sequence)return;if(!session)await checkOnline();if(ticket!==sequence)return;if(!session)throw Error('Online KvK storage is not ready. Your draft remains on this device.');const result=await BearCloud.request('/api/kvk/players/'+current+'?event='+encodeURIComponent(event),'','PUT',{revision:session.revision,input});if(ticket!==sequence)return;session.revision=result.revision;if(edits===stamp)localSave(false);saveNotice(edits===stamp?'Saved online · '+new Date(result.updatedAt).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}):'Newer edits · save online again');status('KvK inventory saved online · '+new Date(result.updatedAt).toLocaleString()+(edits===stamp?'':'. Newer edits remain a device draft.'));$('kvkcloudstatus').textContent='Saved online · '+new Date(result.updatedAt).toLocaleString();}
+ catch(error){if(ticket!==sequence)return;if(/changed|Load again/i.test(error.message)){session=null;$('kvkretry').hidden=false;}status('Not saved online: '+error.message+' Your draft is preserved.',true);saveNotice('Online save failed · try again',true);}
+ finally{if(savingTicket===ticket)savingTicket=null;if(ticket===sequence){$('kvksave').disabled=!current;$('kvksave').textContent='Save online';$('kvksavebar').setAttribute('aria-busy','false');}}
 }
 function finishBusy(){busy=false;worker?.terminate();worker=null;$('kvkcancel').hidden=true;$('kvkcalculate').disabled=false;$('kvkform').removeAttribute('aria-busy');}
 function calculate(e){
