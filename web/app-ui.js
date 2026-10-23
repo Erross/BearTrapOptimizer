@@ -4,7 +4,7 @@
 const $=id=>document.getElementById(id);
 function reveal(field){
  for(let parent=field.parentElement;parent;parent=parent.parentElement)if(parent.tagName==='DETAILS')parent.open=true;
- field.scrollIntoView({block:'center',behavior:'auto'});field.focus({preventScroll:true});
+ const target=$(field.dataset.searchInput)||field;target.scrollIntoView({block:'center',behavior:'auto'});target.focus({preventScroll:true});
 }
 function label(field){return field.getAttribute('aria-label')||field.closest('label')?.childNodes[0]?.textContent.trim()||document.querySelector('label[for="'+field.id+'"]')?.textContent.trim()||field.id||'This entry';}
 function clear(field){

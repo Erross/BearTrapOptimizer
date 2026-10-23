@@ -72,7 +72,7 @@ function leaderOptions(selected={}){
 function suggest(){
  const selected=M.suggestLeaders(read().heroes,observed());leaderOptions(selected);dirty();
 }
-function selectPlayer(skipSave=false){
+function selectPlayer(skipSave=false){window.BearPlayerSearch?.sync('personalplayer');
  if(skipSave!==true)save();state.loading=true;const previousPlayer=state.current;state.current=$('personalplayer').value;
  state.output=null;$('personalresult').hidden=true;$('personalerror').hidden=true;
  const p=person();if(!p){state.loading=false;if(window.BearCloudSelectionChanged)window.BearCloudSelectionChanged();return;}
