@@ -49,7 +49,7 @@ export default {async fetch(request,env){
   if(request.headers.has('Origin')&&request.headers.get('Origin')!==ORIGIN)fail(403,'Origin is not allowed.');
   if(request.method==='OPTIONS')return new Response(null,{status:204,headers});
   const path=new URL(request.url).pathname;
-  if(path==='/health'&&request.method==='GET')return reply({service:'bear-player-profiles',version:3,mode:'open-profiles',capabilities:['kvk-profiles']});
+  if(path==='/health'&&request.method==='GET')return reply({service:'bear-player-profiles',version:4,mode:'open-profiles',capabilities:['kvk-profiles','kvk-exclusive-widgets']});
   if(!env.DB||typeof env.ADMIN_TOKEN!=='string'||env.ADMIN_TOKEN.length<32)fail(503,'Organizer must configure DB and an ADMIN_TOKEN of at least 32 characters.');
   const token=request.headers.get('Authorization')?.match(/^Bearer ([^\s]{1,512})$/)?.[1];
   if(path.startsWith('/api/admin/')){
