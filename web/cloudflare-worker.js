@@ -125,18 +125,25 @@ const resources=[
  ['roulette','Hero Roulette spins','spins',[0,8000,8000,0,0]],['emblem','Usable Master Emblems (not General)','items',[0,6000,6000,0,0]],['manuscript',"Master’s Manuscripts",'items',[0,60,60,0,0]],
  ['spares','Spare Mythic gear · unequipped, usable as fodder','pieces',null],['guides','Charm Guides','items',null],['designs','Charm Designs','items',null],['satin','Satin','items',null],['threads','Gilded Threads','items',null],['visions',"Artisan’s Visions",'items',null],['growth','Growth Manuals','items',null],['potions','Nutrient Potions','items',null],['medallions','Promotion Medallions','items',null]
 ].map(([id,name,unit,points])=>({id,name,unit,points}));
-const wallets=[['swordland','Swordland · Relic Coins'],['arena','Arena Tokens'],['trial','Trial Crystals'],['tidal','Tidal Stones'],['championship','Championship Badges'],['alliance','Alliance Tokens'],['gems','Gems · opt-in purchases only']].map(([id,name])=>({id,name}));
+const wallets=[['swordland','Swordland · Relic Coins'],['arena','Arena Tokens'],['trial','Trial Crystals'],['tidal','Tidal Stones'],['championship','Championship Badges'],['alliance','Alliance Tokens'],['gems','Gems']].map(([id,name])=>({id,name}));
 const offers=[];
-function offer(wallet,resource,cost,remaining,quantity=1){offers.push({id:wallet+'_'+resource,name:resources.find(r=>r.id===resource).name,wallet,resource,cost,quantity,remaining,from:1,to:5,enabled:false});}
+function offer(wallet,resource,cost,remaining,quantity=1){offers.push({id:wallet+'_'+resource,name:resources.find(r=>r.id===resource).name,wallet,resource,cost,quantity,remaining,from:1,to:5,enabled:true});}
 for(const args of [['mythic',2500,3],['hammer',1250,10],['satin',1,2500],['threads',100,25],['visions',500,15],['designs',500,20],['guides',500,10],['general',250,20,60],['construction',250,20,60],['research',250,20,60],['training',250,20,60]])offer('swordland',...args);
 for(const args of [['hammer',2500,5],['mythic',2500,3],['epic',500,5],['rare',250,10],['mithril',10000,3],['advanced',4800,1]])offer('arena',...args);
 for(const args of [['mythic',500,5],['designs',250,20],['guides',250,20],['dust',50,300],['mithril',2500,1]])offer('trial',...args);
 for(const args of [['advanced',3000,2],['hammer',1250,10],['mythic',2500,3],['designs',500,20],['guides',500,10],['visions',500,15],['satin',1,2500],['threads',100,25],['general',250,20,60]])offer('tidal',...args);
+// Standard scoring offers; rotating Alliance stock uses full-price reference costs.
+for(const args of [['threads',100,100],['satin',1,10000],['training',400,5,60],['construction',400,5,60],['research',400,5,60],['rare',200,100],['epic',600,25],['mythic',2500,2]])offer('championship',...args);
+for(const resource of ['construction','research','training']){offer('alliance',resource,2200,4,5);offer('alliance',resource,26000,1,60);}
+offer('gems','common',500,100000);offer('gems','general',800,100000,60);
 root.KvKCatalog={version:1,resources,wallets,offers,days:['City Construction','Basic Skills Up','Pet Training','Hero Development','Power Boost'],sources:[
  {name:'Preparation scoring · community data extracted from game files',url:'https://ks-toolkit.com/data/events/kingdom-of-power/'},
  {name:'Swordland · prices and age-dependent stock limits',url:'https://ks-toolkit.com/data/systems/swordland-shop/'},
  {name:'Arena · prices and availability',url:'https://ks-toolkit.com/data/systems/arena-shop/'},
  {name:'Trial · prices and age-dependent availability',url:'https://ks-toolkit.com/data/systems/trial-shop/'},
+ {name:'Championship · weekly stock',url:'https://ks-toolkit.com/data/systems/alliance-championship-shop/'},
+ {name:'Alliance · rotating stock and discounts',url:'https://ks-toolkit.com/data/systems/alliance-shop/'},
+ {name:'Gem shop · standard prices',url:'https://ks-toolkit.com/data/systems/gem-shop/'},
  {name:'Tidal · prices and stock',url:'https://ks-toolkit.com/data/systems/tidal-shop/'}
 ]};
 })(typeof globalThis!=='undefined'?globalThis:this);
@@ -194,7 +201,7 @@ function whole(v,min=0,max=MAX,label='Count'){const n=number(v,min,max,label);if
 function text(v,label='Name'){if(typeof v!=='string'||!v.trim()||v.length>100)throw Error(label+' needs 1–100 characters.');return v.trim();}
 const days=(v,label)=>{if(!Array.isArray(v)||v.length!==5)throw Error(label+' needs five days.');return v.map(x=>whole(x,0,1e12,label));};
 function empty(){return {version:1,event:'next-kvk',confirmed:false,targets:Array(5).fill(200000),actual:Array(5).fill(0),baseline:Array(5).fill(0),closed:Array(5).fill(false),
- resources:Object.fromEntries(C.resources.map(r=>[r.id,{stock:0,reserve:0,enabled:false,batch:1,cap:null}])),
+ resources:Object.fromEntries(C.resources.map(r=>[r.id,{stock:0,reserve:0,enabled:true,batch:1,cap:null}])),
  wallets:Object.fromEntries(C.wallets.map(w=>[w.id,{balance:0,reserve:0,income:Array(5).fill(0)}])),
  workloads:Object.fromEntries(['construction','research','training','master'].map(k=>[k,Array(5).fill(0)])),
  gear:root.KvKGear.empty(),offers:clone(C.offers),upgrades:[],rules:Object.fromEntries(C.resources.filter(r=>r.points).map(r=>[r.id,clone(r.points)]))};}
@@ -260,7 +267,7 @@ function optimize(input,solver){
 root.KvKModel={empty,clean,compile,optimize,clone};
 })(typeof globalThis!=='undefined'?globalThis:this);
 
-const ROSTER_IDS=["388886548","389607677","387952781","389524927","389901621","388247482","389623333","386936962","389902497","389918530","389541824","386035010","389721474","385953353","389099163","396332479","386809287","385887895","388017689","388755121","386494109","390033384","389295389","387739433","385985957","390048976","386264253","387165951","385936826","386576636","395551033","390050032","388804053","387264538","388099273","386281264","389115904","389853430","390032922","388722749","389721911","387526235","389164598","389672797","388017805","388787831","388722422","388919388","388951281","386346394","387215160","389508233","385937155","387853899","388034343","387017889","386969604","386019367","389869414","387100394","386150135","389476486","398345280","386035097","389869480","387198762","387756242","386625129","386789579","390016201","389213981","387706049","387395598","389033280","386740411","388672863","389558043","388017931","385920577","387559599","387951856","387018511","387690075","387395306","387248367","387559257","386444908","386346836","388116448","388198432","387412006","386084688","388001560","385888111","386511169","389754906","389557475","391421077","387018686"];
+const ROSTER_IDS=["388886548","389607677","387952781","389524927","388247482","389901621","389623333","386936962","389902497","389721474","389918530","389541824","386035010","386809287","385953353","389099163","396332479","385887895","388017689","388755121","386494109","390033384","389295389","386264253","387739433","385985957","390048976","387165951","388099273","386576636","395551033","385936826","390050032","387264538","388804053","389115904","386281264","389853430","388722749","390032922","389672797","389721911","388017805","389164598","388787831","388722422","388919388","387526235","388951281","386346394","387215160","389508233","387017889","385937155","387853899","388034343","386969604","386019367","387100394","389869414","386150135","389476486","398345280","386035097","387756242","386625129","389869480","387198762","387395598","386789579","390016201","387706049","389213981","389033280","386740411","388672863","389558043","385920577","387395306","387951856","388017931","386346836","387559599","387690075","387018511","387248367","387559257","386444908","388116448","388198432","387412006","386511169","386084688","388001560","385888111","389754906","389557475","386445070","391421077"];
 /* Bundled with the same allocation validator used by Optimize Me. No secrets in source. */
 const ORIGIN='https://erross.github.io';
 const SCHEMA=`CREATE TABLE IF NOT EXISTS player_profiles (

@@ -13,6 +13,11 @@ p.gear.governor[0].level=null;assert.equal(M.optimize(p,solver).total,0,'Unknown
 // The player needs just Designs: spend only enough currency to complete that upgrade.
 p=profile();p.gear.charms[0].level=0;p.resources.guides.stock=5;p.wallets.swordland.balance=3000;p.offers=[{id:'designs',name:'Design',wallet:'swordland',resource:'designs',cost:500,quantity:1,remaining:10,from:1,to:5,enabled:true}];r=M.optimize(p,solver);assert.equal(r.total,43750);assert.equal(r.spending.swordland,2500);assert.equal(r.bought.designs,5);
 p.offers[0].from=5;assert.equal(M.optimize(p,solver).total,0,'Day 5 materials cannot fund a Day 1/3/4 charm upgrade.');
+// Default offers allocate multiple wallets jointly; splitting materials unlocks a full upgrade.
+p=profile();assert(p.offers.every(o=>o.enabled));assert(p.resources.mythic.enabled);p.gear.charms[0].level=0;p.wallets.swordland.balance=2500;p.wallets.trial.balance=1250;p.resources.mythic.enabled=false;p.offers=p.offers.filter(o=>o.wallet==='swordland'&&o.resource==='guides'||o.wallet==='trial'&&o.resource==='designs');r=M.optimize(p,solver);assert.equal(r.total,43750);assert.equal(r.spending.swordland,2500);assert.equal(r.spending.trial,1250);assert(r.days.flatMap(d=>d.purchases).some(b=>b.offer.wallet==='swordland'));assert(r.days.flatMap(d=>d.purchases).some(b=>b.offer.wallet==='trial'));
+p.offers.find(o=>o.wallet==='trial').enabled=false;assert.equal(M.optimize(p,solver).total,0,'Optional exclusions still constrain purchases');
+// Every displayed wallet has scoring offers and can fund the joint plan without opt-ins.
+p=profile();p.targets=Array(5).fill(0);for(const w of KvKCatalog.wallets){assert(p.offers.some(o=>o.wallet===w.id&&o.enabled));p.wallets[w.id].balance=20000;}for(const k of Object.keys(p.workloads))p.workloads[k]=Array(5).fill(10000);r=M.optimize(p,solver);for(const w of KvKCatalog.wallets)assert(r.spending[w.id]>0&&r.spending[w.id]<=20000,w.id+' participates within its budget');
 // No fractional bundles and no double-spending coins.
 p=profile();p.resources.advanced.enabled=true;p.wallets.arena.balance=9;p.offers=[{id:'mark',name:'Mark',wallet:'arena',resource:'advanced',cost:5,quantity:1,remaining:10,from:1,to:5,enabled:true}];r=M.optimize(p,solver);assert.equal(r.total,15000);assert.equal(r.spending.arena,5);
 p.wallets.arena.reserve=5;assert.equal(M.optimize(p,solver).total,0);

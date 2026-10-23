@@ -6,7 +6,7 @@ function whole(v,min=0,max=MAX,label='Count'){const n=number(v,min,max,label);if
 function text(v,label='Name'){if(typeof v!=='string'||!v.trim()||v.length>100)throw Error(label+' needs 1–100 characters.');return v.trim();}
 const days=(v,label)=>{if(!Array.isArray(v)||v.length!==5)throw Error(label+' needs five days.');return v.map(x=>whole(x,0,1e12,label));};
 function empty(){return {version:1,event:'next-kvk',confirmed:false,targets:Array(5).fill(200000),actual:Array(5).fill(0),baseline:Array(5).fill(0),closed:Array(5).fill(false),
- resources:Object.fromEntries(C.resources.map(r=>[r.id,{stock:0,reserve:0,enabled:false,batch:1,cap:null}])),
+ resources:Object.fromEntries(C.resources.map(r=>[r.id,{stock:0,reserve:0,enabled:true,batch:1,cap:null}])),
  wallets:Object.fromEntries(C.wallets.map(w=>[w.id,{balance:0,reserve:0,income:Array(5).fill(0)}])),
  workloads:Object.fromEntries(['construction','research','training','master'].map(k=>[k,Array(5).fill(0)])),
  gear:root.KvKGear.empty(),offers:clone(C.offers),upgrades:[],rules:Object.fromEntries(C.resources.filter(r=>r.points).map(r=>[r.id,clone(r.points)]))};}
