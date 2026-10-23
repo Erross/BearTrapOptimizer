@@ -5,8 +5,18 @@ first preparation date. Each player/event has separate inputs. Record current
 governor gear, charms and hero gear before entering materials, usable speedups,
 currency balances, reserves and daily targets. Unknown equipment is excluded.
 
+Quantity fields support direct typing or a **±** panel with +1, +10, +100 and
+matching decreases. Small ranges show only applicable steps. Select a player
+before editing, then use the forward links through the five sections. Inventory
+is grouped into expandable cards; reserves, limits and specialist settings stay
+inside optional controls. The final review links to exclusions such as unused
+speedups, switched-off items and missing gear. A partial plan is allowed, with
+unrecorded equipment excluded.
+
 The planner derives successive upgrades and their complete material requirements
-from equipment levels. It uses the increase in event score for each upgrade,
+from equipment levels. Hero enhancement fields use the +level shown in game
+(for example, Red +20 is entered as 20); the stored normalized level is converted
+automatically. It uses the increase in event score for each upgrade,
 rather than cumulative score or gear power. It can buy a missing material only
 when an enabled store offer, currency balance and availability window permit it.
 Store defaults remain disabled until the player confirms their actual prices and

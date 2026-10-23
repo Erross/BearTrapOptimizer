@@ -160,3 +160,21 @@ Checks before deployment: JavaScript syntax, unique HTML IDs, local HTTP asset l
 This update uses clearer English and consistent terms; it does not claim to translate the interface into alliance members’ languages. True damage rankings still require alliance report evidence. Responsive layout checks use the live app in a 375-pixel frame in Chrome, not a physical phone or touch emulation. `responsive-check.html` provides a reproducible narrow-viewport check without changing the public app’s normal flow.
 
 During live verification, a duplicate “Enter this player’s troops” action was removed because the generic action could open a different player. Name searches now leave the wave preview intact, and desktop comparison/search actions remain visible at the bottom of the sidebar.
+
+
+## KvK planner usability pass · 2026-10-23
+
+| Finding | Change |
+|---|---|
+| Typing every quantity or using one-unit spinners is slow. | Compact ± controls open bounded +1/+10/+100 and matching decreases; exact typing remains available. |
+| Entering inventory before choosing a player can lose an unassigned draft. | Choose the player first, then reveal their own entries. |
+| Wide inventory and daily-target tables require horizontal scanning. | Group inventory into expandable cards and show daily targets as cards; retain timer/scoring matrices in optional sections. |
+| Gear-stage settings and repeated store controls dominate ordinary entry. | Make partial stages, reserves, batch limits, store/item changes and availability optional; show concise offer summaries and expand selected offers. |
+| Players cannot easily see why recorded items are excluded. | Add a review with counts and links to missing gear, switched-off items, speedups without timers and currency without offers. |
+| Model-level errors do not identify a field. | Focus and highlight invalid reserves and reversed store availability dates, including settings in closed details. |
+| It is unclear what to do next or whether a calculation buys items. | Add forward links, plain-language instructions, a clear build action and an explicit explanation that planning spends nothing in the game. |
+
+Verified in Playwright at widths 1440, 768, 390 and 320, including the actual WASM
+calculation, online save/load with mocked external requests, quantity bounds,
+keyboard dismissal, review links and focused cross-field errors. Shared D1
+records and scoring rules retain the same schema and calculation model.
