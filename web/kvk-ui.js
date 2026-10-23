@@ -77,22 +77,33 @@ function read(){
 }
 function localSave(draft=true){if(!current)return;try{localStorage.setItem(key(),JSON.stringify({input:read(),draft,updatedAt:new Date().toISOString()}));}catch(_){status('Browser saving is unavailable. Download a backup before leaving.',true);}}
 function dirty(e){if(['kvkplayer','kvkdate','kvkstorefilter','kvkimport'].includes(e?.target?.id))return;edits++;$('kvkresults').hidden=true;last=null;$('kvkerror').hidden=true;localSave();status(current?'Draft saved on this device. Recalculate after changing entries.':'Choose your player to start saving an inventory.');updateEntryReview();if(/^kvk(gov|charm|hero|stages|stock|offer)/.test(e?.target?.id||''))gearHints();}
-function jumpTo(id){let field=$(id);if(!field)return;if(field.tagName==='DETAILS'){field.open=true;field=field.querySelector('input,select,summary')||field;}if(!field.matches('input,select,button,a,summary'))field.tabIndex=-1;BearUI.reveal(field);}
-function validateEntries(){
+const stepIds=['kvkidentity','kvkgear','kvkinventory','kvkshops','kvkgoals','kvkreview'];
+function updateStepNav(){for(const link of document.querySelectorAll('.kvk-step-links a')){if($(link.hash.slice(1))?.open)link.setAttribute('aria-current','step');else link.removeAttribute('aria-current');}}
+function openStep(id){for(const step of stepIds)$(step).open=step===id;updateStepNav();}
+for(const id of stepIds)$(id).addEventListener('toggle',e=>{if(e.target!==$(id))return;if($(id).open)openStep(id);else updateStepNav();});
+function jumpTo(id){let field=$(id);if(!field)return;const step=field.closest('.kvk-step');if(step)openStep(step.id);if(field.tagName==='DETAILS'){field.open=true;field=field.querySelector('input,select,summary')||field;}if(!field.matches('input,select,button,a,summary'))field.tabIndex=-1;BearUI.reveal(field);}
+function validateEntries(scope=$('kvkform')){
  // Reveal selected stores for validation; a filtered-out offer still belongs to the plan.
- const invalidOffer=[...$('kvkoffers').querySelectorAll('input,select')].find(f=>!f.disabled&&!f.validity.valid);
+ const invalidOffer=[...scope.querySelectorAll('#kvkoffers input,#kvkoffers select')].find(f=>!f.disabled&&!f.validity.valid);
  if(invalidOffer){$('kvkstorefilter').value='all';for(const card of $('kvkoffers').children)card.hidden=false;}
- if(!BearUI.validate($('kvkform')))return false;
- const p=read(),issues=[];
- for(const r of C.resources)if(p.resources[r.id].reserve>p.resources[r.id].stock)issues.push({field:$('kvkreserve_'+r.id),message:'Keep-back amount exceeds the '+fmt(p.resources[r.id].stock)+' you own.'});
- for(const w of C.wallets)if(p.wallets[w.id].reserve>p.wallets[w.id].balance)issues.push({field:$('kvkwalletreserve_'+w.id),message:'Reserve cannot exceed your '+fmt(p.wallets[w.id].balance)+' balance.'});
- p.offers.forEach((o,i)=>{if(o.from>o.to){$('kvkstorefilter').value='all';for(const card of $('kvkoffers').children)card.hidden=false;issues.push({field:$('kvkoffer_to_'+i),message:'Last day must be day '+o.from+' or later.'});}});
- return !issues.length||BearUI.feedback($('kvkform'),issues);
+ if(!BearUI.validate(scope))return false;
+ const p=read(),issues=[],add=(field,message)=>{if(scope.contains(field))issues.push({field,message});};
+ for(const r of C.resources)if(p.resources[r.id].reserve>p.resources[r.id].stock)add($('kvkreserve_'+r.id),'Keep-back amount exceeds the '+fmt(p.resources[r.id].stock)+' you own.');
+ for(const w of C.wallets)if(p.wallets[w.id].reserve>p.wallets[w.id].balance)add($('kvkwalletreserve_'+w.id),'Reserve cannot exceed your '+fmt(p.wallets[w.id].balance)+' balance.');
+ p.offers.forEach((o,i)=>{if(o.from>o.to&&scope.contains($('kvkoffer_to_'+i))){$('kvkstorefilter').value='all';for(const card of $('kvkoffers').children)card.hidden=false;add($('kvkoffer_to_'+i),'Last day must be day '+o.from+' or later.');}});
+ return !issues.length||BearUI.feedback(scope,issues);
 }
 function updateEntryReview(){
  if(!$('kvkreviewbody')||!$('kvkgov0')||!$('kvktarget0'))return;
  let p;try{p=read();}catch(_){return;}
  const known=p.gear.governor.filter(g=>g.level!==null).length+p.gear.charms.filter(g=>g.level!==null).length,owned=C.resources.filter(r=>p.resources[r.id].stock>0),offers=p.offers.filter(o=>o.enabled&&o.remaining),warnings=[];
+ $('kvkidentitysummary').textContent=current?(people.find(person=>person.governorId===current)?.api.name||current)+' · '+(event==='next-kvk'?'Next KvK':event):'Choose your name to begin';
+ $('kvkgearsummary').textContent=known+' of 24 governor gear / charm levels entered';
+ $('kvkinventorysummary').textContent=owned.length+' inventory '+(owned.length===1?'amount':'amounts')+' entered';
+ $('kvkshopssummary').textContent=C.wallets.filter(w=>p.wallets[w.id].balance>0).length+' store '+(C.wallets.filter(w=>p.wallets[w.id].balance>0).length===1?'balance':'balances')+' · '+offers.length+' shop '+(offers.length===1?'offer':'offers')+' selected';
+ $('kvkgoalssummary').textContent=p.targets.every(v=>v===p.targets[0])?fmt(p.targets[0])+' points per day':'Daily targets: '+p.targets.map(fmt).join(' / ');
+ $('kvkreviewsummary').textContent='Check your entries, build a plan or save online';
+
  if(!current)warnings.push(['kvkplayer','Choose your player before building or saving a plan.']);
  if(known<24)warnings.push([p.gear.governor.some(g=>g.level===null)?'kvkgov'+p.gear.governor.findIndex(g=>g.level===null):'kvkcharm'+p.gear.charms.findIndex(g=>g.level===null),(24-known)+' gear/charm entries are not recorded. Their upgrades will be left out.']);
  if(!owned.length&&!offers.length)warnings.push(['kvkinventory','No materials or shop offers entered yet. Start with the items in your bag.']);
@@ -149,7 +160,7 @@ function renderResult(p){
 function download(name,content){const url=URL.createObjectURL(new Blob([content],{type:'application/json'})),a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
 for(const link of document.querySelectorAll('.kvk-step-links a'))link.onclick=e=>{e.preventDefault();if(!current){BearUI.feedback($('kvkidentity'),[{field:$('kvkplayer'),message:'Choose your player to start this plan.'}]);return;}jumpTo(link.hash.slice(1));};
 for(const link of document.querySelectorAll('[data-open-entry]'))link.onclick=e=>{e.preventDefault();jumpTo(link.dataset.openEntry);};
-for(const link of document.querySelectorAll('[data-step-next]'))link.onclick=e=>{e.preventDefault();const section=$(link.dataset.stepNext);if(BearUI.validate(section))jumpTo(link.hash.slice(1));};
+for(const link of document.querySelectorAll('[data-step-next]'))link.onclick=e=>{e.preventDefault();const section=$(link.dataset.stepNext);if(validateEntries(section))jumpTo(link.dataset.nextStep);};
 $('kvkoffers').addEventListener('change',e=>{
  const card=e.target.closest('.kvk-offer');if(!card)return;
  if(e.target.id.startsWith('kvkoffer_on_'))card.querySelector('.kvk-offer-body').open=e.target.checked;
@@ -168,6 +179,6 @@ $('kvkexport').onclick=()=>{try{if(!current)throw Error('Choose a player before 
 $('kvkimport').onchange=async e=>{try{const file=e.target.files?.[0];if(!file)return;if(file.size>200000)throw Error('Use a KvK backup smaller than 200 KB.');const data=JSON.parse(await file.text());if(data.schema!=='cnq-kvk-profile'||!people.some(p=>p.governorId===data.governorId))throw Error('Choose a KvK backup for a current roster member.');const imported=M.clean(data.input);current=data.governorId;event=imported.event;sequence++;session=null;$('kvkplayer').value=current;$('kvkdate').value=event==='next-kvk'?'':event;state=imported;render();localSave();checkOnline();status('Inventory imported to this device. Use Save online to share it across devices.');}catch(error){failure(error);}e.target.value='';};
 $('kvkcopy').onclick=async()=>{const content=last.days.map(d=>'DAY '+d.day+': '+fmt(d.projected)+' / '+fmt(d.target)+(d.shortfall?' · SHORT '+fmt(d.shortfall):'')+'\n'+d.purchases.map(b=>'BUY '+b.count+' × '+b.offer.name+' ('+b.offer.wallet+'): '+fmt(b.count*b.offer.cost)).join('\n')+'\n'+d.actions.map(a=>'USE '+a.count+' × '+a.name+': '+fmt(a.count*a.points)+' points').join('\n')).join('\n\n');try{await navigator.clipboard.writeText(content);$('kvkcopystatus').textContent='Plan copied.';}catch(_){$('kvkcopyfallback').value=content;$('kvkcopyfallback').hidden=false;$('kvkcopyfallback').focus();$('kvkcopyfallback').select();$('kvkcopystatus').textContent='Select and copy the plan below.';}};
 $('kvkstorefilter').innerHTML='<option value="all">All stores</option>'+walletOptions('all');$('kvkstorefilter').value='swordland';$('kvktraintier').innerHTML=options(Array.from({length:11},(_,i)=>[i+1,'T'+(i+1)]),9);$('kvktrainfrom').innerHTML=options([[0,'New troops'],...Array.from({length:10},(_,i)=>[i+1,'T'+(i+1)])],0);
-render();
+render();updateStepNav();
 (async()=>{try{const response=await fetch('./data/alliance-api.json',{cache:'no-store'});if(!response.ok)throw Error('Roster unavailable. Refresh to retry.');const snapshot=await response.json();people=BearAllianceModel.mergeSnapshot(BearAllianceModel.emptyPlan(),snapshot).players.filter(p=>p.active).sort((a,b)=>a.api.name.localeCompare(b.api.name));$('kvkplayer').innerHTML='<option value="">Choose your player</option>'+people.map(p=>'<option value="'+p.governorId+'">'+esc(p.api.name)+'</option>').join('');const requested=new URLSearchParams(location.search).get('player');if(people.some(p=>p.governorId===requested)){$('kvkplayer').value=requested;select();}}catch(error){$('kvkcloudstatus').textContent=error.message;}})();
 })();

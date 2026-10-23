@@ -7,7 +7,10 @@ currency balances, reserves and daily targets. Unknown equipment is excluded.
 
 Quantity fields support direct typing or a **±** panel with +1, +10, +100 and
 matching decreases. Small ranges show only applicable steps. Select a player
-before editing, then use the forward links through the five sections. Inventory
+before editing, then use Continue through the five sections. Only one main
+section stays open at a time; closed headings summarize entered amounts and
+can be reopened without losing them. Continue validates the current section,
+and calculation errors reopen the section containing the field to fix. Inventory
 is grouped into expandable cards; reserves, limits and specialist settings stay
 inside optional controls. The final review links to exclusions such as unused
 speedups, switched-off items and missing gear. A partial plan is allowed, with

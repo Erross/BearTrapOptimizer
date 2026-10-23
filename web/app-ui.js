@@ -22,7 +22,7 @@ function mark(field,message){
 }
 function feedback(scope,issues,message){
  let box=scope.querySelector(':scope > .ui-feedback');
- if(!box){box=document.createElement('div');box.className='ui-feedback';box.setAttribute('role','alert');box.tabIndex=-1;const header=scope.querySelector(':scope > .setup-chrome, :scope > header');if(header)header.insertAdjacentElement('afterend',box);else scope.prepend(box);}
+ if(!box){box=document.createElement('div');box.className='ui-feedback';box.setAttribute('role','alert');box.tabIndex=-1;const header=scope.querySelector(':scope > .setup-chrome, :scope > header, :scope > summary');if(header)header.insertAdjacentElement('afterend',box);else scope.prepend(box);}
  box.hidden=false;box.replaceChildren();
  const title=document.createElement('strong');title.textContent=message||'Check '+issues.length+' '+(issues.length===1?'entry':'entries')+' below, then try again.';box.append(title);
  if(issues.length){const list=document.createElement('ul');for(const {field,message:text} of issues){mark(field,text);const item=document.createElement('li'),link=document.createElement('a');link.href='#'+field.id;link.textContent=label(field)+': '+text;link.onclick=event=>{event.preventDefault();reveal(field);};item.append(link);list.append(item);}box.append(list);reveal(issues[0].field);}else{box.scrollIntoView({block:'center'});box.focus({preventScroll:true});}

@@ -178,3 +178,18 @@ Verified in Playwright at widths 1440, 768, 390 and 320, including the actual WA
 calculation, online save/load with mocked external requests, quantity bounds,
 keyboard dismissal, review links and focused cross-field errors. Shared D1
 records and scoring rules retain the same schema and calculation model.
+
+
+### Guided accordion follow-up
+
+The five main KvK sections and final Review now use one accordion group. Continue
+validates the current section before opening the next; users can also reopen any
+heading. Closed headings show the selected player/event, recorded equipment,
+inventory counts, store balances/offers and daily targets. Validation and review
+links reopen the relevant main section and nested settings. Entries remain in the
+same device/player/event draft, independent of expansion state. The page explains
+that automatic device saving and explicit online saving are separate.
+
+Browser checks cover exclusive expansion, Continue, closed-section summaries,
+error reopening, review navigation, local reload before any online write and the
+existing calculation/save/load paths at four viewport widths.
