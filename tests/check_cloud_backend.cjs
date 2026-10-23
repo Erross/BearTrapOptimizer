@@ -62,10 +62,10 @@ async function main(){
  assert.throws(()=>globalThis.BearCloud.applyProfiles(plan,[{governorId:id,input:bad}]));
  // KvK inventories use their own table and event key, preserving Bear profiles.
  const K=globalThis.KvKModel,kvk=K.empty(),kvkPath='/api/kvk/players/'+id+'?event=next-kvk';
- kvk.gear.governor[0].level=3;kvk.gear.charms[0].level=2;kvk.resources.guides.stock=40;kvk.wallets.swordland.balance=5000;
+ kvk.gear.exclusive=[{id:'jabel',hero:'Jabel',level:2,widgets:14}];kvk.gear.governor[0].level=3;kvk.gear.charms[0].level=2;kvk.resources.guides.stock=40;kvk.wallets.swordland.balance=5000;
  assert.equal((await call(kvkPath,{key:''})).data.revision,0);
  const kvkSave=await call(kvkPath,{key:'',method:'PUT',data:{input:{...kvk,untrusted:'ignored'},revision:0}});assert.equal(kvkSave.status,200);
- const kvkRead=await call(kvkPath,{key:''});assert.equal(kvkRead.data.input.gear.governor[0].level,3);assert.equal(kvkRead.data.input.gear.charms[0].level,2);assert(!('untrusted' in kvkRead.data.input));
+ const kvkRead=await call(kvkPath,{key:''});assert.equal(kvkRead.data.input.gear.governor[0].level,3);assert.equal(kvkRead.data.input.gear.charms[0].level,2);assert.deepEqual(kvkRead.data.input.gear.exclusive,kvk.gear.exclusive);assert.equal(kvkRead.data.input.resources.widget.stock,14);assert(!('untrusted' in kvkRead.data.input));
  assert.equal((await call(path,{key:''})).data.revision,3,'KvK save must not overwrite Bear inventory');
  assert.equal((await call(kvkPath,{key:'',method:'PUT',data:{input:kvk,revision:0}})).status,409);
  assert.equal((await call(kvkPath,{key:'',method:'PUT',data:{input:kvk,revision:1}})).status,429);
@@ -78,7 +78,7 @@ async function main(){
  sqlite.prepare("UPDATE kvk_profiles SET updated_at='2000-01-01T00:00:00.000Z' WHERE governor_id=? AND event_key='next-kvk'").run(id);
  const kvkRace=await Promise.all([call(kvkPath,{key:'',method:'PUT',data:{input:kvk,revision:1}}),call(kvkPath,{key:'',method:'PUT',data:{input:kvk,revision:1}})]);assert.equal(kvkRace.filter(r=>r.status===200).length,1);
  assert.equal((await call('/api/admin/init',{method:'POST'})).status,200);assert.equal((await call(kvkPath,{key:''})).data.revision,2);
- assert((await call('/health',{key:''})).data.capabilities.includes('kvk-profiles'));
+ assert((await call('/health',{key:''})).data.capabilities.includes('kvk-profiles'));assert((await call('/health',{key:''})).data.capabilities.includes('kvk-exclusive-widgets'));
  const actualFetch=globalThis.fetch,network=[];globalThis.fetch=async(url,options)=>{network.push({url,options});return {ok:true,status:200,json:async()=>({ok:true})};};
  try{
   await globalThis.BearCloud.request('/api/players/'+id,'');assert(!('Authorization' in network.at(-1).options.headers));
