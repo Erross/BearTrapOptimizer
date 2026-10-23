@@ -17,10 +17,10 @@ const {chromium}=require('playwright');
    await route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(remote.get(id)||{revision:0,input:null})});
   });
   const open=file=>page.goto('http://127.0.0.1:8766/'+file);
-  const nav=['Optimize Me','Alliance summary','History','Alliance optimizer','Organizer'];
+  const nav=['Optimize Me','Alliance summary','KvK planner','History','Alliance optimizer','Organizer'];
   for(const width of [1440,768,390,320]){
    await page.setViewportSize({width,height:950});
-   for(const file of ['index.html','optimize-me.html','alliance-summary.html','history.html','organizer.html']){
+   for(const file of ['index.html','optimize-me.html','alliance-summary.html','kvk-planner.html','history.html','organizer.html']){
     await open(file);
     assert.deepEqual(await page.locator('.app-nav-links a').allTextContents(),nav);
     assert.equal(await page.locator('.app-nav [aria-current=page]').count(),1);
@@ -78,6 +78,6 @@ const {chromium}=require('playwright');
   assert.equal(await page.locator('#adminkey').getAttribute('aria-invalid'),'true');
   assert.equal(await page.evaluate(()=>document.activeElement.id),'adminkey');
   assert.deepEqual(errors,[]);
-  console.log('UX browser checks pass: five-page navigation at four widths, valid defaults, focused multi-field errors, dialog errors, reusable presets, preview/save/failure preservation, directory reset and history retry.');
+  console.log('UX browser checks pass: six-page navigation at four widths, valid defaults, focused multi-field errors, dialog errors, reusable presets, preview/save/failure preservation, directory reset and history retry.');
  }finally{await browser?.close();server.kill();}
 })().catch(error=>{console.error(error);process.exitCode=1;});

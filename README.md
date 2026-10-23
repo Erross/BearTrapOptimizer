@@ -50,6 +50,16 @@ All hero-free joining marches reuse a single saved preset, even while another
 hero-free march is away. Preset requirements count distinct formations; any freed
 slot can save the separate own-rally formation.
 
+## KvK spend planner
+
+Open **KvK planner** to enter a player's current governor gear, charms, hero gear,
+materials, speedups and store currencies. The planner calculates complete upgrade
+costs from that gear and allocates confirmed store purchases and actions across
+all five preparation days. It prioritizes daily targets, shows shortfalls and
+maximizes total points within the entered options. Device drafts and backups work
+immediately; shared saving requires the updated Worker and database initialization.
+See [KvK inputs, calculation limits and setup](docs/KVK_PLANNER.md).
+
 ## Automatic roster refresh
 
 The owner-only MightPulse workflow targets **13:30 and 23:30 UTC** daily. It

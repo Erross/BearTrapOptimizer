@@ -48,5 +48,5 @@ document.addEventListener('click',event=>{const button=event.target.closest('but
 document.querySelectorAll('.scroll').forEach(area=>{area.tabIndex=0;area.setAttribute('role','region');area.setAttribute('aria-label',area.querySelector('caption')?.textContent||'Scrollable table');});
 // Preserve the selected player when moving between their setup and their history.
 const player=new URLSearchParams(location.search).get('player');
-if(player&&/^\d+$/.test(player)){for(const a of document.querySelectorAll('.app-nav a'))if(/(?:optimize-me|history)\.html/.test(a.getAttribute('href')))a.href=a.getAttribute('href').split('?')[0]+'?player='+encodeURIComponent(player);}
+if(player&&/^\d+$/.test(player)){for(const a of document.querySelectorAll('.app-nav a'))if(/(?:optimize-me|kvk-planner|history)\.html/.test(a.getAttribute('href')))a.href=a.getAttribute('href').split('?')[0]+'?player='+encodeURIComponent(player);}
 })();

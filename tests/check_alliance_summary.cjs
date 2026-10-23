@@ -13,8 +13,8 @@ assert.equal(S.timestamp(1792169238.6387005),'2026-10-16T16:47:18.638Z');assert.
 const id=plan.players[0].governorId,id2=plan.players[1].governorId,id3=plan.players[2].governorId;
 const records=new Map([[id,{data:saved}],[id2,{data:S.submitted({...record,updatedAt:'2026-10-01T12:00:00Z'})}],[id3,{error:true}],[plan.players[3].governorId,{data:null}]]);
 const rows=S.rows(plan,snapshot,records,Date.parse('2026-10-21T15:00:00Z')),total=S.totals(rows);
-assert.equal(total.members,100);assert.equal(total.saved,2);assert.equal(total.total,500000);assert.equal(total.unavailable,1);assert.equal(total.missing,1);assert.equal(total.stale,1);
-assert.equal(total.levels.reduce((n,x)=>n+x.count,0),100);
+assert.equal(total.members,plan.players.length);assert.equal(total.saved,2);assert.equal(total.total,500000);assert.equal(total.unavailable,1);assert.equal(total.missing,1);assert.equal(total.stale,1);
+assert.equal(total.levels.reduce((n,x)=>n+x.count,0),plan.players.length);
 assert.equal(S.view(rows,'','missing').length,1);assert.equal(S.view(rows,'','saved').length,2);
 assert.equal(S.view(rows,'','all','oldest')[0].id,id2);assert.equal(S.view(rows,'','all','newest')[0].id,id);
 assert.equal(S.view(rows,'','all','troops').at(-1).data,null);
@@ -32,14 +32,14 @@ async function page(failAll=false){
   return route.endsWith('/'+id)?record:{input:null,revision:0,updatedAt:null};
  }}});
  for(const file of ['alliance-model.js','personal-model.js','alliance-summary-model.js','alliance-summary.js'])vm.runInContext(fs.readFileSync(path.join(root,'web',file),'utf8'),context);
- for(let n=0;n<200;n++){await new Promise(r=>setImmediate(r));if(nodes.summaryrefresh.disabled===false&&nodes.summarystatus.textContent.includes(failAll?'could not be checked':'Checked 100'))break;}
+ for(let n=0;n<200;n++){await new Promise(r=>setImmediate(r));if(nodes.summaryrefresh.disabled===false&&nodes.summarystatus.textContent.includes(failAll?'could not be checked':'Checked '+plan.players.length))break;}
  assert.equal(nodes.summaryrefresh.disabled,false);assert(peak<=6);
  if(failAll){assert.equal(requests,6);assert(nodes.summarystatus.textContent.includes('could not be checked'));assert(!nodes.summaryrows.innerHTML.includes('Not submitted yet'));}
  else {
-  assert.equal(requests,100);assert(nodes.summaryrows.innerHTML.includes('./optimize-me.html?player='+id));
+  assert.equal(requests,plan.players.length);assert(nodes.summaryrows.innerHTML.includes('./optimize-me.html?player='+id));
   assert(nodes.summaryrows.innerHTML.includes('datetime="2026-10-21T12:00:00.000Z"'));assert(nodes.summaryrows.innerHTML.includes('250,000'));
   assert(nodes.summaryrows.innerHTML.includes('Could not check'));assert(nodes.summaryrows.innerHTML.includes('No submission'));
-  nodes.summaryfilter.value='missing';nodes.summaryfilter.handlers.change();assert(nodes.summarycount.textContent.startsWith('98 of 100'));
+  nodes.summaryfilter.value='missing';nodes.summaryfilter.handlers.change();assert(nodes.summarycount.textContent.startsWith((plan.players.length-2)+' of '+plan.players.length));
   nodes.summarysearch.value='name that does not exist';nodes.summarysearch.handlers.input();assert.equal(nodes.summaryempty.hidden,false);
  }
 }
