@@ -1,4 +1,4 @@
-/* Personal Bear presets. Inventory arithmetic, not a damage forecast. */
+/* Personal Bear presets: archer-first joins and explicit own-rally tradeoffs. */
 (function(root){
 'use strict';
 const TYPES=['infantry','cavalry','archers'],TIERS=[10,9,8];
@@ -24,12 +24,47 @@ const HEROES=[
 function whole(v,min,max,label){if(v===''||v==null||typeof v==='boolean'||!Number.isSafeInteger(Number(v))||Number(v)<min||Number(v)>max)throw Error(label+' must be a whole number from '+min+' to '+max+'.');return Number(v);}
 function matrix(value={}){return Object.fromEntries(TIERS.map(t=>[t,Object.fromEntries(TYPES.map(k=>[k,whole(value[t]?.[k]??0,0,5000000,'T'+t+' '+k)]))]));}
 function total(m){return TIERS.reduce((n,t)=>n+TYPES.reduce((s,k)=>s+m[t][k],0),0);}
-function apportioned(values,size){
- const sum=values.reduce((a,b)=>a+b,0);if(!sum||!size)return values.map(()=>0);
- const exact=values.map(v=>v/sum*size),out=exact.map(Math.floor);
- const order=exact.map((v,i)=>({i,rem:v-out[i]})).sort((a,b)=>b.rem-a.rem||a.i-b.i);
- for(let left=size-out.reduce((a,b)=>a+b,0),i=0;left>0;left--,i++)out[order[i].i]++;
- return out;
+// Community per-type square-root reference: attack, archer counter and average
+// Volley. Mixed tiers use attack-weighted effective counts (an approximation).
+const ATTACK={10:{infantry:472,cavalry:1416,archers:1888},9:{infantry:400,cavalry:1200,archers:1600},8:{infantry:339,cavalry:1017,archers:1356}};
+const attackWeight=(t,k,stats)=>ATTACK[t][k]/472*(k==='archers'?1.1*1.1:1)*(1+(stats?.[k]?.attack||0)/100)*(1+(stats?.[k]?.lethality||0)/100);
+function referenceScore(packet,stats){return TYPES.reduce((score,k)=>score+Math.sqrt(TIERS.reduce((n,t)=>n+packet[t][k]*attackWeight(t,k,stats)**2,0)),0);}
+function joinPolicy(value){if(value==null)return {mode:'optimized'};if(!value||typeof value!=='object'||!['optimized','archer-first','ratio'].includes(value.mode))throw Error('Choose a joining formation policy.');const out={mode:value.mode};if(value.mode==='ratio'){out.infantryPct=whole(value.infantryPct,0,100,'Joining infantry percentage');out.cavalryPct=whole(value.cavalryPct,0,100,'Joining cavalry percentage');if(out.infantryPct+out.cavalryPct>100)throw Error('Joining infantry and cavalry percentages cannot exceed 100 together.');}if(value.stats!==undefined){out.stats={};for(const k of TYPES){out.stats[k]={};for(const key of ['attack','lethality']){const v=value.stats?.[k]?.[key];if(v==null||v===''||typeof v==='boolean'||!Number.isFinite(Number(v))||Number(v)<0||Number(v)>10000)throw Error('Enter all six rally-leader Attack and Lethality bonuses (0–10000%).');out.stats[k][key]=Number(v);}}}return out;}
+function optimizedPacket(quota,limit,policy=joinPolicy()){if(policy.mode==='optimized')return damagePacket(quota,limit,policy.stats);
+ const packet=matrix();let room=Math.min(limit,total(quota));
+ if(policy.mode==='ratio'){const amount=room,shares=[policy.infantryPct,policy.cavalryPct,100-policy.infantryPct-policy.cavalryPct],targets=shares.map(n=>Math.floor(amount*n/100));const order=shares.map((n,i)=>({i,f:amount*n/100-targets[i]})).sort((a,b)=>b.f-a.f||a.i-b.i);for(let n=amount-targets.reduce((a,b)=>a+b,0),i=0;n>0;n--,i++)targets[order[i].i]++;for(const [i,k]of TYPES.entries()){let goal=targets[i];for(const t of TIERS){const take=Math.min(goal,quota[t][k]);packet[t][k]=take;goal-=take;room-=take;}}}
+ for(const k of ['archers','cavalry','infantry'])for(const t of TIERS){const take=Math.min(room,quota[t][k]-packet[t][k]);packet[t][k]+=take;room-=take;}
+ return packet;
+}
+// Exact integer selection from three decreasing marginal-gain chains.
+function damagePacket(quota,limit,stats){const amount=Math.min(limit,total(quota));if(!amount)return matrix();if(amount===total(quota))return matrix(quota);const chains=TYPES.map(k=>TIERS.filter(t=>quota[t][k]).map(t=>({t,k,cap:quota[t][k],a:attackWeight(t,k,stats)**2}))),gain=(s,a)=>a/(Math.sqrt(s+a)+Math.sqrt(s));
+ function above(cutoff){const packet=matrix();let count=0;for(const chain of chains){let s=0;for(const c of chain){let take=0;if(cutoff===0)take=c.cap;else if(cutoff<=Math.sqrt(c.a)){const boundary=((c.a-cutoff*cutoff)/(2*cutoff))**2;take=Math.max(0,Math.min(c.cap,Math.floor((boundary-s)/c.a)+1));while(take&&gain(s+(take-1)*c.a,c.a)<cutoff)take--;while(take<c.cap&&gain(s+take*c.a,c.a)>=cutoff)take++;}packet[c.t][c.k]=take;count+=take;s+=take*c.a;if(take<c.cap)break;}}return {packet,count};}
+ let low=0,high=Math.max(...chains.flat().map(c=>Math.sqrt(c.a)))+1,best=above(high);for(let i=0;i<80;i++){const mid=(low+high)/2,c=above(mid);if(c.count>amount)low=mid;else{high=mid;best=c;}}
+ const packet=best.packet,sums=Object.fromEntries(TYPES.map(k=>[k,TIERS.reduce((n,t)=>n+packet[t][k]*attackWeight(t,k,stats)**2,0)]));while(best.count<amount){let chosen=null,score=-Infinity;for(const k of TYPES){const t=TIERS.find(t=>packet[t][k]<quota[t][k]);if(t===undefined)continue;const g=gain(sums[k],attackWeight(t,k,stats)**2);if(g>score){score=g;chosen={t,k};}}if(!chosen)throw Error('Could not complete damage allocation.');packet[chosen.t][chosen.k]++;sums[chosen.k]+=attackWeight(chosen.t,chosen.k,stats)**2;best.count++;}return packet;
+}
+function impactScore(packet,stats){return referenceScore(packet,stats)*Math.sqrt(Math.min(total(packet),5000));}
+function ownAlternatives(input){
+ const stock=matrix(input.stock),capacity=whole(input.ownCapacity,1,2000000,'Own-rally march capacity');
+ const copy=()=>JSON.parse(JSON.stringify({...input,ownEnabled:true}));
+ let small=copy(),full=null;
+ if(input.ownTier==='lower'&&input.lowerConfirmed){small.ownTier='lower';small.ownTroops=Object.fromEntries(TYPES.map(k=>[k,Number(input.ownTroops?.[k])>0?1:0]));if(!TYPES.some(k=>small.ownTroops[k]))throw Error('Enter the lower-tier troops you actually have before using them as a small leader packet.');}
+ else{const tier=[8,9,10].find(t=>TYPES.some(k=>stock[t][k]>0));if(tier===undefined)throw Error('Enter troops before comparing own-rally packets.');small.ownTier=tier;let left=capacity;small.ownTroops=Object.fromEntries(TYPES.map(k=>[k,stock[tier][k]&&left-->0?1:0]));}
+ function fromStock(pool){let result=null,best=-1;for(const tier of TIERS){const quota=matrix();quota[tier]={...pool[tier]};const packet=optimizedPacket(quota,capacity,joinPolicy(input.joinPolicy)),score=impactScore(packet,joinPolicy(input.joinPolicy).stats);if(total(packet)&&score>best){best=score;result={...copy(),ownTier:tier,ownTroops:{...packet[tier]}};}}return result;}
+
+ full=fromStock(stock);
+ const joins=whole(input.joinMarches,1,10,'Joining marches'),march=whole(input.capacity,1,2000000,'Joining march capacity'),cap=whole(input.joinCap??0,0,2000000,'Alliance joining limit'),available=heroOptions(input.heroes),leaders=TYPES.map(k=>input.leaders?.[k]),eligible=available.filter(h=>h.join&&h.skill>0&&!leaders.includes(h.name)).length,bare=eligible<joins?whole(input.heroFreeCapacity,1,2000000,'March capacity without heroes'):march,limit=Math.min(march,bare,cap||march),quota=matrix();
+ for(const t of TIERS)for(const k of TYPES)quota[t][k]=Math.floor(stock[t][k]/joins);
+ const packet=optimizedPacket(quota,limit,joinPolicy(input.joinPolicy)),surplus=matrix(stock);for(const t of TIERS)for(const k of TYPES)surplus[t][k]-=packet[t][k]*joins;
+ const joinFirst=fromStock(surplus)||(small.ownTier==='lower'?small:null);
+ function scenario(candidate){if(!candidate)return {error:'No entered T8–T10 stock is available for a full own march.'};try{const plan=build(candidate),ownPacket=matrix();if(candidate.ownTier!=='lower')ownPacket[candidate.ownTier]={...candidate.ownTroops};return {input:candidate,plan,ownImpact:candidate.ownTier==='lower'?0:impactScore(ownPacket,joinPolicy(input.joinPolicy).stats),joinImpact:plan.joins*impactScore(plan.packet,joinPolicy(input.joinPolicy).stats)};}catch(error){return {error:error.message};}}
+ return {joinFirst:scenario(joinFirst),small:scenario(small),full:scenario(full),current:scenario(copy())};
+}
+function compareOwn(options,measurements){
+ const ownHits=Number(measurements.ownHits),joinHits=Number(measurements.joinHits),relative=Number(measurements.relative)/100;
+ if(!Number.isInteger(ownHits)||!Number.isInteger(joinHits)||![ownHits,joinHits,relative].every(n=>Number.isFinite(n)&&n>0)||ownHits>100||joinHits>100||relative>100)return null;
+ const scores=Object.fromEntries(Object.entries(options).filter(([,c])=>!c.error).map(([key,c])=>[key,c.ownImpact*ownHits*relative+c.joinImpact*joinHits]));if(Object.keys(scores).length<2)return null;
+ const order=Object.entries(scores).sort((a,b)=>b[1]-a[1]),winner=order[0][0],baseline=options.joinFirst.error?options.small:options.joinFirst,ownGain=options.full.error?0:options.full.ownImpact-baseline.ownImpact;
+ return {...scores,winner,breakEven:ownGain>0?(baseline.joinImpact-options.full.joinImpact)*joinHits/(ownGain*ownHits)*100:null};
 }
 function heroOptions(entries=[]){
  if(!Array.isArray(entries))throw Error('Invalid hero selection.');
@@ -73,14 +108,10 @@ function build(input){
   warnings.push('Some joins use no hero. Every joining preset uses the smaller confirmed capacity so all troop counts remain identical.');
  }
  const limit=Math.min(effectiveCapacity,cap||effectiveCapacity);
- const packet=matrix(),quota=matrix();
+ const quota=matrix();
  for(const t of TIERS)for(const k of TYPES)quota[t][k]=Math.floor(remaining[t][k]/joins);
- let room=limit;
- for(const t of TIERS){
-  const values=TYPES.map(k=>quota[t][k]),sum=values.reduce((a,b)=>a+b,0);
-  const valuesOut=sum<=room?values:apportioned(values,room);
-  TYPES.forEach((k,i)=>packet[t][k]=valuesOut[i]);room-=valuesOut.reduce((a,b)=>a+b,0);
- }
+ const policy=joinPolicy(input.joinPolicy),packet=optimizedPacket(quota,limit,policy);
+ const allocation={method:policy.mode,policy,minimums:policy.mode==='optimized'?Object.fromEntries(['infantry','cavalry'].map(k=>[k,TIERS.reduce((n,t)=>n+packet[t][k],0)])):null,byType:Object.fromEntries(TYPES.map(k=>[k,TIERS.reduce((n,t)=>n+packet[t][k],0)]))};
  const count=total(packet);if(!count)throw Error('There are too few troops for identical non-empty joining presets. Enter more troops or reduce the joining-march count.');
  const leftover=matrix(remaining);
  for(const t of TIERS)for(const k of TYPES)leftover[t][k]-=packet[t][k]*joins;
@@ -94,9 +125,9 @@ function build(input){
  if(ownEnabled&&presets>setups.length)own.slot=setups.length+1;
  const manual=setups.filter(s=>!s.slot).length+(ownEnabled&&!own.slot?1:0);
  if(manual)warnings.push(manual+' march setup'+(manual===1?' needs':'s need')+' manual selection because you have fewer saved presets than different march setups.');
- if(total(leftover))warnings.push('Some T8–T10 troops remain unallocated because of the march limit or identical-preset rounding. They are listed below.');
- return {joins,presets,setups,usedPresets:setups.filter(s=>s.slot).length+(own.slot?1:0),requiredPresets:setups.length+(ownEnabled?1:0),packet,perJoin:count,joinTotal:count*joins,leftover,leftoverTotal:total(leftover),own,marches,warnings,limit,manual,
-  note:'The special own-rally march is separate: '+joins+' joining marches'+(ownEnabled?' + 1 own rally':'')+'. Counts are identical for every join. Highest tiers fill the shared limit first; this is not a claim of the best damage ratio.'};
+ if(total(leftover))warnings.push('Some T8–T10 troops remain at home because of the joining cap, available march slots, or identical-preset rounding. Joins use archers first, then cavalry, then infantry, with higher tiers preferred within each type. See the unused inventory below.');
+ return {allocation,joins,presets,setups,usedPresets:setups.filter(s=>s.slot).length+(own.slot?1:0),requiredPresets:setups.length+(ownEnabled?1:0),packet,perJoin:count,joinTotal:count*joins,leftover,leftoverTotal:total(leftover),own,marches,warnings,limit,manual,
+  note:(policy.mode==='optimized'?'Damage-reference optimization: mixed troop types have diminishing returns. It maximizes the integer reference score within your entered stock and limits; the entered rally-leader Attack/Lethality bonuses are used when provided, otherwise equal bonuses are assumed. The reference includes archer counter/average Volley; unentered hero and Truegold skill effects can change the best mix. ':policy.mode==='ratio'?'Target join ratio: '+policy.infantryPct+'% infantry / '+policy.cavalryPct+'% cavalry / '+(100-policy.infantryPct-policy.cavalryPct)+'% archers. Shortages are filled from available archers, cavalry, then infantry. ':'')+'The special own-rally march is separate: '+joins+' joining marches'+(ownEnabled?' + 1 own rally':'')+'. Counts are identical for every join. After reserving your selected own-rally packet, the chosen joining policy is applied across all joins. Each type uses its highest entered tiers first. Your own-rally packet is a separate choice; compare small and full packets before committing valuable troops to it.'};
 }
 function suggestLeaders(entries,observed=[]){
  const available=heroOptions(entries),result={};
@@ -110,6 +141,6 @@ function suggestLeaders(entries,observed=[]){
  }return result;
 }
 function fingerprint(plan){return JSON.stringify({snapshotAt:plan?.snapshotAt,traps:plan?.traps,calibration:plan?.calibration,comparisonGroup:plan?.comparisonGroup,players:plan?.players?.map(p=>[p.governorId,p.active,p.attending,p.canHost,p.group,p.api?.x,p.api?.y,p.travel,p.stats])});}
-const api={TYPES,TIERS,HEROES,matrix,total,build,suggestLeaders,fingerprint};
+const api={TYPES,TIERS,HEROES,matrix,total,joinPolicy,referenceScore,optimizedPacket,ownAlternatives,compareOwn,build,suggestLeaders,fingerprint};
 if(typeof module!=='undefined')module.exports=api;root.BearPersonalModel=api;
 })(typeof globalThis!=='undefined'?globalThis:this);

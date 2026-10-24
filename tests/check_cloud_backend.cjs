@@ -28,8 +28,9 @@ async function main(){
  assert.equal(sqlite.prepare('SELECT COUNT(*) AS n FROM player_profiles').get().n,0,'Loading a new name must not create data');
  const M=globalThis.BearPersonalModel;
  const input={stock:{9:{infantry:50000,cavalry:50000,archers:'150000'}},joinMarches:'5',presets:3,capacity:100000,heroFreeCapacity:90000,joinCap:0,ownEnabled:false,heroes:[],leaders:{},ownTroops:{},untrusted:'<script>alert(1)</script>'};
+ input.joinPolicy={mode:'ratio',infantryPct:5,cavalryPct:5};
  const saved=await call(path,{method:'PUT',key:'',data:{input,revision:0}});assert.equal(saved.status,200);assert.equal(saved.data.revision,1);
- const read=await call(path,{key:''});assert.equal(read.data.input.stock[9].archers,150000);assert.equal(read.data.input.joinMarches,5);assert(!('untrusted' in read.data.input));assert(!('edit_hash' in read.data));assert(!('code' in read.data));assert.equal(read.headers.get('Cache-Control'),'no-store');assert.equal(read.headers.get('Access-Control-Allow-Origin'),origin);
+ const read=await call(path,{key:''});assert.equal(read.data.input.stock[9].archers,150000);assert.equal(read.data.input.joinMarches,5);assert(!('untrusted' in read.data.input));assert.deepEqual(read.data.input.joinPolicy,{mode:'ratio',infantryPct:5,cavalryPct:5});assert(!('edit_hash' in read.data));assert(!('code' in read.data));assert.equal(read.headers.get('Cache-Control'),'no-store');assert.equal(read.headers.get('Access-Control-Allow-Origin'),origin);
  assert.equal((await call(path,{method:'PUT',key:'',data:{input,revision:0}})).status,409);
  assert.equal((await call(path,{method:'PUT',key:'',data:{input,revision:1}})).status,429);
  sqlite.prepare("UPDATE player_profiles SET updated_at='2000-01-01T00:00:00.000Z'").run();
