@@ -60,6 +60,44 @@ function ownAlternatives(input){
  function scenario(candidate){if(!candidate)return {error:'No entered T8–T10 stock is available for a full own march.'};try{const plan=build(candidate),ownPacket=matrix();if(candidate.ownTier!=='lower')ownPacket[candidate.ownTier]={...candidate.ownTroops};return {input:candidate,plan,ownImpact:candidate.ownTier==='lower'?0:impactScore(ownPacket,joinPolicy(input.joinPolicy).stats),joinImpact:plan.joins*impactScore(plan.packet,joinPolicy(input.joinPolicy).stats)};}catch(error){return {error:error.message};}}
  return {joinFirst:scenario(joinFirst),small:scenario(small),full:scenario(full),current:scenario(copy())};
 }
+// Joint numerical search over the own packet. Every candidate re-optimizes all
+// identical joins against the remaining stock; it is not a choice between just
+// the three fixed scenarios. Integer floors/mixed tiers prevent a global proof.
+function jointOwn(input,measurements={},options=ownAlternatives(input)){
+ const policy=joinPolicy(input.joinPolicy);
+ if(policy.mode!=='optimized')return {error:'Choose the damage-reference formation policy to optimize the combined plan.'};
+ if(!input.ownEnabled)return {error:'Enable your own rally to compare a combined plan.'};
+ const blank=['ownHits','joinHits','relative'].every(k=>measurements[k]==null||measurements[k]==='');
+ const weights=blank?{ownHits:1,joinHits:1,relative:100}:measurements;
+ if(!compareOwn(options,weights))return {error:'Enter all three comparison measurements, or clear all three to use equal strength and hit counts.'};
+ const ownFactor=Number(weights.ownHits)*Number(weights.relative)/100,joinFactor=Number(weights.joinHits),stock=matrix(input.stock),capacity=whole(input.ownCapacity,1,2000000,'Own-rally march capacity');
+ const valid=Object.values(options).filter(c=>!c.error);if(!valid.length)return {error:'Complete a valid own-rally setup first.'};
+ const joins=valid[0].plan.joins,limit=valid[0].plan.limit,score=c=>c.ownImpact*ownFactor+c.joinImpact*joinFactor;
+ let best=valid.reduce((a,c)=>score(c)>score(a)?c:a),bestScore=score(best),evaluations=0;
+ for(const tier of TIERS){
+  if(!TYPES.some(k=>stock[tier][k]))continue;
+  const cache=new Map();
+  function evaluate(counts){const key=counts.join(',');if(cache.has(key))return cache.get(key);const amount=counts.reduce((a,b)=>a+b,0);if(amount<1||amount>capacity||counts.some((n,i)=>n<0||n>stock[tier][TYPES[i]]))return null;
+   const pool=matrix(stock),ownPacket=matrix();TYPES.forEach((k,i)=>{pool[tier][k]-=counts[i];ownPacket[tier][k]=counts[i];});for(const t of TIERS)for(const k of TYPES)pool[t][k]=Math.floor(pool[t][k]/joins);
+   const packet=damagePacket(pool,limit,policy.stats);if(!total(packet))return null;
+   const ownImpact=impactScore(ownPacket,policy.stats),joinImpact=joins*impactScore(packet,policy.stats),result={counts,ownImpact,joinImpact,score:ownImpact*ownFactor+joinImpact*joinFactor};cache.set(key,result);evaluations++;return result;
+  }
+  const q=matrix();q[tier]={...stock[tier]};const full=damagePacket(q,capacity,policy.stats)[tier];
+  const seeds=[TYPES.map(k=>full[k]),...valid.filter(c=>Number(c.input.ownTier)===tier).map(c=>TYPES.map(k=>Number(c.input.ownTroops[k]||0)))];
+  for(let i=0;i<3;i++){const a=[0,0,0];a[i]=Math.min(capacity,stock[tier][TYPES[i]]);seeds.push(a);}
+  let current=seeds.map(evaluate).filter(Boolean).sort((a,b)=>b.score-a.score)[0];if(!current)continue;
+  // Small cases are exhaustively solved, providing an independent regression
+  // anchor for the bounded numerical search used with real inventories.
+  if(capacity<=30){for(let i=0;i<=Math.min(capacity,stock[tier].infantry);i++)for(let c=0;c<=Math.min(capacity-i,stock[tier].cavalry);c++)for(let a=0;a<=Math.min(capacity-i-c,stock[tier].archers);a++){const next=evaluate([i,c,a]);if(next&&next.score>current.score)current=next;}}
+  else{
+   const directions=[];for(let i=0;i<3;i++){for(const sign of [-1,1]){const d=[0,0,0];d[i]=sign;directions.push(d);}for(let j=0;j<3;j++)if(j!==i){const d=[0,0,0];d[i]=-1;d[j]=1;directions.push(d);}}
+   const steps=[];for(let step=2**Math.floor(Math.log2(capacity));step>=1;step/=2)steps.push(step);steps.push(joins,1);
+   for(const step of steps)for(let pass=0;pass<100;pass++){let next=current;for(const d of directions){const candidate=evaluate(current.counts.map((n,i)=>n+d[i]*step));if(candidate&&candidate.score>next.score+1e-9)next=candidate;}if(next===current)break;current=next;}
+  }
+  if(current.score>bestScore+1e-9){const candidate=JSON.parse(JSON.stringify(input));candidate.ownTier=tier;candidate.ownTroops=Object.fromEntries(TYPES.map((k,i)=>[k,current.counts[i]]));const plan=build(candidate);best={input:candidate,plan,ownImpact:current.ownImpact,joinImpact:current.joinImpact};bestScore=current.score;}
+ }
+ return {...best,search:{assumedEqual:blank,weights:{ownHits:Number(weights.ownHits),joinHits:Number(weights.joinHits),relative:Number(weights.relative)},evaluations,score:bestScore,method:'Integer numerical search; best plan found, not a proven in-game maximum.'}};
+}
 function compareOwn(options,measurements){
  const ownHits=Number(measurements.ownHits),joinHits=Number(measurements.joinHits),relative=Number(measurements.relative)/100;
  if(!Number.isInteger(ownHits)||!Number.isInteger(joinHits)||![ownHits,joinHits,relative].every(n=>Number.isFinite(n)&&n>0)||ownHits>100||joinHits>100||relative>100)return null;
@@ -126,7 +164,7 @@ function build(input){
  if(ownEnabled&&presets>setups.length)own.slot=setups.length+1;
  const manual=setups.filter(s=>!s.slot).length+(ownEnabled&&!own.slot?1:0);
  if(manual)warnings.push(manual+' march setup'+(manual===1?' needs':'s need')+' manual selection because you have fewer saved presets than different march setups.');
- if(total(leftover))warnings.push('Some T8–T10 troops remain at home because of the joining cap, available march slots, or identical-preset rounding. Joins use archers first, then cavalry, then infantry, with higher tiers preferred within each type. See the unused inventory below.');
+ if(total(leftover))warnings.push('Some T8–T10 troops remain at home because of the joining cap, available march slots, or identical-preset rounding. See the unused inventory below and compare the combined plan to move troops between joins and your own rally.');
  return {allocation,joins,presets,setups,usedPresets:setups.filter(s=>s.slot).length+(own.slot?1:0),requiredPresets:setups.length+(ownEnabled?1:0),packet,perJoin:count,joinTotal:count*joins,leftover,leftoverTotal:total(leftover),own,marches,warnings,limit,manual,
   note:(policy.mode==='optimized'?'Damage-reference optimization: mixed troop types have diminishing returns. It maximizes the integer reference score within your entered stock and limits; the entered rally-leader Attack/Lethality bonuses are used when provided, otherwise equal bonuses are assumed. The reference includes archer counter/average Volley; unentered hero and Truegold skill effects can change the best mix. ':policy.mode==='ratio'?'Target join ratio: '+policy.infantryPct+'% infantry / '+policy.cavalryPct+'% cavalry / '+(100-policy.infantryPct-policy.cavalryPct)+'% archers. Shortages are filled from available archers, cavalry, then infantry. ':'')+'The special own-rally march is separate: '+joins+' joining marches'+(ownEnabled?' + 1 own rally':'')+'. Counts are identical for every join. After reserving your selected own-rally packet, the chosen joining policy is applied across all joins. Each type uses its highest entered tiers first. Your own-rally packet is a separate choice; compare small and full packets before committing valuable troops to it.'};
 }
@@ -142,7 +180,7 @@ function suggestLeaders(entries,observed=[]){
  }return result;
 }
 function fingerprint(plan){return JSON.stringify({snapshotAt:plan?.snapshotAt,traps:plan?.traps,calibration:plan?.calibration,comparisonGroup:plan?.comparisonGroup,players:plan?.players?.map(p=>[p.governorId,p.active,p.attending,p.canHost,p.group,p.api?.x,p.api?.y,p.travel,p.stats])});}
-const api={TYPES,TIERS,HEROES,matrix,total,joinPolicy,referenceScore,optimizedPacket,ownAlternatives,compareOwn,build,suggestLeaders,fingerprint};
+const api={TYPES,TIERS,HEROES,matrix,total,joinPolicy,referenceScore,optimizedPacket,ownAlternatives,jointOwn,compareOwn,build,suggestLeaders,fingerprint};
 if(typeof module!=='undefined')module.exports=api;root.BearPersonalModel=api;
 })(typeof globalThis!=='undefined'?globalThis:this);
 
@@ -306,7 +344,7 @@ function optimize(input,solver){
 root.KvKModel={empty,clean,compile,optimize,clone};
 })(typeof globalThis!=='undefined'?globalThis:this);
 
-const ROSTER_IDS=["388886548","389607677","387952781","389524927","388247482","389901621","389623333","386936962","389902497","386809287","389721474","389918530","386035010","389541824","385953353","389099163","385887895","388017689","396332479","388755121","386494109","390033384","389295389","387739433","386264253","385985957","387165951","390048976","388099273","386576636","395551033","385936826","390050032","387264538","389115904","388804053","389853430","386281264","388722749","390032922","389672797","389721911","388017805","389164598","388722422","388787831","388919388","387526235","388951281","387215160","386346394","387853899","389508233","387017889","386969604","385937155","388034343","386019367","389869414","387100394","386150135","389476486","387198762","387756242","398345280","386035097","389869480","386625129","387395598","386789579","390016201","389213981","387706049","389033280","386740411","389558043","388672863","385920577","387951856","387559599","388017931","386346836","387395306","387690075","387018511","386444908","387248367","387559257","388116448","388198432","387412006","386511169","386084688","388001560","385888111","389754906","389557475","386445070","391421077"];
+const ROSTER_IDS=["388886548","389607677","387952781","389524927","389901621","389623333","388247482","386936962","389902497","389918530","386809287","386035010","389721474","389541824","385953353","389099163","388017689","388755121","396332479","386264253","386494109","385887895","389295389","387739433","385985957","390033384","395551033","390048976","387165951","388099273","386576636","385936826","390050032","388804053","386281264","388722749","389672797","389115904","388017805","387264538","390032922","388722422","388919388","387215160","389721911","388951281","386346394","389508233","389164598","385937155","386969604","388787831","387853899","387526235","388034343","389853430","386019367","389869414","387100394","389476486","387756242","387198762","386150135","386625129","386035097","387395598","386789579","387017889","398345280","390016201","387706049","389869480","389033280","386740411","389213981","389558043","386346836","387559599","388017931","387395306","385920577","388672863","387690075","387018511","387248367","387559257","386444908","388198432","386084688","387951856","388116448","387412006","386511169","385888111","388001560","386445070","389754906","391421077","389557475"];
 /* Bundled with the same allocation validator used by Optimize Me. No secrets in source. */
 const ORIGIN='https://erross.github.io';
 const SCHEMA=`CREATE TABLE IF NOT EXISTS player_profiles (

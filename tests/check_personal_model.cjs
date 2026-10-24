@@ -41,4 +41,35 @@ test('integer policy matches exhaustive lexicographic allocation on small mixed-
 test('target ratio uses available archers without dropping its infantry target',()=>{const q=M.matrix({10:{infantry:50000,cavalry:20000,archers:59664}}),p=M.optimizedPacket(q,70000,M.joinPolicy({mode:'ratio',infantryPct:5,cavalryPct:5}));assert.deepEqual(p[10],{infantry:3500,cavalry:6836,archers:59664});assert.throws(()=>M.joinPolicy({mode:'ratio',infantryPct:80,cavalryPct:30}),/exceed/);});
 test('damage-derived minimums match exhaustive mixed-tier reference optimization',()=>{let seed=61;const rand=n=>{seed=(seed*1664525+1013904223)>>>0;return seed%n;},cells=M.TYPES.flatMap(k=>M.TIERS.map(t=>[t,k])),weight=(t,k)=>({8:339,9:400,10:472}[t]/472)*({infantry:1,cavalry:3,archers:4.84}[k]);for(let trial=0;trial<20;trial++){const q=M.matrix();for(const [t,k]of cells)q[t][k]=rand(3);const cap=rand(9)+1,amount=Math.min(cap,M.total(q));let best=-1;function walk(i,left,sums){if(i===cells.length){if(!left)best=Math.max(best,sums.reduce((n,s)=>n+Math.sqrt(s),0));return;}const [t,k]=cells[i],index=M.TYPES.indexOf(k);for(let n=0;n<=Math.min(q[t][k],left);n++){const next=sums.slice();next[index]+=n*weight(t,k)**2;walk(i+1,left-n,next);}}walk(0,amount,[0,0,0]);const result=M.optimizedPacket(q,cap);assert.equal(M.total(result),amount);assert(Math.abs(M.referenceScore(result)-best)<1e-8,'Global reference optimum');}});
 test('reported host bonuses change the computed minimums',()=>{const q=M.matrix({10:{infantry:100000,cavalry:100000,archers:100000}}),ordinary=M.optimizedPacket(q,70000),stats={infantry:{attack:0,lethality:0},cavalry:{attack:0,lethality:0},archers:{attack:500,lethality:500}},boosted=M.optimizedPacket(q,70000,M.joinPolicy({mode:'optimized',stats}));assert(ordinary[10].infantry>1&&ordinary[10].cavalry>1);assert(boosted[10].archers>ordinary[10].archers);assert.throws(()=>M.joinPolicy({mode:'optimized',stats:{infantry:{attack:0}}}),/six/);});
+test('joint search matches independent exhaustive allocation on small inventories',()=>{
+ for(const joins of [1,2])for(const relative of [20,100,500]){
+  const x={...base(),stock:{10:{infantry:5,cavalry:7,archers:9}},joinMarches:joins,joinCap:7,ownTier:10,ownCapacity:6,ownTroops:{infantry:1,cavalry:1,archers:1}};
+  const measurements={ownHits:2,joinHits:3,relative},c=M.jointOwn(x,measurements);assert(!c.error);
+  const ref=(i,c,a)=>(Math.sqrt(i)+3*Math.sqrt(c)+4.84*Math.sqrt(a))*Math.sqrt(Math.min(i+c+a,5000));let best=-1;
+  // Enumerate both packets independently; do not reuse the allocator/search.
+  for(let i=0;i<=5;i++)for(let cav=0;cav<=6-i;cav++)for(let a=0;a<=6-i-cav;a++){
+   if(!i&&!cav&&!a)continue;
+   for(let ji=0;ji<=Math.floor((5-i)/joins);ji++)for(let jc=0;jc<=Math.floor((7-cav)/joins);jc++)for(let ja=0;ja<=Math.floor((9-a)/joins);ja++){
+    if(ji+jc+ja>7||ji+jc+ja===0)continue;
+    best=Math.max(best,2*relative/100*ref(i,cav,a)+3*joins*ref(ji,jc,ja));
+   }
+  }
+  assert(Math.abs(c.search.score-best)<1e-7);
+ }
+});
+test('joint plan improves the combined Brewer objective and conserves inventory',()=>{
+ const x={...base(),stock:{10:{infantry:251655,cavalry:119348,archers:357988}},joinMarches:6,presets:12,capacity:114680,heroFreeCapacity:87900,joinCap:70000,ownTier:10,ownCapacity:128150,ownTroops:{infantry:2562,cavalry:25614,archers:99974},leaders:{infantry:'Amadeus',cavalry:'Jabel',archers:'Marlin'}},before=JSON.stringify(x),options=M.ownAlternatives(x),measurements={ownHits:5,joinHits:8,relative:60};
+ const joint=M.jointOwn(x,measurements,options),score=c=>c.ownImpact*3+c.joinImpact*8;
+ assert(joint.search.score>Math.max(...Object.values(options).filter(c=>!c.error).map(score)));
+ const stock=M.matrix(x.stock);for(const t of M.TIERS)for(const k of M.TYPES)assert.equal(joint.plan.packet[t][k]*6+joint.plan.leftover[t][k]+(Number(joint.input.ownTier)===t?joint.plan.own.troops[k]:0),stock[t][k]);
+ assert.equal(M.total(joint.plan.packet),70000);assert(joint.plan.own.total<=128150);assert.equal(JSON.stringify(x),before);
+ const strong=M.jointOwn(x,{ownHits:5,joinHits:8,relative:300},options);assert(strong.plan.own.troops.archers>joint.plan.own.troops.archers);
+ const provisional=M.jointOwn(x,{},options);assert(provisional.search.assumedEqual);assert.equal(provisional.search.weights.relative,100);
+ assert(M.jointOwn(x,{ownHits:5},options).error);assert(M.jointOwn({...x,joinPolicy:{mode:'archer-first'}},measurements,options).error);assert(M.jointOwn({...x,ownEnabled:false},measurements,options).error);
+});
+test('joint search supports mixed tiers and never invents lower-tier stock',()=>{
+ const x=base(),options=M.ownAlternatives(x),joint=M.jointOwn(x,{ownHits:3,joinHits:7,relative:80},options);
+ assert(!joint.error);assert(joint.search.score>=Math.max(...Object.values(options).filter(c=>!c.error).map(c=>c.ownImpact*2.4+c.joinImpact*7))-1e-7);
+ assert.equal(joint.plan.joinTotal+joint.plan.leftoverTotal+(joint.input.ownTier==='lower'?0:joint.plan.own.total),M.total(M.matrix(x.stock)));
+});
 console.log(cases+' personal model checks passed.');
