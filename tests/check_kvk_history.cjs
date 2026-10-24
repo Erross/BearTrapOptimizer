@@ -6,3 +6,5 @@ assert.deepEqual(H.series(records,metric('materials','guides')).map(p=>p.value),
 assert.equal(metric('exclusive','jabel_widgets').read({...b,gear:{...b.gear,exclusive:[]}}),null,'Removed hero does not become zero stock');assert.equal(metric('materials','guides').read({}),null);assert.equal(H.change([{value:null},{value:20}]),null);assert.equal(H.change([{value:10},{value:0}]),-10);assert.equal(H.series(records,metric('materials','guides'),1,Date.parse('2026-10-24T12:00:00Z')).length,1);assert.equal(H.metrics([], 'exclusive').length,0);
 for(const group of Object.keys(H.groups))assert(Array.isArray(H.metrics(records,group)));
 console.log('KvK history: inventory units, changes, widget identity, unknown values, gear levels and period filters pass.');
+
+const legacy=structuredClone(a);delete legacy.gear.exclusive;const mixed=H.series([{revision:1,updatedAt:'2026-10-23T00:00:00Z',input:legacy},records[0]],metric('materials','widget'));assert.equal(H.change(mixed),null,'Old aggregate widget counts are not compared with per-hero assigned totals');

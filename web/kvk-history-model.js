@@ -13,10 +13,11 @@ function metrics(records,group){
  if(group==='hero')for(let i=0;i<12;i++){const name=['Infantry','Cavalry','Archer'][Math.floor(i/4)]+' '+['helmet','gloves','chest','boots'][i%4];add('mastery_'+i,name+' · mastery','level',['gear','heroes',i,'mastery']);add('enhance_'+i,name+' · enhancement','progress index',['gear','heroes',i,'enhancement']);for(const metric of list.slice(-2)){const read=metric.read;metric.read=p=>(p.gear?.heroes?.[i]?.rarity==='other'&&metric.id.startsWith('enhance_')||['mythic','red'].includes(p.gear?.heroes?.[i]?.rarity))?read(p):null;}}
  if(group==='exclusive'){const heroes=new Map();for(const record of records.slice().sort((a,b)=>a.revision-b.revision))for(const h of record.input?.gear?.exclusive||[])if(h.id&&h.hero)heroes.set(h.id,h.hero);for(const [id,name]of heroes)for(const field of ['widgets','level'])list.push({id:id+'_'+field,name:name+(field==='widgets'?' · widgets owned':' · exclusive gear'),unit:field==='widgets'?'widgets':'level',read:p=>{const h=p.gear?.exclusive?.find(h=>h.id===id);return value(h,[field]);}});}
  if(group==='days')for(let d=0;d<5;d++)for(const [field,label]of [['targets','target'],['actual','already scored'],['baseline','expected other points']])add(field+d,'Day '+(d+1)+' · '+label,'points',[field,d]);
+ const widgets=list.find(m=>group==='materials'&&m.id==='widget');if(widgets)widgets.scope=p=>Array.isArray(p.gear?.exclusive)?'hero-assigned widgets':'aggregate widgets';
  return list;
 }
 function ordered(records){return records.slice().sort((a,b)=>a.revision-b.revision);}
-function series(records,metric,days=0,now=Date.now()){return ordered(records).map(r=>({revision:r.revision,at:r.updatedAt,capturedAt:r.capturedAt,source:r.source,time:Date.parse(r.updatedAt),value:metric.read(r.input||{})})).filter(p=>Number.isFinite(p.time)&&(!days||p.time>=now-days*86400000)).sort((a,b)=>a.time-b.time||a.revision-b.revision);}
-function change(points){if(points.length<2||points.some(p=>p.value===null))return null;return points.at(-1).value-points[0].value;}
+function series(records,metric,days=0,now=Date.now()){return ordered(records).map(r=>({revision:r.revision,at:r.updatedAt,capturedAt:r.capturedAt,source:r.source,scope:metric.scope?.(r.input||{}),time:Date.parse(r.updatedAt),value:metric.read(r.input||{})})).filter(p=>Number.isFinite(p.time)&&(!days||p.time>=now-days*86400000)).sort((a,b)=>a.time-b.time||a.revision-b.revision);}
+function change(points){if(points.length<2||points.some(p=>p.value===null||p.scope!==points[0].scope))return null;return points.at(-1).value-points[0].value;}
 root.KvKInventoryHistory={groups,metrics,series,change,ordered};if(typeof module!=='undefined')module.exports=root.KvKInventoryHistory;
 })(typeof globalThis!=='undefined'?globalThis:this);
