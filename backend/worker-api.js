@@ -46,6 +46,7 @@ function cleanProfile(input){
    heroFreeCapacity:optional(input.heroFreeCapacity,2000000,'Hero-free capacity'),joinCap:optional(input.joinCap,2000000,'Joining limit'),ownEnabled:input.ownEnabled,
    ownTier:input.ownTier==='lower'?'lower':n(input.ownTier??8,8,10,'Own rally tier'),ownCapacity:optional(input.ownCapacity,2000000,'Own capacity'),lowerConfirmed:input.lowerConfirmed===true,
    ownTroops:Object.fromEntries(M.TYPES.map(k=>[k,n(input.ownTroops?.[k]??0,0,2000000,'Own troops')])),leaders,heroes};
+  if(input.joinPolicy!==undefined)clean.joinPolicy=M.joinPolicy(input.joinPolicy);
   const total=M.total(clean.stock)+(clean.ownEnabled&&clean.ownTier==='lower'?M.TYPES.reduce((n,k)=>n+clean.ownTroops[k],0):0);
   if(total>5000000)fail(400,'Total troops must not exceed 5,000,000.');
   M.build(clean);return clean;
@@ -59,7 +60,7 @@ export default {async fetch(request,env){
   if(request.headers.has('Origin')&&request.headers.get('Origin')!==ORIGIN)fail(403,'Origin is not allowed.');
   if(request.method==='OPTIONS')return new Response(null,{status:204,headers});
   const path=new URL(request.url).pathname;
-  if(path==='/health'&&request.method==='GET')return reply({service:'bear-player-profiles',version:5,mode:'open-profiles',capabilities:['kvk-profiles','kvk-exclusive-widgets','kvk-inventory-history']});
+  if(path==='/health'&&request.method==='GET')return reply({service:'bear-player-profiles',version:6,mode:'open-profiles',capabilities:['kvk-profiles','kvk-exclusive-widgets','kvk-inventory-history','bear-join-policy']});
   if(!env.DB||typeof env.ADMIN_TOKEN!=='string'||env.ADMIN_TOKEN.length<32)fail(503,'Organizer must configure DB and an ADMIN_TOKEN of at least 32 characters.');
   const token=request.headers.get('Authorization')?.match(/^Bearer ([^\s]{1,512})$/)?.[1];
   if(path.startsWith('/api/admin/')){
