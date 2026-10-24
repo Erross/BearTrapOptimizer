@@ -46,3 +46,5 @@ async function page(fail=false,wholeAlliance=false){
  nodes.historyperiod.value='7';nodes.historyperiod.handlers.change();assert.match(nodes.historyplot.innerHTML,/No troop submission/);assert.equal(nodes.historyrows.innerHTML,'');
 }
 (async()=>{await page();await page(true);await page(false,true);console.log('History page selection, empty states, source units, escaping and read failures pass.');})().catch(error=>{console.error(error);process.exitCode=1;});
+
+require('./check_kvk_history.cjs');

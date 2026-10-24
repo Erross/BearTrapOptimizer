@@ -29,7 +29,7 @@ function draw(){
  $('historyplot').innerHTML=svg;
 }
 async function select(){window.BearPlayerSearch?.sync('historyplayer');
- const ticket=++sequence,id=$('historyplayer').value;
+ const ticket=++sequence,id=$('historyplayer').value;window.BearKvKHistoryUI?.select(id);
  if($('historyretry'))$('historyretry').hidden=true;
  history=null;$('historystatus').textContent='Loading history…';$('historyplot').innerHTML='';$('historyrows').innerHTML='';$('historylatest').textContent='';$('historychange').textContent='';$('historyrange').textContent='';$('historycoverage').textContent='';
  const person=selectedPerson();$('historytown').disabled=id==='alliance';if(id==='alliance'&&$('historymetric').value==='townLevel')$('historymetric').value='power';$('historyupdate').hidden=!person.active;$('historyupdate').href='./optimize-me.html?player='+encodeURIComponent(id);
@@ -41,7 +41,7 @@ if($('historyretry'))$('historyretry').onclick=()=>index?select():location.reloa
 $('historyplayer').addEventListener('change',select);$('historymetric').addEventListener('change',draw);$('historyperiod').addEventListener('change',draw);
 (async()=>{try{
  index=await read('./data/history/index.json');if(index.version!==1||!index.players?.length)throw Error('invalid');
- $('historyplayer').innerHTML='<option value="alliance">CNQ alliance · totals</option>'+index.players.map(p=>'<option value="'+esc(p.id)+'">'+esc(p.name)+(p.active?'':' (former member)')+'</option>').join('');
+ $('historyplayer').innerHTML='<option value="alliance">CNQ alliance · totals</option>'+index.players.map(p=>'<option data-active="'+String(p.active!==false)+'" value="'+esc(p.id)+'">'+esc(p.name)+(p.active?'':' (former member)')+'</option>').join('');
  const requested=new URLSearchParams(location.search).get('player');$('historyplayer').value=requested==='alliance'||index.players.some(p=>p.id===requested)?requested:'alliance';
  $('historyplayer').disabled=false;const capture=index.profileCapture;
  $('historycapture').textContent=capture?'Last troop check: '+utc(capture.at)+' · '+capture.saved+' saved submissions · '+capture.checked+' profiles checked · '+capture.unavailable+' unavailable'+(capture.notChecked?' · '+capture.notChecked+' not checked':'')+'.':'Troop capture starts with the next successful alliance refresh.';
