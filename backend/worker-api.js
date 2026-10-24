@@ -5,6 +5,16 @@ const SCHEMA=`CREATE TABLE IF NOT EXISTS player_profiles (
  profile_json TEXT, revision INTEGER NOT NULL DEFAULT 0, updated_at TEXT
 )`;
 const KVK_SCHEMA=`CREATE TABLE IF NOT EXISTS kvk_profiles (governor_id TEXT NOT NULL, event_key TEXT NOT NULL, profile_json TEXT NOT NULL, revision INTEGER NOT NULL DEFAULT 0, updated_at TEXT, PRIMARY KEY(governor_id,event_key))`;
+// Triggers archive the previous baseline and every committed revision atomically.
+const KVK_HISTORY_SCHEMA=`CREATE TABLE IF NOT EXISTS kvk_inventory_history (governor_id TEXT NOT NULL,event_key TEXT NOT NULL,revision INTEGER NOT NULL,profile_json TEXT NOT NULL,updated_at TEXT NOT NULL,captured_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),source TEXT NOT NULL,PRIMARY KEY(governor_id,event_key,revision))`;
+const historyReady=new WeakMap();
+async function ensureKvKHistory(db){
+ if(historyReady.has(db))return historyReady.get(db);
+ const ready=(async()=>{await db.prepare(KVK_HISTORY_SCHEMA).run();
+ await db.prepare(`CREATE TRIGGER IF NOT EXISTS kvk_inventory_on_insert AFTER INSERT ON kvk_profiles BEGIN INSERT INTO kvk_inventory_history(governor_id,event_key,revision,profile_json,updated_at,source) SELECT NEW.governor_id,NEW.event_key,NEW.revision,NEW.profile_json,NEW.updated_at,'save' WHERE NOT EXISTS(SELECT 1 FROM kvk_inventory_history WHERE governor_id=NEW.governor_id AND event_key=NEW.event_key AND revision=NEW.revision); END`).run();
+ await db.prepare(`CREATE TRIGGER IF NOT EXISTS kvk_inventory_on_update AFTER UPDATE ON kvk_profiles WHEN NEW.revision>OLD.revision BEGIN INSERT INTO kvk_inventory_history(governor_id,event_key,revision,profile_json,updated_at,source) SELECT OLD.governor_id,OLD.event_key,OLD.revision,OLD.profile_json,OLD.updated_at,'baseline' WHERE NOT EXISTS(SELECT 1 FROM kvk_inventory_history WHERE governor_id=OLD.governor_id AND event_key=OLD.event_key AND revision=OLD.revision); INSERT INTO kvk_inventory_history(governor_id,event_key,revision,profile_json,updated_at,source) SELECT NEW.governor_id,NEW.event_key,NEW.revision,NEW.profile_json,NEW.updated_at,'save' WHERE NOT EXISTS(SELECT 1 FROM kvk_inventory_history WHERE governor_id=NEW.governor_id AND event_key=NEW.event_key AND revision=NEW.revision); END`).run();})();
+ historyReady.set(db,ready);try{await ready;}catch(error){historyReady.delete(db);throw error;}
+}
 class ApiError extends Error {constructor(status,message){super(message);this.status=status;}}
 const fail=(status,message)=>{throw new ApiError(status,message);};
 async function digest(text){return new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(text)));}
@@ -49,12 +59,12 @@ export default {async fetch(request,env){
   if(request.headers.has('Origin')&&request.headers.get('Origin')!==ORIGIN)fail(403,'Origin is not allowed.');
   if(request.method==='OPTIONS')return new Response(null,{status:204,headers});
   const path=new URL(request.url).pathname;
-  if(path==='/health'&&request.method==='GET')return reply({service:'bear-player-profiles',version:4,mode:'open-profiles',capabilities:['kvk-profiles','kvk-exclusive-widgets']});
+  if(path==='/health'&&request.method==='GET')return reply({service:'bear-player-profiles',version:5,mode:'open-profiles',capabilities:['kvk-profiles','kvk-exclusive-widgets','kvk-inventory-history']});
   if(!env.DB||typeof env.ADMIN_TOKEN!=='string'||env.ADMIN_TOKEN.length<32)fail(503,'Organizer must configure DB and an ADMIN_TOKEN of at least 32 characters.');
   const token=request.headers.get('Authorization')?.match(/^Bearer ([^\s]{1,512})$/)?.[1];
   if(path.startsWith('/api/admin/')){
    if(!token||!await sameSecret(token,env.ADMIN_TOKEN))fail(401,'Organizer key is incorrect.');
-   if(path==='/api/admin/init'&&request.method==='POST'){await env.DB.prepare(SCHEMA).run();await env.DB.prepare(KVK_SCHEMA).run();return reply({ok:true});}
+   if(path==='/api/admin/init'&&request.method==='POST'){await env.DB.prepare(SCHEMA).run();await env.DB.prepare(KVK_SCHEMA).run();await ensureKvKHistory(env.DB);return reply({ok:true});}
    if(path==='/api/admin/kvk/profiles'&&request.method==='GET'){
     const data=await env.DB.prepare('SELECT governor_id,event_key,profile_json,revision,updated_at FROM kvk_profiles ORDER BY updated_at DESC').all();
     return reply({profiles:data.results.map(r=>({governorId:r.governor_id,event:r.event_key,input:JSON.parse(r.profile_json),revision:r.revision,updatedAt:r.updated_at}))});
@@ -64,6 +74,19 @@ export default {async fetch(request,env){
     return reply({profiles:data.results.map(r=>({governorId:r.governor_id,input:JSON.parse(r.profile_json),revision:r.revision,updatedAt:r.updated_at}))});
    }
    fail(404,'Unknown organizer action.');
+  }
+  const historyMatch=path.match(/^\/api\/kvk\/players\/(\d+)\/history$/);
+  if(historyMatch&&request.method==='GET'){
+   const id=historyMatch[1],url=new URL(request.url),event=url.searchParams.get('event')||'next-kvk',rawBefore=url.searchParams.get('before'),rawLimit=url.searchParams.get('limit');
+   if(!/^(next-kvk|\d{4}-\d{2}-\d{2})$/.test(event))fail(400,'Invalid KvK event key.');
+   if(rawBefore!==null&&!/^[1-9]\d{0,14}$/.test(rawBefore)||rawLimit!==null&&!/^\d{1,2}$/.test(rawLimit))fail(400,'Invalid history page.');
+   const before=rawBefore===null?Number.MAX_SAFE_INTEGER:Number(rawBefore),limit=rawLimit===null?10:Number(rawLimit);if(!Number.isSafeInteger(before)||before<1||limit<1||limit>25)fail(400,'Invalid history page.');
+   await ensureKvKHistory(env.DB);
+   const known=await env.DB.prepare('SELECT governor_id FROM kvk_profiles WHERE governor_id=? UNION SELECT governor_id FROM kvk_inventory_history WHERE governor_id=? LIMIT 1').bind(id,id).first();if(!ROSTER_IDS.includes(id)&&!known)fail(404,'Player has no recorded KvK inventory.');
+   await env.DB.prepare("INSERT OR IGNORE INTO kvk_inventory_history(governor_id,event_key,revision,profile_json,updated_at,source) SELECT governor_id,event_key,revision,profile_json,updated_at,'baseline' FROM kvk_profiles WHERE governor_id=? AND updated_at IS NOT NULL").bind(id).run();
+   const events=await env.DB.prepare('SELECT DISTINCT event_key FROM kvk_inventory_history WHERE governor_id=? ORDER BY event_key DESC').bind(id).all();
+   const rows=await env.DB.prepare('SELECT revision,profile_json,updated_at,captured_at,source FROM kvk_inventory_history WHERE governor_id=? AND event_key=? AND revision<? ORDER BY revision DESC LIMIT ?').bind(id,event,before,limit+1).all();
+   const more=rows.results.length>limit,records=rows.results.slice(0,limit);return reply({governorId:id,event,events:events.results.map(r=>r.event_key),snapshots:records.map(r=>({revision:r.revision,input:JSON.parse(r.profile_json),updatedAt:r.updated_at,capturedAt:r.captured_at,source:r.source})),nextBefore:more?records.at(-1).revision:null});
   }
   const kvkMatch=path.match(/^\/api\/kvk\/players\/(\d+)$/);
   if(kvkMatch&&['GET','PUT'].includes(request.method)){
@@ -77,8 +100,9 @@ export default {async fetch(request,env){
    const at=new Date().toISOString(),before=new Date(Date.now()-10000).toISOString();
    if(data.revision!==(row?.revision??0))fail(409,'Shared KvK data changed. Load again before saving; your local entries are preserved.');
    if(row?.updated_at&&row.updated_at>before)fail(429,'Please wait 10 seconds between KvK saves for the same player and event.');
+   await ensureKvKHistory(env.DB);
    const changed=await env.DB.prepare('INSERT INTO kvk_profiles (governor_id,event_key,profile_json,revision,updated_at) VALUES (?,?,?,?,?) ON CONFLICT(governor_id,event_key) DO UPDATE SET profile_json=excluded.profile_json,revision=kvk_profiles.revision+1,updated_at=excluded.updated_at WHERE kvk_profiles.revision=? AND (kvk_profiles.updated_at IS NULL OR kvk_profiles.updated_at<=?)').bind(id,event,JSON.stringify(input),data.revision+1,at,data.revision,before).run();
-   if(changed.meta.changes!==1)fail(409,'Shared KvK data changed. Load again before saving; your local entries are preserved.');return reply({ok:true,revision:data.revision+1,updatedAt:at});
+   if(changed.meta.changes!==1)fail(409,'Shared KvK data changed. Load again before saving; your local entries are preserved.');return reply({ok:true,revision:data.revision+1,updatedAt:at,historyRecorded:true});
   }
   const match=path.match(/^\/api\/players\/(\d+)$/);
   if(!match||!['GET','PUT'].includes(request.method))fail(404,'Unknown profile action.');
