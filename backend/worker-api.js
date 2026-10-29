@@ -60,7 +60,7 @@ export default {async fetch(request,env){
   if(request.headers.has('Origin')&&request.headers.get('Origin')!==ORIGIN)fail(403,'Origin is not allowed.');
   if(request.method==='OPTIONS')return new Response(null,{status:204,headers});
   const path=new URL(request.url).pathname;
-  if(path==='/health'&&request.method==='GET')return reply({service:'bear-player-profiles',version:6,mode:'open-profiles',capabilities:['kvk-profiles','kvk-exclusive-widgets','kvk-inventory-history','bear-join-policy']});
+  if(path==='/health'&&request.method==='GET')return reply({service:'bear-player-profiles',version:7,mode:'open-profiles',capabilities:['kvk-profiles','kvk-exclusive-widgets','kvk-inventory-history','kvk-save-confirmation','bear-join-policy']});
   if(!env.DB||typeof env.ADMIN_TOKEN!=='string'||env.ADMIN_TOKEN.length<32)fail(503,'Organizer must configure DB and an ADMIN_TOKEN of at least 32 characters.');
   const token=request.headers.get('Authorization')?.match(/^Bearer ([^\s]{1,512})$/)?.[1];
   if(path.startsWith('/api/admin/')){
@@ -102,8 +102,10 @@ export default {async fetch(request,env){
    if(data.revision!==(row?.revision??0))fail(409,'Shared KvK data changed. Load again before saving; your local entries are preserved.');
    if(row?.updated_at&&row.updated_at>before)fail(429,'Please wait 10 seconds between KvK saves for the same player and event.');
    await ensureKvKHistory(env.DB);
-   const changed=await env.DB.prepare('INSERT INTO kvk_profiles (governor_id,event_key,profile_json,revision,updated_at) VALUES (?,?,?,?,?) ON CONFLICT(governor_id,event_key) DO UPDATE SET profile_json=excluded.profile_json,revision=kvk_profiles.revision+1,updated_at=excluded.updated_at WHERE kvk_profiles.revision=? AND (kvk_profiles.updated_at IS NULL OR kvk_profiles.updated_at<=?)').bind(id,event,JSON.stringify(input),data.revision+1,at,data.revision,before).run();
-   if(changed.meta.changes!==1)fail(409,'Shared KvK data changed. Load again before saving; your local entries are preserved.');return reply({ok:true,revision:data.revision+1,updatedAt:at,historyRecorded:true});
+   const changed=await env.DB.prepare('INSERT INTO kvk_profiles (governor_id,event_key,profile_json,revision,updated_at) VALUES (?,?,?,?,?) ON CONFLICT(governor_id,event_key) DO UPDATE SET profile_json=excluded.profile_json,revision=kvk_profiles.revision+1,updated_at=excluded.updated_at WHERE kvk_profiles.revision=? AND (kvk_profiles.updated_at IS NULL OR kvk_profiles.updated_at<=?) RETURNING revision,updated_at').bind(id,event,JSON.stringify(input),data.revision+1,at,data.revision,before).first();
+   // D1 change counts include history-trigger writes. RETURNING identifies the
+   // profile row actually written while preserving the atomic revision guard.
+   if(!changed)fail(409,'Shared KvK data changed. Load again before saving; your local entries are preserved.');return reply({ok:true,revision:changed.revision,updatedAt:changed.updated_at,historyRecorded:true});
   }
   const match=path.match(/^\/api\/players\/(\d+)$/);
   if(!match||!['GET','PUT'].includes(request.method))fail(404,'Unknown profile action.');

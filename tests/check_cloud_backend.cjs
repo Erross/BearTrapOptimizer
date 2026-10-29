@@ -6,7 +6,10 @@ const root=path.resolve(__dirname,'..'),source=fs.readFileSync(path.join(root,'w
 assert(source.includes(fs.readFileSync(path.join(root,'web/personal-model.js'),'utf8')),'Rebuild Worker after changing validator');
 assert(source.endsWith(fs.readFileSync(path.join(root,'backend/worker-api.js'),'utf8')),'Rebuild Worker after changing backend');
 const sqlite=new DatabaseSync(':memory:');let reads=0;
-const DB={prepare(sql){return {bind(...args){const statement=sqlite.prepare(sql);return {async first(){reads++;return statement.get(...args)||null;},async all(){reads++;return {results:statement.all(...args)};},async run(){return {meta:{changes:Number(statement.run(...args).changes)}};}};},async run(){return {meta:{changes:Number(sqlite.prepare(sql).run().changes)}};},async all(){return {results:sqlite.prepare(sql).all()};}};}};
+// D1 reports total changed rows, including trigger writes, rather than direct
+// statement changes. Keep the fake faithful to production metadata.
+function run(sql,args=[]){const before=Number(sqlite.prepare('SELECT total_changes() AS n').get().n);sqlite.prepare(sql).run(...args);return {meta:{changes:Number(sqlite.prepare('SELECT total_changes() AS n').get().n)-before}};}
+const DB={prepare(sql){return {bind(...args){const statement=sqlite.prepare(sql);return {async first(){reads++;return statement.get(...args)||null;},async all(){reads++;return {results:statement.all(...args)};},async run(){return run(sql,args);}};},async run(){return run(sql);},async all(){return {results:sqlite.prepare(sql).all()};}};}};
 const ADMIN_TOKEN='organizer-test-only-12345678901234567890',env={DB,ADMIN_TOKEN},origin='https://erross.github.io';
 const id=String(require('../web/data/alliance-api.json').members[0].governor_id??require('../web/data/alliance-api.json').members[0].fid);
 const id2=String(require('../web/data/alliance-api.json').members[1].governor_id??require('../web/data/alliance-api.json').members[1].fid);
