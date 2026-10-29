@@ -136,7 +136,7 @@ function timing(p,input){
   const last=c.mechanics.duration_s-c.mechanics.countdown_s-pc.travel;
   text.push('Estimated last safe start: '+(last>=0?clock(last)+' elapsed':'none in this event')+' so the rally hits before '+clock(c.mechanics.duration_s)+'. Allow extra time for delays.');
  }
- if(c.strategy.first_wave_join)text.push('Opening rule: give everyone their first joining march before taking extra opening joins. Extra marches may initially wait for space.');
+ text.push('Send all your joining marches as soon as there is room. If you have to wait a minute for space, that is fine.');
  if(c.strategy.join_window_s)text.push('The selected alliance plan uses delayed joining ('+c.strategy.join_window_s+' seconds before departure). The simple immediate-joining routine below differs: follow the organizer\'s chosen timing.');
  return {html:text.map(t=>'<p>'+esc(t)+'</p>').join(''),text:text.join('\n')};
 }
@@ -152,6 +152,11 @@ function build(options={}){
   $('personalwarnings').innerHTML=out.warnings.map(t=>'<p class="notice">'+esc(t)+'</p>').join('');
   $('personalpacket').innerHTML=troopTable(out.packet);$('personalleftover').innerHTML=troopTable(out.leftover);
   $('personalallocation').textContent=fmt(out.joinTotal)+' troops in all joins; '+fmt(out.own.total||0)+' in your own rally'+(out.own.tier==='lower'?' (T1–T7, entered separately)':'')+'; '+fmt(out.leftoverTotal)+' T8–T10 troops left at home.';
+  const leftoverNote=out.leftoverTotal?(out.perJoin<out.limit?
+   fmt(out.leftoverTotal)+' troops are left because each type and tier is rounded down across '+out.joins+' identical joins. This keeps every joining preset the same, even with spare room.':
+   'Each join is at its '+fmt(out.limit)+'-troop limit. The remaining troops do not fit in these joins; rounding each type and tier for identical presets can also leave a few spare.')+
+   (out.own.enabled?' To use more troops, add the leftovers manually to your own rally in game, up to its march capacity. These additions are not included in the own-rally preset below.':''):'';
+  $('personalleftovernote').textContent=leftoverNote;$('personalleftovernote').hidden=!leftoverNote;
   const rows=out.setups.map(s=>[(s.numbers.length>1?'Joins '+s.numbers[0]+'–'+s.numbers[s.numbers.length-1]:'Join '+s.numbers[0]),s.hero||'No hero',s.slot?'Preset '+s.slot+(!s.hero?' · reusable':''):'Manual setup',fmt(out.perJoin)]);
   if(out.own.enabled)rows.push(['Own rally · special',out.own.heroes.join(' / '),out.own.slot?'Preset '+out.own.slot:'Manual setup',fmt(out.own.total)]);
   $('personalpresettbl').innerHTML='<table><thead><tr><th>March</th><th>First hero / leader team</th><th>Preset to use</th><th>Troops</th></tr></thead><tbody>'+rows.map(row=>'<tr>'+row.map(v=>'<td>'+esc(v)+'</td>').join('')+'</tr>').join('')+'</tbody></table>';
@@ -164,12 +169,12 @@ function build(options={}){
   $('personalsetupsteps').innerHTML=steps.map(s=>'<li>'+esc(s)+'</li>').join('');
   const instructions=timing(p,input);$('personaltiming').innerHTML=instructions.html;
   const joins=['For each ready joining march, select the first available eligible rally in the game list that has room and enough countdown left for you to arrive. If several qualify, prefer the one departing soonest.',
-   'Send your joining presets as soon as space and the opening-participation rule allow. You cannot join your own rally or send two marches into the same rally.',
+   'Send all your joining presets as soon as there is room. A short wait for space is fine. You cannot join your own rally or send two marches into the same rally.',
    'As each joining march gets home, immediately repeat with the next eligible rally. You do not need to wait for your other marches.',
    'Keep the troops and three heroes chosen for your own rally available until your start time. Its special march is separate from your joining marches.'];
   if(!out.own.enabled)joins.pop();
   $('personaljoinsteps').innerHTML=joins.map(s=>'<li>'+esc(s)+'</li>').join('');
-  state.text=p.api.name+' — Bear setup\n'+out.note+'\n\nEACH JOIN:\n'+M.TIERS.map(t=>'T'+t+': '+M.TYPES.map(k=>fmt(out.packet[t][k])+' '+k).join(', ')).join('\n')+'\n\n'+rows.map(row=>row.join(' · ')).join('\n')+'\n\nSETUP:\n'+steps.map((s,i)=>(i+1)+'. '+s).join('\n')+'\n\nTIMING:\n'+instructions.text+'\n\nJOINING:\n'+joins.join('\n');
+  state.text=p.api.name+' — Bear setup\n'+out.note+'\n\nEACH JOIN:\n'+M.TIERS.map(t=>'T'+t+': '+M.TYPES.map(k=>fmt(out.packet[t][k])+' '+k).join(', ')).join('\n')+'\n\n'+rows.map(row=>row.join(' · ')).join('\n')+(leftoverNote?'\n\nLEFTOVER TROOPS:\n'+leftoverNote:'')+'\n\nSETUP:\n'+steps.map((s,i)=>(i+1)+'. '+s).join('\n')+'\n\nTIMING:\n'+instructions.text+'\n\nJOINING:\n'+joins.join('\n');
   $('personalactionstatus').textContent='Setup ready. Counts and heroes are saved on this device.';
   if(options.scroll!==false)$('personalresult').scrollIntoView({behavior:'smooth',block:'start'});return out;
  }catch(error){$('personalresult').hidden=true;reportError(error);return null;}
