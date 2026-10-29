@@ -8,7 +8,7 @@
   <link rel="stylesheet" href="./styles.css?v=20261021-personal1">
   <link rel="stylesheet" href="./personal.css?v=20261028-clarity1">
   <link rel="stylesheet" href="./app-ui.css?v=20261023-kvk1">
-  <link rel="stylesheet" href="./bear-guide.css?v=20261029-why1">
+  <link rel="stylesheet" href="./bear-guide.css?v=20261029-presets1">
 </head>
 <body>
 <a class="skip" href="#bear-plan">Skip to the Bear plan</a>
@@ -34,6 +34,12 @@
     <div class="guide-goal"><strong>Our goal</strong><span>More damage for the whole alliance.<br>Keep troops hitting through the whole Bear.</span></div>
   </header>
 
+  <div class="tabs guide-tabs" id="guide-tabs" role="tablist" aria-label="Bear guide sections" hidden>
+    <button type="button" id="guide-everyone-tab" role="tab" aria-controls="guide-everyone" aria-selected="true" tabindex="0">Everyone</button>
+    <button type="button" id="guide-whales-tab" role="tab" aria-controls="guide-whales" aria-selected="false" tabindex="-1">Whales</button>
+  </div>
+
+  <div id="guide-everyone" role="tabpanel" aria-labelledby="guide-everyone-tab" tabindex="0">
   <div class="guide-terms" aria-label="Two useful words">
     <p><strong>Your own rally</strong><span>The rally you start. This march is extra to your joins.</span></p>
     <p><strong>A join</strong><span>A march you send to someone else’s rally.</span></p>
@@ -72,6 +78,25 @@
       <p class="guide-tip">A march is ready? Use it. No space yet? Try the next rally that opens.</p>
     </section>
   </div>
+
+  <section class="panel guide-presets" aria-labelledby="presets-title">
+    <span class="guide-topic">Set this up once, then tap and join</span>
+    <h2 id="presets-title">Save five easy presets</h2>
+    <p>First, open <a href="./optimize-me.html">Optimize Me</a> and get your troop counts. Keep those numbers handy while you save your presets in game.</p>
+    <ol class="guide-preset-list">
+      <li><span class="guide-slot">Slot 1</span><div><h3>Chenko first</h3><p>Put <strong>Chenko in the first hero slot</strong>. Enter the exact joining troop counts from the optimizer. Save as <strong>preset 1</strong>.</p></div></li>
+      <li><span class="guide-slot">Slot 2</span><div><h3>Swap Chenko for Yeonwoo</h3><p>Keep the same troop counts. Put <strong>Yeonwoo first</strong> and save as <strong>preset 2</strong>.</p></div></li>
+      <li><span class="guide-slot">Slot 3</span><div><h3>Swap Yeonwoo for Amane</h3><p>Keep the same troop counts. Put <strong>Amane first</strong> and save as <strong>preset 3</strong>.</p></div></li>
+      <li><span class="guide-slot">Slot 4</span><div><h3>Remove all heroes, then redo the numbers</h3><p><strong>The game resets your troop counts when you remove heroes.</strong> Enter the optimizer’s joining counts again, then save as <strong>preset 4</strong>.</p></div></li>
+      <li><span class="guide-slot guide-slot-own">Slot 5</span><div><h3>Save your own rally</h3><p>Select your best own-rally heroes and enter the <strong>own-rally troop counts</strong> from the optimizer. Save as <strong>preset 5</strong>. Keep these heroes separate from the ones used in your joins.</p></div></li>
+    </ol>
+    <p class="guide-assumption">This is the five-slot setup with Chenko, Yeonwoo and Amane. If your optimizer gives you different heroes or slots, follow that setup. Check the counts after each hero change, including the lower march limit without heroes.</p>
+    <div class="guide-preset-send"><h3>When Bear starts</h3><ol>
+      <li>When wave 1 starts, open the <strong>first available rally</strong>. Tap <strong>preset 1</strong> and join. Use <strong>preset 2</strong> for the next rally, then <strong>preset 3</strong> for the next.</li>
+      <li>Use <strong>preset 4 again and again</strong> for every joining march you still have free. One saved preset can send several separate marches.</li>
+      <li>When your own wave starts, select Bear, tap <strong>preset 5</strong> and start your rally.</li>
+    </ol><p>When a march returns, use its preset and send it again. Joins always take the <strong>first available rally</strong>. If there is no room, wait for the next one to open.</p></div>
+  </section>
 
   <section class="panel guide-waves" aria-labelledby="waves-title">
     <div class="eyebrow">Waves, without the confusion</div>
@@ -136,9 +161,27 @@
     </div>
   </section>
 
+  </div>
+
+  <div id="guide-whales" role="tabpanel" aria-labelledby="guide-whales-tab" tabindex="0">
+    <section class="panel guide-why guide-whale-leaders" aria-labelledby="whale-leaders-title">
+      <span class="guide-topic">For our strongest rally leaders</span>
+      <h2 id="whale-leaders-title">Keep your rally spaces useful</h2>
+      <p>Your strong rally helps the alliance most when players can join it at the right time. Keep the same rhythm: <strong>start with your wave, then restart as soon as your own march returns.</strong></p>
+      <div class="guide-key"><strong>If players join your fresh rally right away, remove them if you have time.</strong><p>Do this during the countdown, while several minutes are still left. Their troops can return and join a rally that will hit sooner. Your spaces stay open for troops returning when your rally is next to leave.</p></div>
+      <ol class="guide-whale-steps">
+        <li><strong>Start your rally.</strong> Use your wave time for the first one.</li>
+        <li><strong>Check for very early joins.</strong> If someone joins straight away and you have time, remove them from the gathering rally.</li>
+        <li><strong>Keep the rally moving.</strong> Leave players who are joining when your rally is next available. Restart promptly when your march returns.</li>
+      </ol>
+      <p>Checking early joiners is optional. Keep sending your own joins and restarting your rally; those come first. You are freeing spaces, not asking people to skip your rally.</p>
+    </section>
+  </div>
+
   <div class="guide-bottom"><div><strong>Ready for your own numbers?</strong><p>Get the troop mix and heroes for each march.</p></div><a class="guide-button primary" href="./optimize-me.html">Build my Bear setup <span aria-hidden="true">→</span></a></div>
   <details class="guide-sources"><summary>Sources and example notes</summary><p>The four rules are our alliance’s play plan. The damage examples hold troop tiers and mix fixed. The whale scores are invented for easy math; use your own battle reports to compare leaders.</p><ul><li><a href="https://centurygames.helpshift.com/hc/en/140-kingshot/faq/9125-combat-faq-1783436100/">Kingshot official Combat FAQ</a>: leader and joiner skills.</li><li><a href="https://kingshotguides.com/guide/joiner-hero-mechanics-no-one-told-you-about/">Original joiner-skill tests</a>: first hero and stacking bonuses.</li><li><a href="https://kingshotguides.com/guide/bear-trap-damage-mechanics-and-example-simulation/">Original Bear damage model</a>: square-root troop scaling.</li><li><a href="https://kingshotguides.com/guide/how-your-bear-damage-is-calculated-as-a-joiner/">Joiner damage tests</a>: the leader’s bonuses with each joiner’s own troops.</li></ul></details>
   <footer>Use the plan posted for your Bear Trap. Check rally space and timers in game. <a href="./index.html">See the alliance plan →</a></footer>
 </main>
+<script src="./bear-guide.js?v=20261029-presets1"></script>
 </body>
 </html>
