@@ -1,0 +1,102 @@
+Language	Dil	Langue	Sprache	Sprog	Idioma	Idioma
+Optimize Me	Kendi planım	Mon optimisation	Mein Plan	Min plan	Mi plan	Meu plano
+Bear guide	Ayı rehberi	Guide de l’ours	Bärenleitfaden	Bjørneguide	Guía del oso	Guia do urso
+Alliance summary	İttifak özeti	Résumé de l’alliance	Allianzübersicht	Allianceoversigt	Resumen de la alianza	Resumo da aliança
+KvK planner	KvK planlayıcı	Planificateur KvK	KvK-Planer	KvK-planlægger	Planificador KvK	Planejador KvK
+History	Geçmiş	Historique	Verlauf	Historik	Historial	Histórico
+Alliance optimizer	İttifak planlayıcı	Optimiseur d’alliance	Allianzplaner	Allianceplanlægger	Optimizador de alianza	Otimizador de aliança
+Organizer	Organizatör	Organisateur	Organisation	Arrangør	Organizador	Organizador
+Everyone	Herkes	Tout le monde	Alle	Alle	Todos	Todos
+Whales	Çok güçlü oyuncular	Joueurs très puissants	Sehr starke Spieler	Meget stærke spillere	Jugadores muy fuertes	Jogadores muito fortes
+Infantry	Piyade	Infanterie	Infanterie	Infanteri	Infantería	Infantaria
+Cavalry	Süvari	Cavalerie	Kavallerie	Kavaleri	Caballería	Cavalaria
+Archers	Okçular	Archers	Bogenschützen	Bueskytter	Arqueros	Arqueiros
+infantry	piyade	infanterie	Infanterie	infanteri	infantería	infantaria
+cavalry	süvari	cavalerie	Kavallerie	kavaleri	caballería	cavalaria
+archers	okçular	archers	Bogenschützen	bueskytter	arqueros	arqueiros
+Troops	Askerler	Troupes	Truppen	Tropper	Tropas	Tropas
+Tier	Kademe	Palier	Stufe	Trin	Nivel	Nível
+Total	Toplam	Total	Gesamt	I alt	Total	Total
+Name	Ad	Nom	Name	Navn	Nombre	Nome
+Power	Güç	Puissance	Macht	Styrke	Poder	Poder
+Player	Oyuncu	Joueur	Spieler	Spiller	Jugador	Jogador
+Players	Oyuncular	Joueurs	Spieler	Spillere	Jugadores	Jogadores
+March	Yürüyüş	Marche	Marsch	March	Marcha	Marcha
+Marches	Yürüyüşler	Marches	Märsche	Marcher	Marchas	Marchas
+Rally	Toplanma saldırısı	Ralliement	Sammelangriff	Fællesangreb	Ataque conjunto	Ataque conjunto
+Rallies	Toplanma saldırıları	Ralliements	Sammelangriffe	Fællesangreb	Ataques conjuntos	Ataques conjuntos
+Join	Katıl	Rejoindre	Beitreten	Deltag	Unirse	Participar
+Joins	Katılım yürüyüşleri	Marches de renfort	Beitrittsmärsche	Deltagende marcher	Marchas de apoyo	Marchas de apoio
+Own rally	Kendi saldırın	Votre ralliement	Eigener Sammelangriff	Dit eget fællesangreb	Tu ataque conjunto	Seu ataque conjunto
+Your own rally	Kendi saldırın	Votre ralliement	Dein eigener Sammelangriff	Dit eget fællesangreb	Tu ataque conjunto	Seu ataque conjunto
+No hero	Kahramansız	Sans héros	Ohne Helden	Ingen helt	Sin héroe	Sem herói
+Join {0}	Katılım {0}	Renfort {0}	Beitritt {0}	Deltagelse {0}	Apoyo {0}	Apoio {0}
+Joins {0}–{1}	Katılımlar {0}–{1}	Renforts {0}–{1}	Beitritte {0}–{1}	Deltagelser {0}–{1}	Apoyos {0}–{1}	Apoios {0}–{1}
+Preset {0}	Kayıtlı düzen {0}	Formation {0}	Vorlage {0}	Opsætning {0}	Formación {0}	Formação {0}
+Slot {0}	Yuva {0}	Emplacement {0}	Platz {0}	Plads {0}	Espacio {0}	Espaço {0}
+Group {0}	Grup {0}	Groupe {0}	Gruppe {0}	Gruppe {0}	Grupo {0}	Grupo {0}
+Wave {0}	Dalga {0}	Vague {0}	Welle {0}	Bølge {0}	Oleada {0}	Onda {0}
+Start	Başla	Démarrer	Starten	Start	Iniciar	Iniciar
+Save	Kaydet	Enregistrer	Speichern	Gem	Guardar	Salvar
+Save online	Çevrimiçi kaydet	Enregistrer en ligne	Online speichern	Gem online	Guardar en línea	Salvar online
+Saved online	Çevrimiçi kaydedildi	Enregistré en ligne	Online gespeichert	Gemt online	Guardado en línea	Salvo online
+Saving…	Kaydediliyor…	Enregistrement…	Wird gespeichert…	Gemmer…	Guardando…	Salvando…
+Loading…	Yükleniyor…	Chargement…	Wird geladen…	Indlæser…	Cargando…	Carregando…
+Try again	Tekrar dene	Réessayer	Erneut versuchen	Prøv igen	Reintentar	Tentar novamente
+Cancel	İptal	Annuler	Abbrechen	Annuller	Cancelar	Cancelar
+Close	Kapat	Fermer	Schließen	Luk	Cerrar	Fechar
+Copy	Kopyala	Copier	Kopieren	Kopiér	Copiar	Copiar
+Copied.	Kopyalandı.	Copié.	Kopiert.	Kopieret.	Copiado.	Copiado.
+Edit	Düzenle	Modifier	Bearbeiten	Rediger	Editar	Editar
+Remove	Kaldır	Retirer	Entfernen	Fjern	Quitar	Remover
+Delete	Sil	Supprimer	Löschen	Slet	Eliminar	Excluir
+Reset	Sıfırla	Réinitialiser	Zurücksetzen	Nulstil	Restablecer	Redefinir
+Unknown	Bilinmiyor	Inconnu	Unbekannt	Ukendt	Desconocido	Desconhecido
+Not entered	Girilmedi	Non renseigné	Nicht eingegeben	Ikke indtastet	Sin introducir	Não informado
+Required	Gerekli	Obligatoire	Erforderlich	Påkrævet	Obligatorio	Obrigatório
+Optional	İsteğe bağlı	Facultatif	Optional	Valgfrit	Opcional	Opcional
+Choose your player	Oyuncunu seç	Choisissez votre joueur	Wähle deinen Spieler	Vælg din spiller	Elige tu jugador	Escolha seu jogador
+Troops left at home	Evde kalan askerler	Troupes restées en ville	Truppen zu Hause	Tropper hjemme	Tropas en casa	Tropas em casa
+Send this in every joining march	Her katılım yürüyüşünde bunları gönder	Envoyez ceci dans chaque marche de renfort	Sende diese Truppen bei jedem Beitritt	Send dette med hver deltagende march	Envía esto en cada marcha de apoyo	Envie isto em cada marcha de apoio
+Your heroes and preset slots	Kahramanların ve kayıtlı düzen yuvaların	Vos héros et formations enregistrées	Deine Helden und Vorlagenplätze	Dine helte og gemte opsætninger	Tus héroes y formaciones guardadas	Seus heróis e formações salvas
+Copy instructions	Talimatları kopyala	Copier les instructions	Anleitung kopieren	Kopiér vejledningen	Copiar instrucciones	Copiar instruções
+Instructions copied.	Talimatlar kopyalandı.	Instructions copiées.	Anleitung kopiert.	Vejledningen er kopieret.	Instrucciones copiadas.	Instruções copiadas.
+Plan copied.	Plan kopyalandı.	Plan copié.	Plan kopiert.	Planen er kopieret.	Plan copiado.	Plano copiado.
+Select and copy the instructions below.	Aşağıdaki talimatları seç ve kopyala.	Sélectionnez et copiez les instructions ci-dessous.	Markiere und kopiere die Anleitung unten.	Markér og kopiér vejledningen nedenfor.	Selecciona y copia las instrucciones de abajo.	Selecione e copie as instruções abaixo.
+Select and copy the plan below.	Aşağıdaki planı seç ve kopyala.	Sélectionnez et copiez le plan ci-dessous.	Markiere und kopiere den Plan unten.	Markér og kopiér planen nedenfor.	Selecciona y copia el plan de abajo.	Selecione e copie o plano abaixo.
+Truegold	Truegold	Truegold	Truegold	Truegold	Truegold	Truegold
+Truegold Dust	Truegold Tozu	Poussière de Truegold	Truegold-Staub	Truegold-støv	Polvo de Truegold	Pó de Truegold
+Mithril	Mithril	Mithril	Mithril	Mithril	Mithril	Mithril
+Forge Hammers	Dövme Çekiçleri	Marteaux de forge	Schmiedehämmer	Smedehammere	Martillos de forja	Martelos de forja
+Satin	Saten	Satin	Satin	Satin	Satén	Cetim
+Gilded Threads	Yaldızlı İplikler	Fils dorés	Goldfäden	Forgyldte tråde	Hilos dorados	Fios dourados
+Charm Guides	Tılsım Rehberleri	Guides de talisman	Talismananleitungen	Talismanvejledninger	Guías de amuletos	Guias de amuletos
+Charm Designs	Tılsım Tasarımları	Plans de talisman	Talismanentwürfe	Talismandesign	Diseños de amuletos	Projetos de amuletos
+Master Emblems	Ustalık Amblemleri	Emblèmes de maître	Meisterembleme	Mesteremblemer	Emblemas de maestro	Emblemas de mestre
+General speedups	Genel hızlandırmalar	Accélérations générales	Allgemeine Beschleuniger	Generelle fremskyndelser	Aceleradores generales	Aceleradores gerais
+Construction speedups	İnşaat hızlandırmaları	Accélérations de construction	Baubeschleuniger	Byggefremskyndelser	Aceleradores de construcción	Aceleradores de construção
+Research speedups	Araştırma hızlandırmaları	Accélérations de recherche	Forschungsbeschleuniger	Forskningsfremskyndelser	Aceleradores de investigación	Aceleradores de pesquisa
+Training speedups	Eğitim hızlandırmaları	Accélérations d’entraînement	Ausbildungsbeschleuniger	Træningsfremskyndelser	Aceleradores de entrenamiento	Aceleradores de treinamento
+Attack	Saldırı	Attaque	Angriff	Angreb	Ataque	Ataque
+Lethality	Öldürücülük	Létalité	Tödlichkeit	Dødelighed	Letalidad	Letalidade
+Save five easy presets	Beş kolay düzen kaydet	Enregistrez cinq formations simples	Speichere fünf einfache Vorlagen	Gem fem nemme opsætninger	Guarda cinco formaciones sencillas	Salve cinco formações simples
+Chenko first	İlk kahraman Chenko	Chenko en premier	Chenko an erster Stelle	Chenko først	Chenko primero	Chenko primeiro
+Swap Chenko for Yeonwoo	Chenko yerine Yeonwoo koy	Remplacez Chenko par Yeonwoo	Ersetze Chenko durch Yeonwoo	Skift Chenko ud med Yeonwoo	Cambia a Chenko por Yeonwoo	Troque Chenko por Yeonwoo
+Swap Yeonwoo for Amane	Yeonwoo yerine Amane koy	Remplacez Yeonwoo par Amane	Ersetze Yeonwoo durch Amane	Skift Yeonwoo ud med Amane	Cambia a Yeonwoo por Amane	Troque Yeonwoo por Amane
+Remove all heroes, then redo the numbers	Tüm kahramanları kaldır, sonra sayıları yeniden gir	Retirez tous les héros, puis ressaisissez les nombres	Entferne alle Helden und gib die Zahlen erneut ein	Fjern alle helte, og indtast tallene igen	Quita todos los héroes y vuelve a introducir los números	Remova todos os heróis e digite os números novamente
+Save your own rally	Kendi saldırını kaydet	Enregistrez votre ralliement	Speichere deinen eigenen Sammelangriff	Gem dit eget fællesangreb	Guarda tu propio ataque conjunto	Salve seu próprio ataque conjunto
+When Bear starts	Ayı başladığında	Au début de l’ours	Wenn das Bärenevent beginnt	Når bjørneeventet starter	Cuando empieza el oso	Quando o urso começa
+Split your troops equally	Askerlerini eşit böl	Répartissez vos troupes à parts égales	Teile deine Truppen gleichmäßig auf	Fordel dine tropper ligeligt	Reparte tus tropas por igual	Divida suas tropas igualmente
+Join the next rally to hit	İlk vuracak saldırıya katıl	Rejoignez le prochain ralliement à frapper	Tritt dem nächsten angreifenden Sammelangriff bei	Deltag i det næste angreb, der rammer	Únete al próximo ataque que vaya a golpear	Entre no próximo ataque que vai atingir o urso
+Start with your group	Grubunla birlikte başlat	Démarrez avec votre groupe	Starte mit deiner Gruppe	Start med din gruppe	Empieza con tu grupo	Comece com seu grupo
+Get home. Go again.	Eve dön. Tekrar gönder.	De retour ? Repartez.	Zurück zu Hause? Gleich wieder los.	Hjemme igen? Afsted igen.	Vuelve a casa. Sal de nuevo.	Voltou para casa? Envie de novo.
+Why this works	Bu neden işe yarıyor?	Pourquoi cela fonctionne	Warum das funktioniert	Derfor virker det	Por qué funciona	Por que funciona
+Why split troops?	Askerleri neden bölelim?	Pourquoi répartir les troupes ?	Warum die Truppen aufteilen?	Hvorfor dele tropperne?	¿Por qué repartir las tropas?	Por que dividir as tropas?
+Why these heroes?	Neden bu kahramanlar?	Pourquoi ces héros ?	Warum diese Helden?	Hvorfor disse helte?	¿Por qué estos héroes?	Por que estes heróis?
+The right skill helps the whole rally	Doğru yetenek tüm saldırıya yardım eder	La bonne compétence aide tout le ralliement	Die richtige Fähigkeit hilft dem ganzen Sammelangriff	Den rette færdighed hjælper hele angrebet	La habilidad correcta ayuda a todo el ataque	A habilidade certa ajuda todo o ataque
+Bear setup	Ayı düzeni	Configuration pour l’ours	Bärenaufstellung	Bjørneopsætning	Configuración del oso	Configuração do urso
+EACH JOIN:	HER KATILIM:	CHAQUE RENFORT :	JEDER BEITRITT:	HVER DELTAGELSE:	CADA APOYO:	CADA APOIO:
+SETUP:	DÜZEN:	CONFIGURATION :	AUFSTELLUNG:	OPSÆTNING:	CONFIGURACIÓN:	CONFIGURAÇÃO:
+TIMING:	ZAMANLAMA:	HORAIRES :	ZEITPLAN:	TIDSPUNKTER:	HORARIOS:	HORÁRIOS:
+JOINING:	KATILIM:	RENFORTS :	BEITRETEN:	DELTAGELSE:	APOYOS:	APOIOS:
+LEFTOVER TROOPS:	ARTAN ASKERLER:	TROUPES RESTANTES :	ÜBRIGE TRUPPEN:	RESTERENDE TROPPER:	TROPAS SOBRANTES:	TROPAS RESTANTES:

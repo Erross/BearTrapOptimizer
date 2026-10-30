@@ -3,7 +3,7 @@
 const M=BearPersonalModel,A=BearAllianceModel,$=id=>document.getElementById(id);
 const PLAN='BearTrapOptimizer:CNQ:2399:plan:v1',PROFILES='BearTrapOptimizer:personal-profiles:v1',CONTEXT='BearTrapOptimizer:personal-context:v1';
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const fmt=n=>Number(n).toLocaleString(),clock=n=>Math.floor(n/60)+':'+String(Math.floor(n%60)).padStart(2,'0');
+const fmt=n=>Number(n).toLocaleString('en-US'),clock=n=>Math.floor(n/60)+':'+String(Math.floor(n%60)).padStart(2,'0');
 const labels={infantry:'Infantry',cavalry:'Cavalry',archers:'Archers'};
 const state={plan:null,snapshot:null,profiles:{},current:null,output:null,input:null,text:'',loading:false,edits:0};
 function stored(key){try{return JSON.parse(localStorage.getItem(key)||'null');}catch(_){return null;}}
@@ -116,7 +116,7 @@ function selectPlayer(skipSave=false){window.BearPlayerSearch?.sync('personalpla
  const policy=saved?.joinPolicy;$('personaljoinpolicy').value=policy?.mode||'optimized';$('personalinfpct').value=policy?.infantryPct??5;$('personalcavpct').value=policy?.cavalryPct??5;for(const k of M.TYPES)for(const v of ['attack','lethality'])$('personalhost'+k+v).value=policy?.stats?.[k]?.[v]??'';
  $('personalownsettings').hidden=!$('personalown').checked;selectionHints();
  $('personalcapacitynote').textContent=saved?'Loaded your saved personal entries. Update counts for this event.':p.stats.march_capacity?'March capacity comes from your entered alliance stats. Confirm it with your current heroes.':pc?.capacity?'Joining capacity is an alliance-model estimate. Verify it in game. Own-rally and hero-free capacities must also be checked.':'Enter your actual march capacities from the deployment screen.';
- $('personalactionstatus').textContent='';$('personalstatus').textContent=p.api.name+' · '+A.groupLabel(p.group)+' · saved roster '+(state.plan.snapshotAt?new Date(state.plan.snapshotAt).toLocaleDateString():'date unknown');
+ $('personalactionstatus').textContent='';$('personalstatus').textContent=p.api.name+' · '+A.groupLabel(p.group)+' · saved roster '+(state.plan.snapshotAt?new Date(state.plan.snapshotAt).toLocaleDateString(globalThis.BearI18n?.locale):'date unknown');
  state.loading=false;stockTotal();save();clearErrors();
  if(previousPlayer!==state.current&&window.BearCloudSelectionChanged)window.BearCloudSelectionChanged();
 }
@@ -191,7 +191,7 @@ async function start(){
  $('personalusejoint').onclick=()=>useOwnChoice('joint');$('personalusejoinfirst').onclick=()=>useOwnChoice('joinFirst');$('personalusesmall').onclick=()=>useOwnChoice('small');$('personalusefull').onclick=()=>useOwnChoice('full');for(const id of comparisonFields){const field=$(id),update=e=>{e.stopPropagation?.();write('BearTrapOptimizer:own-comparison:v1:'+state.current,comparisonValues());drawOwnChoices();};field.addEventListener('input',update);field.addEventListener('change',update);}
  $('personalpreview').onclick=()=>{if(build())$('personalresultsave').textContent='Setup preview. Your draft is on this device; use Save online & show setup to share your changes.';};
  $('personalsuggest').addEventListener('click',suggest);
- $('personalcopy').onclick=async()=>{try{await navigator.clipboard.writeText(state.text);$('personalactionstatus').textContent='Instructions copied.';}catch(_){$('personalcopytext').value=state.text;$('personalcopytext').hidden=false;$('personalcopytext').focus();$('personalcopytext').select();$('personalactionstatus').textContent='Select and copy the instructions below.';}};
+ $('personalcopy').onclick=async()=>{try{await navigator.clipboard.writeText(globalThis.BearI18n?.instructions(state.text)??state.text);$('personalactionstatus').textContent='Instructions copied.';}catch(_){$('personalcopytext').value=globalThis.BearI18n?.instructions(state.text)??state.text;$('personalcopytext').hidden=false;$('personalcopytext').focus();$('personalcopytext').select();$('personalactionstatus').textContent='Select and copy the instructions below.';}};
  $('personalexport').onclick=()=>{if(!state.output)return;download('bear-player-'+state.current+'.json',JSON.stringify({schema:'bear-personal-profile',version:1,governorId:state.current,name:person().api.name,updatedAt:new Date().toISOString(),input:read()},null,2));};
  $('personalapply').onclick=()=>{
   try{
