@@ -2,15 +2,17 @@ const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('n
 const {LANGUAGES,translator,numeric}=require('../web/i18n.js');
 const directory=path.join(__dirname,'../web/locales'),english=JSON.parse(fs.readFileSync(path.join(directory,'en.json')));
 const markers=s=>[...s.matchAll(/\{b?\d+\}/g)].map(m=>m[0]).sort();
-const names=['Chenko','Yeonwoo','Amane','Amadeus','Kingshot','Truegold','Mithril','KvK'];
+const names=['Chenko','Yeonwoo','Amane','Amadeus','Howard','Jabel','Quinn','Helga','Zoe','Marlin','Saul','Gordon','Hilde','Diana','Forrest','Edwin','Seth','Kingshot','Truegold','Mithril','KvK'];
 for(const lang of Object.keys(LANGUAGES)){
  const messages=JSON.parse(fs.readFileSync(path.join(directory,lang+'.json')));
  assert.deepEqual(Object.keys(messages).sort(),Object.keys(english).sort(),lang+' has the complete English key set');
  for(const [key,value]of Object.entries(messages)){
   assert.equal(typeof value,'string');assert(value.trim(),lang+': empty '+key);
   assert.deepEqual(markers(value),markers(key),lang+': changed placeholders: '+key);
+  assert.deepEqual([...value.matchAll(/\{b\d+\}/g)].map(x=>x[0]),[...key.matchAll(/\{b\d+\}/g)].map(x=>x[0]),lang+': changed rich tag order: '+key);
   for(const name of names){const rx=new RegExp('\\b'+name+'\\b','g');assert.equal((value.match(rx)||[]).length,(key.match(rx)||[]).length,lang+': changed game name '+name+': '+key);}
-  assert(!/ZXQ\d*ZXQ|__PLACEHOLDER/.test(value),lang+': leaked generator marker');
+  assert(!/ZXQ|__PLACEHOLDER|⁇|�/.test(value),lang+': leaked generator marker or unsupported glyph');
+  if(key.startsWith('. '))assert(!/^- (?:Evet|Je ne sais pas|Ich weiß nicht|Jeg er ikke sikker|¿ Qué|Não)/.test(value),lang+': draft dialogue leaked into a sentence fragment');
  }
  const t=translator(messages,lang);
  assert.equal(t('Chenko'),'Chenko');assert.equal(t('Ridcully'), 'Ridcully');
@@ -26,6 +28,9 @@ assert.equal(t('  Troops '),'  Truppen ');
 assert.equal(numeric('40,000 · 1.41× · 2.00×','de'),'40.000 · 1,41× · 2,00×');
 assert.equal(numeric('0:00 · 25:00 · 29.10.2026 · T9 · 389853430','de'),'0:00 · 25:00 · 29.10.2026 · T9 · 389853430');
 assert.equal(translator({},'en')('100,000 troops'),'100,000 troops');
+const withNames=translator({'Power':'Macht','Player {0}':'Spieler {0}'},'de',new Set(['Power']));
+assert.equal(withNames('Power'),'Macht');
+assert.equal(withNames('Player Power'),'Spieler Power','a captured player name must stay exact');
 for(const page of ['index','optimize-me','bear-guide','alliance-summary','kvk-planner','history','organizer']){
  const source=fs.readFileSync(path.join(__dirname,'../web/'+page+'.html'),'utf8');assert(source.includes('./i18n.js?v='),page+' loads shared localization');assert(source.includes('./i18n.css?v='));
 }
@@ -33,5 +38,6 @@ const code=fs.readFileSync(path.join(__dirname,'../web/i18n.js'),'utf8');
 assert(!/\.value\s*=\s*(?:translate|text)\(/.test(code),'translation never rewrites entered values');
 assert(code.includes("el.setAttribute('value',el.value)"),'implicit option values are preserved');
 assert(code.includes('sequence!==request'),'stale language loads cannot win');
+assert(code.includes('item.translation===translated'),'rich text updates stop after HTML entity normalization');
 assert(code.includes('translate="no"'),'names and raw data can opt out');
 console.log('All seven catalogs, placeholders, game names, dynamic instructions, number formatting and page wiring pass.');

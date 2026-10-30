@@ -89,6 +89,7 @@ async function main(){
  assert(nodes.personalnumbers.innerHTML.includes('1 / 2'));
  assert(nodes.personaltiming.innerHTML.includes('No current selected alliance comparison'));
  await nodes.personalcopy.onclick();assert(context.copied.includes('40,000 archers'));
+ context.BearI18n={instructions:text=>'Localized: '+text};await nodes.personalcopy.onclick();assert(context.copied.startsWith('Localized: '),'Copy uses the current language without rebuilding the plan');delete context.BearI18n;
  nodes.personalapply.onclick();
  assert.equal(JSON.parse(storage.get(PLAN)).players.find(p=>p.governorId===first).stats.archers,200000);
  nodes.personalplayer.value=second;nodes.personalplayer.handlers.change({});

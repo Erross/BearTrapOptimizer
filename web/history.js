@@ -1,6 +1,6 @@
 (function(){
 'use strict';
-const H=BearHistory,$=id=>document.getElementById(id),esc=value=>String(value).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])),fmt=n=>n.toLocaleString('en-US'),compact=n=>new Intl.NumberFormat(globalThis.BearI18n?.locale,{notation:'compact',maximumFractionDigits:1}).format(n),utc=at=>new Date(at).toISOString().replace('T',' ').replace(/\.\d+Z$/,' UTC');
+const H=BearHistory,$=id=>document.getElementById(id),esc=value=>String(value).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])),fmt=n=>n.toLocaleString('en-US'),compact=n=>new Intl.NumberFormat('en-US',{notation:'compact',maximumFractionDigits:1}).format(n),utc=at=>new Date(at).toISOString().replace('T',' ').replace(/\.\d+Z$/,' UTC');
 let index,history,sequence=0;
 const selectedPerson=()=>$('historyplayer').value==='alliance'?{id:'alliance',name:'CNQ alliance',active:false}:index.players.find(p=>p.id===$('historyplayer').value);
 async function read(path){const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),15000);try{const response=await fetch(path,{cache:'no-cache',signal:controller.signal});if(!response.ok)throw Error('unavailable');return await response.json();}finally{clearTimeout(timer);}}
