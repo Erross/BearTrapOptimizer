@@ -1,8 +1,8 @@
 /* Shared presentation-only localization. Models and saved data stay canonical. */
 (function(root){
 'use strict';
-const LANGUAGES={en:['English','en-US'],tr:['Türkçe','tr-TR'],fr:['Français','fr-FR'],de:['Deutsch','de-DE'],da:['Dansk','da-DK'],es:['Español','es-ES'],pt:['Português','pt-BR']};
-const VERSION='20261029-2',KEY='BearTrapOptimizer:language:v1';
+const LANGUAGES={en:['English','en-US'],tr:['Türkçe','tr-TR'],fr:['Français','fr-FR'],de:['Deutsch','de-DE'],da:['Dansk','da-DK'],es:['Español','es-ES'],pt:['Português','pt-BR'],id:['Bahasa Indonesia','id-ID']};
+const VERSION='20261029-3',KEY='BearTrapOptimizer:language:v1';
 const normalize=s=>String(s??'').replace(/\s+/g,' ').trim();
 const escapeRegex=s=>s.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
 function numeric(s,lang){
@@ -108,7 +108,7 @@ function start(){
  const nav=document.querySelector('.app-nav');if(!nav)return;
  const control=document.createElement('div');control.className='language-control';control.setAttribute('data-i18n-skip','');
  const label=languageLabel=document.createElement('label');label.htmlFor='app-language';label.textContent='Language';label.lang='en';
- select=document.createElement('select');select.id='app-language';select.setAttribute('aria-label','Language / Dil / Langue / Sprache / Sprog / Idioma');
+ select=document.createElement('select');select.id='app-language';select.setAttribute('aria-label','Language / Dil / Langue / Sprache / Sprog / Idioma / Bahasa');
  for(const [code,[name]]of Object.entries(LANGUAGES)){const option=document.createElement('option');option.value=code;option.textContent=name;option.lang=code;select.append(option);}
  status=document.createElement('span');status.className='language-status';status.setAttribute('role','status');control.append(label,select,status);nav.append(control);
  observer=new MutationObserver(records=>{for(const record of records){if(record.type==='characterData')queue(record.target);else if(record.type==='attributes')queue(record.target);else {if(record.target.closest?.('[data-i18n-rich]'))queue(record.target);for(const node of record.addedNodes)queue(node);}}});

@@ -28,6 +28,12 @@ assert.equal(t('  Troops '),'  Truppen ');
 assert.equal(numeric('40,000 · 1.41× · 2.00×','de'),'40.000 · 1,41× · 2,00×');
 assert.equal(numeric('0:00 · 25:00 · 29.10.2026 · T9 · 389853430','de'),'0:00 · 25:00 · 29.10.2026 · T9 · 389853430');
 assert.equal(translator({},'en')('100,000 troops'),'100,000 troops');
+assert.deepEqual(LANGUAGES.id,['Bahasa Indonesia','id-ID']);
+const indonesian=translator(JSON.parse(fs.readFileSync(path.join(directory,'id.json'))),'id');
+assert.equal(indonesian('Preset 4 · No hero'),'Preset 4 · Tanpa hero');
+assert.equal(indonesian('Save online'),'Simpan online');
+assert.equal(indonesian('70,000 infantry'),'70.000 infanteri');
+assert.equal(numeric('40,000 · 1.41× · 0:00 · T9','id'),'40.000 · 1,41× · 0:00 · T9');
 const withNames=translator({'Power':'Macht','Player {0}':'Spieler {0}'},'de',new Set(['Power']));
 assert.equal(withNames('Power'),'Macht');
 assert.equal(withNames('Player Power'),'Spieler Power','a captured player name must stay exact');
@@ -40,4 +46,4 @@ assert(code.includes("el.setAttribute('value',el.value)"),'implicit option value
 assert(code.includes('sequence!==request'),'stale language loads cannot win');
 assert(code.includes('item.translation===translated'),'rich text updates stop after HTML entity normalization');
 assert(code.includes('translate="no"'),'names and raw data can opt out');
-console.log('All seven catalogs, placeholders, game names, dynamic instructions, number formatting and page wiring pass.');
+console.log('All eight catalogs, placeholders, game names, dynamic instructions, number formatting and page wiring pass.');

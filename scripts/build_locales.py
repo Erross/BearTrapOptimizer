@@ -1,7 +1,7 @@
 """Apply reviewed terminology after updating translation catalogs.
 
 Catalogs are static source-controlled UI copy, never translations of user data.
-The TSV columns are English, Turkish, French, German, Danish, Spanish, Portuguese.
+The TSV columns are English, Turkish, French, German, Danish, Spanish, Portuguese, Indonesian.
 """
 import argparse
 import json
@@ -9,7 +9,7 @@ import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-LANGUAGES = ['en', 'tr', 'fr', 'de', 'da', 'es', 'pt']
+LANGUAGES = ['en', 'tr', 'fr', 'de', 'da', 'es', 'pt', 'id']
 
 
 def main():
@@ -22,7 +22,7 @@ def main():
             continue
         row = line.split('\t')
         if len(row) != len(LANGUAGES) or any(not cell for cell in row):
-            raise ValueError('Each override needs seven nonempty columns: ' + row[0])
+            raise ValueError(f'Each override needs {len(LANGUAGES)} nonempty columns: ' + row[0])
         overrides.append(row)
     for i, lang in enumerate(LANGUAGES):
         if lang not in selected:
