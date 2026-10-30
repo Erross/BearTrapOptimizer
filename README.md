@@ -8,6 +8,11 @@ https://erross.github.io/BearTrapOptimizer/
 
 The `web/` folder is a fully static GitHub Pages app. It runs all calculations in a Web Worker in the browser; members need no Python installation. No input data is uploaded. The Python engine remains available for local analysis and automated parity checks.
 
+Every page has a **Language** picker for English, Turkish, French, German, Danish,
+Spanish and Portuguese. The choice is remembered on this device. Plans and copied
+instructions use the selected language; troop entries, player names, calculations
+and backup formats keep their original values. See [translation maintenance](docs/localization.md).
+
 The [beginner UX audit](docs/UX_AUDIT.md) records the page-by-page critique and resulting changes. The interface uses one selected approach for its plan and schedule, labels all time/score graphs, provides keyboard time readouts, and marks old results when inputs change. Save an alliance JSON file to retain edits after closing the tab.
 
 In GitHub, enable **Settings → Pages → Source: GitHub Actions**. The included `pages.yml` workflow validates both engines and publishes the web folder on pushes to main. Alternatively publish the `web` directory contents from a dedicated Pages branch.

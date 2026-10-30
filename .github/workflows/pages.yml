@@ -33,6 +33,7 @@ jobs:
       - run: node tests/check_personal_ui.cjs
       - run: node tests/check_cloud_backend.cjs
       - run: node tests/check_kvk_model.cjs
+      - run: node tests/check_i18n.cjs
   deploy:
     needs: validate
     environment:

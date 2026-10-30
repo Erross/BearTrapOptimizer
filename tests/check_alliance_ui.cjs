@@ -143,7 +143,7 @@ async function main(){
  assert.equal(state('result.runs.length'),6);
  const clipboard=[];
  context.navigator={clipboard:{writeText:async text=>clipboard.push(text)}};
- const launchTexts=nodes.openinggroups.innerHTML.match(/<p>[^<]*<\/p>/g)||[];
+ const launchTexts=nodes.openinggroups.innerHTML.match(/<p(?: translate="no")?>[^<]*<\/p>/g)||[];
  assert(launchTexts.length);
  assert(launchTexts.every(text=>!ui.state.plan.players.some(p=>text.includes(p.governorId))),
   'Opening lists must show names without governor IDs');

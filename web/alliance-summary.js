@@ -2,8 +2,8 @@
 'use strict';
 const $=id=>document.getElementById(id),A=BearAllianceModel,S=BearAllianceSummary,M=BearPersonalModel;
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const fmt=n=>Number(n).toLocaleString(),dateOptions={year:'numeric',month:'short',day:'numeric',hour:'numeric',minute:'2-digit',timeZoneName:'short'};
-const date=v=>v?new Date(v).toLocaleString(undefined,dateOptions):'Unknown',time=v=>v?'<time datetime="'+esc(v)+'">'+esc(date(v))+'</time>':'Unknown';
+const fmt=n=>Number(n).toLocaleString('en-US'),dateOptions={year:'numeric',month:'short',day:'numeric',hour:'numeric',minute:'2-digit',timeZoneName:'short'};
+const date=v=>v?new Date(v).toLocaleString(globalThis.BearI18n?.locale,dateOptions):'Unknown',time=v=>v?'<time datetime="'+esc(v)+'">'+esc(date(v))+'</time>':'Unknown';
 let plan,snapshot,records=new Map(),busy=false;
 const names={infantry:'Infantry',cavalry:'Cavalry',archers:'Archers'},statuses={loading:'Checking…',missing:'No submission',unavailable:'Could not check',saved:'Submitted',stale:'7+ days old'};
 function render(){
@@ -63,4 +63,5 @@ async function start(){
 }
 start();
 if(document.getElementById('summaryreset'))$('summaryreset').onclick=()=>{$('summarysearch').value='';$('summaryfilter').value='all';render();$('summarysearch').focus();};
+globalThis.addEventListener?.('bear:languagechange',()=>{if(plan)render();});
 })();

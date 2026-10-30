@@ -28,11 +28,11 @@ function check(force=false){
    if(data.input&&((force&&profile().stamp()===stamp)||!editing)){
     conflict=false;
     profile().load(data.input);
-    status('Online setup loaded','Saved online '+new Date(data.updatedAt).toLocaleString()+'. Review or edit your numbers, then save to get your setup.','saved');
+    status('Online setup loaded','Saved online '+new Date(data.updatedAt).toLocaleString('en-US')+'. Review or edit your numbers, then save to get your setup.','saved');
    }else if(conflict){
     status('Online copy changed','Someone saved a newer setup. Your entries are preserved. Choose the online copy or explicitly replace it with your entries below.','error');
    }else if(data.input){
-    status('Using this device’s draft','Your entries are preserved. An online copy also exists, saved '+new Date(data.updatedAt).toLocaleString()+'. Keep editing these, or use the online copy below.','draft');
+    status('Using this device’s draft','Your entries are preserved. An online copy also exists, saved '+new Date(data.updatedAt).toLocaleString('en-US')+'. Keep editing these, or use the online copy below.','draft');
    }else status('New online setup','Fill in your troops, limits and heroes, then choose Save online & show setup.','ready');
    controls();return session;
   }catch(error){
@@ -73,7 +73,7 @@ window.BearCloudSave=async()=>{
   if(ticket!==sequence)return;
   session.revision=result.revision;online={input,revision:result.revision,updatedAt:result.updatedAt};profile().markSaved(input);
   if(profile().stamp()!==stamp){status('Earlier entries saved','Your earlier entries were saved online. Changes made while saving are still a draft—save again when ready.','draft');return;}
-  status('Saved online','Saved online '+new Date(result.updatedAt).toLocaleString()+'. Your joining setup is below. You can load these entries on another device by selecting your name.','saved');
+  status('Saved online','Saved online '+new Date(result.updatedAt).toLocaleString('en-US')+'. Your joining setup is below. You can load these entries on another device by selecting your name.','saved');
   $('personalresult').scrollIntoView({behavior:'smooth',block:'start'});
  }catch(error){
   if(ticket!==sequence)return;

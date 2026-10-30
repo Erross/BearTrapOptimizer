@@ -1,6 +1,6 @@
 (function(){
 'use strict';
-const H=BearHistory,$=id=>document.getElementById(id),esc=value=>String(value).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])),fmt=n=>n.toLocaleString(),compact=n=>new Intl.NumberFormat(undefined,{notation:'compact',maximumFractionDigits:1}).format(n),utc=at=>new Date(at).toISOString().replace('T',' ').replace(/\.\d+Z$/,' UTC');
+const H=BearHistory,$=id=>document.getElementById(id),esc=value=>String(value).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])),fmt=n=>n.toLocaleString('en-US'),compact=n=>new Intl.NumberFormat('en-US',{notation:'compact',maximumFractionDigits:1}).format(n),utc=at=>new Date(at).toISOString().replace('T',' ').replace(/\.\d+Z$/,' UTC');
 let index,history,sequence=0;
 const selectedPerson=()=>$('historyplayer').value==='alliance'?{id:'alliance',name:'CNQ alliance',active:false}:index.players.find(p=>p.id===$('historyplayer').value);
 async function read(path){const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),15000);try{const response=await fetch(path,{cache:'no-cache',signal:controller.signal});if(!response.ok)throw Error('unavailable');return await response.json();}finally{clearTimeout(timer);}}
@@ -24,7 +24,7 @@ function draw(){
  for(let i=0;i<=4;i++){const value=max*i/4,cy=bottom-i*(bottom-top)/4;svg+='<line class="grid" x1="'+left+'" x2="'+right+'" y1="'+cy+'" y2="'+cy+'"/><text x="72" y="'+(cy+5)+'" text-anchor="end">'+esc(compact(value))+'</text>';}
  if(points.length>1)svg+='<path class="trace" d="'+points.map((p,i)=>(i&&H.comparable(points[i-1],p)?'L':'M')+x(p).toFixed(2)+' '+y(p).toFixed(2)).join(' ')+'"/>';
  svg+=points.map(p=>'<circle tabindex="0" cx="'+x(p)+'" cy="'+y(p)+'" r="5" aria-label="'+esc(utc(p.at)+': '+fmt(p.value)+(alliance&&troop?' · '+coverage(p):''))+'"><title>'+esc(utc(p.at)+' · '+fmt(p.value)+(alliance&&troop?' · '+coverage(p):''))+'</title></circle>').join('');
- const date=p=>new Date(p.at).toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric',timeZone:'UTC'});
+ const date=p=>new Date(p.at).toLocaleDateString(globalThis.BearI18n?.locale,{month:'short',day:'numeric',year:'numeric',timeZone:'UTC'});
  svg+='<text x="'+left+'" y="295">'+esc(date(points[0]))+'</text>'+(points.length>1?'<text x="'+right+'" y="295" text-anchor="end">'+esc(date(points.at(-1)))+'</text>':'')+'</svg>';
  $('historyplot').innerHTML=svg;
 }
@@ -47,4 +47,5 @@ $('historyplayer').addEventListener('change',select);$('historymetric').addEvent
  $('historycapture').textContent=capture?'Last troop check: '+utc(capture.at)+' · '+capture.saved+' saved submissions · '+capture.checked+' profiles checked · '+capture.unavailable+' unavailable'+(capture.notChecked?' · '+capture.notChecked+' not checked':'')+'.':'Troop capture starts with the next successful alliance refresh.';
  await select();
  }catch(error){if($('historyretry'))$('historyretry').hidden=false;$('historystatus').textContent='Could not load the history archive. Reload the page to try again.';}})();
+globalThis.addEventListener?.('bear:languagechange',()=>{if(history)draw();});
 })();
