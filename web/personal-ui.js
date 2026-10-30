@@ -17,7 +17,7 @@ function context(){
 function readJoinPolicy(){const mode=$('personaljoinpolicy').value||'optimized',policy={mode};if(mode==='ratio'){policy.infantryPct=$('personalinfpct').value;policy.cavalryPct=$('personalcavpct').value;}const entered=M.TYPES.some(k=>['attack','lethality'].some(v=>$('personalhost'+k+v).value!==''));if(entered)policy.stats=Object.fromEntries(M.TYPES.map(k=>[k,Object.fromEntries(['attack','lethality'].map(v=>[v,$('personalhost'+k+v).value]))]));return mode==='optimized'&&!entered?undefined:policy;}
 function read(){
  const value=id=>$(id).value;
- return {stock:Object.fromEntries(M.TIERS.map(t=>[t,Object.fromEntries(M.TYPES.map(k=>[k,value('personalstock'+t+k)||0]))])),
+ return {preferredLanguage:M.preferredLanguage(value('personalpreferredlanguage')),stock:Object.fromEntries(M.TIERS.map(t=>[t,Object.fromEntries(M.TYPES.map(k=>[k,value('personalstock'+t+k)||0]))])),
   ...(readJoinPolicy()?{joinPolicy:readJoinPolicy()}:{}),joinMarches:value('personaljoins'),presets:value('personalpresets'),capacity:value('personalcapacity'),heroFreeCapacity:value('personalbare'),joinCap:value('personalcap'),
   heroes:M.HEROES.map(h=>({name:h.name,available:$('personalhas'+h.id).checked,skill:value('personalskill'+h.id)})),
   ownEnabled:$('personalown').checked,ownTier:value('personalowntier'),ownCapacity:value('personalowncapacity'),lowerConfirmed:$('personallowerconfirmed').checked,
@@ -93,6 +93,7 @@ function selectPlayer(skipSave=false){window.BearPlayerSearch?.sync('personalpla
  state.output=null;$('personalresult').hidden=true;$('personalerror').hidden=true;
  const p=person();if(!p){state.loading=false;if(window.BearCloudSelectionChanged)window.BearCloudSelectionChanged();return;}
  const saved=state.profiles[state.current]?.input,c=context(),pc=c?.players?.[state.current];
+ $('personalpreferredlanguage').value=M.preferredLanguage(saved?.preferredLanguage);
  const heroData=observed();
  for(const t of M.TIERS)for(const k of M.TYPES)$('personalstock'+t+k).value=saved?.stock?.[t]?.[k]??0;
  $('personaljoins').value=saved?.joinMarches??pc?.joinMarches??p.stats.join_slots??5;
@@ -181,6 +182,7 @@ function build(options={}){
 }
 function download(name,content){const u=URL.createObjectURL(new Blob([content],{type:'application/json'})),a=document.createElement('a');a.href=u;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(u),1000);}
 async function start(){
+ $('personalpreferredlanguage').innerHTML='<option value="">Not specified</option>'+Object.entries(M.LANGUAGE_NAMES).map(([code,name])=>'<option translate="no" value="'+code+'">'+name+'</option>').join('');
  $('personalinventory').innerHTML=M.TIERS.map(t=>'<tr><th scope="row">T'+t+' / '+({10:'X',9:'IX',8:'VIII'}[t])+'</th>'+M.TYPES.map(k=>'<td><input id="personalstock'+t+k+'" type="number" inputmode="numeric" min="0" max="5000000" step="1" value="0" aria-label="T'+t+' '+k+' available"></td>').join('')+'</tr>').join('');
  $('personalheroes').innerHTML=M.HEROES.map((h,i)=>(i===0?'<h3 class="hero-group-title">Approved joining heroes</h3>':!h.join&&M.HEROES[i-1]?.join?'<h3 class="hero-group-title">Own-rally options</h3>':'')+'<div class="personal-hero"><label><input id="personalhas'+h.id+'" type="checkbox"> '+esc(h.name)+'<small>'+labels[h.type]+(h.join?' · approved joiner':' · own-rally only')+'</small></label><select id="personalskill'+h.id+'" aria-label="'+esc(h.name)+' first Expedition skill level">'+Array.from({length:6},(_,i)=>'<option value="'+i+'">'+(i?'Lv '+i:'Unknown')+'</option>').join('')+'</select></div>').join('');
  $('personalleaders').innerHTML=M.TYPES.map(k=>'<label>'+labels[k]+' leader<select id="personallead'+k+'" aria-describedby="personallead'+k+'error"><option value="">Choose '+k+' hero</option></select><small id="personallead'+k+'error" class="field-error" hidden></small></label>').join('');
@@ -233,6 +235,7 @@ window.BearPersonalProfiles={current:()=>person(),read,build,reportError,stamp:(
  markSaved(input){if(!person())return;state.profiles[state.current]={...state.profiles[state.current],edited:JSON.stringify(read())!==JSON.stringify(input),syncedInput:JSON.stringify(input)};save();},
  load(input){
   M.build(input);if(!person())throw Error('Choose a player first.');
+  if(input.preferredLanguage===undefined&&read().preferredLanguage)input={...input,preferredLanguage:read().preferredLanguage};
   state.profiles[state.current]={input,edited:false,syncedInput:JSON.stringify(input),updatedAt:new Date().toISOString()};selectPlayer(true);
  }};
 start();

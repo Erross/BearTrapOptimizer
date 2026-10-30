@@ -3,6 +3,8 @@
 (function(root){
 'use strict';
 const TYPES=['infantry','cavalry','archers'],TIERS=[10,9,8];
+const LANGUAGE_NAMES={en:'English',tr:'Türkçe',fr:'Français',de:'Deutsch',da:'Dansk',es:'Español',pt:'Português',id:'Bahasa Indonesia',ar:'العربية',ko:'한국어',ja:'日本語',ru:'Русский',vi:'Tiếng Việt',th:'ไทย',it:'Italiano',pl:'Polski','zh-CN':'简体中文','zh-TW':'繁體中文'};
+function preferredLanguage(value){if(value===undefined||value==='')return '';if(typeof value!=='string'||!Object.hasOwn(LANGUAGE_NAMES,value))throw Error('Choose a supported preferred language.');return value;}
 const HEROES=[
  {id:'50007',name:'Chenko',type:'cavalry',join:true,priority:1},
  {id:'50028',name:'Yeonwoo',type:'archers',join:true,priority:2},
@@ -114,6 +116,7 @@ function heroOptions(entries=[]){
  });
 }
 function build(input){
+ preferredLanguage(input.preferredLanguage);
  const stock=matrix(input.stock),remaining=matrix(stock),joins=whole(input.joinMarches,1,10,'Joining marches');
  const presets=whole(input.presets,0,12,'Saved preset slots'),capacity=whole(input.capacity,1,2000000,'Joining march capacity');
  const cap=whole(input.joinCap??0,0,2000000,'Alliance joining limit');
@@ -180,7 +183,7 @@ function suggestLeaders(entries,observed=[]){
  }return result;
 }
 function fingerprint(plan){return JSON.stringify({snapshotAt:plan?.snapshotAt,traps:plan?.traps,calibration:plan?.calibration,comparisonGroup:plan?.comparisonGroup,players:plan?.players?.map(p=>[p.governorId,p.active,p.attending,p.canHost,p.group,p.api?.x,p.api?.y,p.travel,p.stats])});}
-const api={TYPES,TIERS,HEROES,matrix,total,joinPolicy,referenceScore,optimizedPacket,ownAlternatives,jointOwn,compareOwn,build,suggestLeaders,fingerprint};
+const api={TYPES,TIERS,HEROES,LANGUAGE_NAMES,preferredLanguage,matrix,total,joinPolicy,referenceScore,optimizedPacket,ownAlternatives,jointOwn,compareOwn,build,suggestLeaders,fingerprint};
 if(typeof module!=='undefined')module.exports=api;root.BearPersonalModel=api;
 })(typeof globalThis!=='undefined'?globalThis:this);
 
@@ -394,6 +397,7 @@ function cleanProfile(input){
    ownTier:input.ownTier==='lower'?'lower':n(input.ownTier??8,8,10,'Own rally tier'),ownCapacity:optional(input.ownCapacity,2000000,'Own capacity'),lowerConfirmed:input.lowerConfirmed===true,
    ownTroops:Object.fromEntries(M.TYPES.map(k=>[k,n(input.ownTroops?.[k]??0,0,2000000,'Own troops')])),leaders,heroes};
   if(input.joinPolicy!==undefined)clean.joinPolicy=M.joinPolicy(input.joinPolicy);
+  if(input.preferredLanguage!==undefined)clean.preferredLanguage=M.preferredLanguage(input.preferredLanguage);
   const total=M.total(clean.stock)+(clean.ownEnabled&&clean.ownTier==='lower'?M.TYPES.reduce((n,k)=>n+clean.ownTroops[k],0):0);
   if(total>5000000)fail(400,'Total troops must not exceed 5,000,000.');
   M.build(clean);return clean;
@@ -407,7 +411,7 @@ export default {async fetch(request,env){
   if(request.headers.has('Origin')&&request.headers.get('Origin')!==ORIGIN)fail(403,'Origin is not allowed.');
   if(request.method==='OPTIONS')return new Response(null,{status:204,headers});
   const path=new URL(request.url).pathname;
-  if(path==='/health'&&request.method==='GET')return reply({service:'bear-player-profiles',version:7,mode:'open-profiles',capabilities:['kvk-profiles','kvk-exclusive-widgets','kvk-inventory-history','kvk-save-confirmation','bear-join-policy']});
+  if(path==='/health'&&request.method==='GET')return reply({service:'bear-player-profiles',version:8,mode:'open-profiles',capabilities:['kvk-profiles','kvk-exclusive-widgets','kvk-inventory-history','kvk-save-confirmation','bear-join-policy','player-language-preference']});
   if(!env.DB||typeof env.ADMIN_TOKEN!=='string'||env.ADMIN_TOKEN.length<32)fail(503,'Organizer must configure DB and an ADMIN_TOKEN of at least 32 characters.');
   const token=request.headers.get('Authorization')?.match(/^Bearer ([^\s]{1,512})$/)?.[1];
   if(path.startsWith('/api/admin/')){

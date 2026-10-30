@@ -2,11 +2,14 @@ const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('nod
 const root=path.resolve(__dirname,'..');
 require('../web/personal-model.js');require('../web/alliance-model.js');require('../web/alliance-summary-model.js');
 const S=globalThis.BearAllianceSummary,A=globalThis.BearAllianceModel,snapshot=require('../web/data/alliance-api.json'),plan=A.mergeSnapshot(A.emptyPlan(),snapshot);
-const input={stock:{9:{infantry:50000,cavalry:50000,archers:150000}},joinMarches:5,presets:3,capacity:100000,heroFreeCapacity:90000,joinCap:0,ownEnabled:false,heroes:[],leaders:{},ownTroops:{}};
+const input={preferredLanguage:'ar',stock:{9:{infantry:50000,cavalry:50000,archers:150000}},joinMarches:5,presets:3,capacity:100000,heroFreeCapacity:90000,joinCap:0,ownEnabled:false,heroes:[],leaders:{},ownTroops:{}};
 const record={input,revision:1,updatedAt:'2026-10-21T12:00:00Z'},saved=S.submitted(record);
 const lower=S.submitted({...record,input:{...input,ownEnabled:true,ownTier:'lower',lowerConfirmed:true,ownCapacity:100000,ownTroops:{infantry:1000,cavalry:0,archers:0},leaders:{infantry:'Howard',cavalry:'Jabel',archers:'Quinn'},heroes:['Howard','Jabel','Quinn'].map(name=>({name,available:true,skill:5}))}});
 assert.equal(lower.total,251000);assert.equal(lower.types.infantry,51000);assert.equal(lower.stock[9].infantry,50000);assert.equal(lower.lower.infantry,1000);
 assert.equal(saved.total,250000);assert.equal(saved.types.archers,150000);
+assert.equal(saved.preferredLanguage,'ar');
+assert.equal(S.submitted({...record,input:{...input,preferredLanguage:''}}).preferredLanguage,'');
+assert.deepEqual(globalThis.BearPersonalModel.build(input),globalThis.BearPersonalModel.build({...input,preferredLanguage:'zh-TW'}),'language never changes troop allocation');
 assert.equal(S.submitted({input:null}),null);assert.throws(()=>S.submitted({...record,updatedAt:null}));
 assert.throws(()=>S.submitted({...record,input:{...input,stock:{9:{archers:-1}}}}));
 assert.equal(S.timestamp(1792169238.6387005),'2026-10-16T16:47:18.638Z');assert.equal(S.timestamp(null),null);
@@ -39,6 +42,7 @@ async function page(failAll=false){
   assert.equal(requests,plan.players.length);assert(nodes.summaryrows.innerHTML.includes('./optimize-me.html?player='+id));
   assert(nodes.summaryrows.innerHTML.includes('datetime="2026-10-21T12:00:00.000Z"'));assert(nodes.summaryrows.innerHTML.includes('250,000'));
   assert(nodes.summaryrows.innerHTML.includes('Could not check'));assert(nodes.summaryrows.innerHTML.includes('No submission'));
+  assert(nodes.summarylanguages.innerHTML.includes('العربية'));assert(nodes.summarylanguages.innerHTML.includes('Not checked: 1'));
   nodes.summaryfilter.value='missing';nodes.summaryfilter.handlers.change();assert(nodes.summarycount.textContent.startsWith((plan.players.length-2)+' of '+plan.players.length));
   nodes.summarysearch.value='name that does not exist';nodes.summarysearch.handlers.input();assert.equal(nodes.summaryempty.hidden,false);
  }

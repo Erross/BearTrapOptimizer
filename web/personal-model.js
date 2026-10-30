@@ -2,6 +2,8 @@
 (function(root){
 'use strict';
 const TYPES=['infantry','cavalry','archers'],TIERS=[10,9,8];
+const LANGUAGE_NAMES={en:'English',tr:'Türkçe',fr:'Français',de:'Deutsch',da:'Dansk',es:'Español',pt:'Português',id:'Bahasa Indonesia',ar:'العربية',ko:'한국어',ja:'日本語',ru:'Русский',vi:'Tiếng Việt',th:'ไทย',it:'Italiano',pl:'Polski','zh-CN':'简体中文','zh-TW':'繁體中文'};
+function preferredLanguage(value){if(value===undefined||value==='')return '';if(typeof value!=='string'||!Object.hasOwn(LANGUAGE_NAMES,value))throw Error('Choose a supported preferred language.');return value;}
 const HEROES=[
  {id:'50007',name:'Chenko',type:'cavalry',join:true,priority:1},
  {id:'50028',name:'Yeonwoo',type:'archers',join:true,priority:2},
@@ -113,6 +115,7 @@ function heroOptions(entries=[]){
  });
 }
 function build(input){
+ preferredLanguage(input.preferredLanguage);
  const stock=matrix(input.stock),remaining=matrix(stock),joins=whole(input.joinMarches,1,10,'Joining marches');
  const presets=whole(input.presets,0,12,'Saved preset slots'),capacity=whole(input.capacity,1,2000000,'Joining march capacity');
  const cap=whole(input.joinCap??0,0,2000000,'Alliance joining limit');
@@ -179,6 +182,6 @@ function suggestLeaders(entries,observed=[]){
  }return result;
 }
 function fingerprint(plan){return JSON.stringify({snapshotAt:plan?.snapshotAt,traps:plan?.traps,calibration:plan?.calibration,comparisonGroup:plan?.comparisonGroup,players:plan?.players?.map(p=>[p.governorId,p.active,p.attending,p.canHost,p.group,p.api?.x,p.api?.y,p.travel,p.stats])});}
-const api={TYPES,TIERS,HEROES,matrix,total,joinPolicy,referenceScore,optimizedPacket,ownAlternatives,jointOwn,compareOwn,build,suggestLeaders,fingerprint};
+const api={TYPES,TIERS,HEROES,LANGUAGE_NAMES,preferredLanguage,matrix,total,joinPolicy,referenceScore,optimizedPacket,ownAlternatives,jointOwn,compareOwn,build,suggestLeaders,fingerprint};
 if(typeof module!=='undefined')module.exports=api;root.BearPersonalModel=api;
 })(typeof globalThis!=='undefined'?globalThis:this);

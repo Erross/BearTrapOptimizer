@@ -1,7 +1,7 @@
 """Apply reviewed terminology after updating translation catalogs.
 
 Catalogs are static source-controlled UI copy, never translations of user data.
-The TSV columns are English, Turkish, French, German, Danish, Spanish, Portuguese, Indonesian.
+The TSV columns follow LANGUAGES below, starting with canonical English.
 """
 import argparse
 import json
@@ -9,7 +9,7 @@ import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-LANGUAGES = ['en', 'tr', 'fr', 'de', 'da', 'es', 'pt', 'id']
+LANGUAGES = ['en', 'tr', 'fr', 'de', 'da', 'es', 'pt', 'id', 'ar', 'ko', 'ja', 'ru', 'vi', 'th', 'it', 'pl', 'zh-CN', 'zh-TW']
 
 
 def main():
