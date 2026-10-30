@@ -262,3 +262,10 @@ The guarded default chooses the exact integer maximum for its stated separable s
 Worker version 7 confirms a successful KvK write from the UPSERT's `RETURNING` row. D1's change metadata includes writes made by the inventory-history triggers, so requiring exactly one changed row could report a conflict after a successful commit. Atomic revision checks, throttling and history rollback remain in place. The backend test adapter now includes trigger writes in its change counts, matching D1. The floating save bar displays the actual error when a request fails.
 
 Deploy the current Worker using Organizer → Copy Worker code → Cloudflare Edit code → Deploy. Existing profiles and history need no reinitialization. A previously reported failed save may already appear in inventory history; check the saved timestamp before replacing any entries.
+
+
+### Languages and player preferences
+
+All pages support the game's 17 language options plus Danish. Arabic uses right-to-left layout. See [localization](docs/localization.md) for catalog maintenance.
+
+Players may explicitly choose a preferred language in Optimize Me. Worker version 8 saves it with their profile; the alliance summary shows per-player choices and counts. Deploy the updated Worker from Organizer, without resetting D1. Until then, troops still save online and the preference stays local with a clear notice.

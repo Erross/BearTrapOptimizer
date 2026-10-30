@@ -103,6 +103,14 @@ async function main(){
   await globalThis.BearCloud.request('/api/players/'+id,'');assert(!('Authorization' in network.at(-1).options.headers));
   await globalThis.BearCloud.request('/api/admin/profiles',ADMIN_TOKEN);assert.equal(network.at(-1).options.headers.Authorization,'Bearer '+ADMIN_TOKEN);assert(!network.at(-1).url.includes(ADMIN_TOKEN));
  }finally{globalThis.fetch=actualFetch;}
- console.log('Inventory snapshots, lazy schema/backfill, pagination, atomic rollback and former-player reads; open profile saves, legacy migration, organizer auth, throttling, strict sanitization, revision checks, CORS and atomic model imports pass.');
+ const health=(await call('/health',{key:''})).data;assert.equal(health.version,8);assert(health.capabilities.includes('player-language-preference'));
+ for(const language of ['ar','zh-CN','zh-TW','']){
+  const current=(await call(path,{key:''})).data;
+  sqlite.prepare("UPDATE player_profiles SET updated_at='2000-01-01T00:00:00.000Z' WHERE governor_id=?").run(id);
+  const updated=await call(path,{key:'',method:'PUT',data:{input:{...input,preferredLanguage:language},revision:current.revision}});assert.equal(updated.status,200);
+  assert.equal((await call(path,{key:''})).data.input.preferredLanguage,language);
+ }
+ for(const language of ['unknown','AR',null,{},'<script>']){const current=(await call(path,{key:''})).data;assert.equal((await call(path,{key:'',method:'PUT',data:{input:{...input,preferredLanguage:language},revision:current.revision}})).status,400);}
+ console.log('Player language round trips, clearing and validation; inventory history, profile saves, conflicts and rollback checks pass.');
 }
 main().catch(error=>{console.error(error);process.exitCode=1;}).finally(()=>sqlite.close());

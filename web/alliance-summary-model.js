@@ -13,7 +13,7 @@ function submitted(record){
  const stock=M.matrix(record.input.stock),lower=Object.fromEntries(TYPES.map(k=>[k,record.input.ownEnabled&&record.input.ownTier==='lower'?Number(record.input.ownTroops[k]||0):0]));
  const types=Object.fromEntries(TYPES.map(k=>[k,M.TIERS.reduce((n,t)=>n+stock[t][k],0)+lower[k]]));
  const updatedAt=timestamp(record.updatedAt);if(!updatedAt)throw Error('Submission timestamp is missing.');
- return {stock,lower,types,total:TYPES.reduce((n,k)=>n+types[k],0),joins:Number(record.input.joinMarches),presets:Number(record.input.presets),own:record.input.ownEnabled,updatedAt};
+ return {preferredLanguage:M.preferredLanguage(record.input.preferredLanguage),stock,lower,types,total:TYPES.reduce((n,k)=>n+types[k],0),joins:Number(record.input.joinMarches),presets:Number(record.input.presets),own:record.input.ownEnabled,updatedAt};
 }
 function rows(plan,snapshot,records,now=Date.now()){
  const members=new Map(snapshot.members.map(m=>[String(m.governor_id??m.fid),m]));

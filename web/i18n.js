@@ -1,8 +1,8 @@
 /* Shared presentation-only localization. Models and saved data stay canonical. */
 (function(root){
 'use strict';
-const LANGUAGES={en:['English','en-US'],tr:['Türkçe','tr-TR'],fr:['Français','fr-FR'],de:['Deutsch','de-DE'],da:['Dansk','da-DK'],es:['Español','es-ES'],pt:['Português','pt-BR'],id:['Bahasa Indonesia','id-ID']};
-const VERSION='20261029-3',KEY='BearTrapOptimizer:language:v1';
+const LANGUAGES={en:['English','en-US'],tr:['Türkçe','tr-TR'],fr:['Français','fr-FR'],de:['Deutsch','de-DE'],da:['Dansk','da-DK'],es:['Español','es-ES'],pt:['Português','pt-BR'],id:['Bahasa Indonesia','id-ID'],ar:['العربية','ar-SA'],ko:['한국어','ko-KR'],ja:['日本語','ja-JP'],ru:['Русский','ru-RU'],vi:['Tiếng Việt','vi-VN'],th:['ไทย','th-TH'],it:['Italiano','it-IT'],pl:['Polski','pl-PL'],'zh-CN':['简体中文','zh-CN'],'zh-TW':['繁體中文','zh-TW']};
+const VERSION='20261030-1',KEY='BearTrapOptimizer:language:v1';
 const normalize=s=>String(s??'').replace(/\s+/g,' ').trim();
 const escapeRegex=s=>s.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
 function numeric(s,lang){
@@ -94,7 +94,7 @@ async function setLanguage(next){
  try{
   const english=await catalog('en'),messages=next==='en'?english:await catalog(next);
   if(Object.keys(english).some(k=>!Object.hasOwn(messages,k)))throw Error('incomplete');if(sequence!==request)return;
-  language=next;translate=translator(messages,next,names);document.documentElement.lang=next;select.value=next;languageLabel.textContent=translate('Language');languageLabel.lang=next;
+  language=next;translate=translator(messages,next,names);document.documentElement.lang=next;document.documentElement.dir=next==='ar'?'rtl':'ltr';select.value=next;languageLabel.textContent=translate('Language');languageLabel.lang=next;select.setAttribute('aria-label',translate('Language'));
   try{localStorage.setItem(KEY,next);}catch(_){}
   render(document.documentElement);root.dispatchEvent(new CustomEvent('bear:languagechange',{detail:{language:next,locale:LANGUAGES[next][1]}}));
  }catch(_){if(sequence!==request)return;cache.delete(next);select.value=language;status.textContent='Language could not load. Please try again.';}
@@ -115,7 +115,8 @@ function start(){
  observer.observe(document.documentElement,{childList:true,subtree:true,characterData:true,attributes:true,attributeFilter:['title','aria-label','placeholder','alt','data-label']});
  select.addEventListener('change',()=>setLanguage(select.value));
  let saved;try{saved=localStorage.getItem(KEY);}catch(_){}
- const preferred=Object.hasOwn(LANGUAGES,saved)?saved:(navigator.languages||[navigator.language]).map(x=>x.split('-')[0]).find(x=>Object.hasOwn(LANGUAGES,x))||'en';select.value=preferred;setLanguage(preferred);
+ const supported=tag=>{const t=String(tag||'').toLowerCase();if(t.startsWith('zh'))return /hant|tw|hk|mo/.test(t)?'zh-TW':'zh-CN';return t.split('-')[0];};
+ const preferred=Object.hasOwn(LANGUAGES,saved)?saved:(navigator.languages||[navigator.language]).map(supported).find(x=>Object.hasOwn(LANGUAGES,x))||'en';select.value=preferred;setLanguage(preferred);
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});else start();
 })(typeof globalThis!=='undefined'?globalThis:this);

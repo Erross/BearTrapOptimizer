@@ -76,6 +76,7 @@ async function main(){
  nodes.personalplayer.value=first;nodes.personalplayer.handlers.change({});
  nodes.personalown.checked=false;nodes.personaljoins.value='5';nodes.personalpresets.value='2';nodes.personalcapacity.value='100000';nodes.personalbare.value='90000';nodes.personalcap.value='0';
  nodes.personalstock10archers.value='200000';
+ nodes.personalpreferredlanguage.value='ar';
  for(const h of context.BearPersonalModel.HEROES)nodes['personalhas'+h.id].checked=false;
  nodes.personalform.handlers.input();submit();
  assert.equal(nodes.personalerror.hidden,true,nodes.personalerror.textContent);
@@ -111,11 +112,12 @@ async function main(){
  vm.runInContext(fs.readFileSync(path.join(root,'web/cloud-client.js'),'utf8'),context);
  const calls=[];
  const response={input,revision:2,updatedAt:'2026-10-21T19:00:00Z'};
- context.BearCloud.request=async(route,key,method,data)=>{calls.push({route,key,method,data});return method==='PUT'?{revision:3,updatedAt:'2026-10-21T20:00:00Z'}:response;};
+ context.BearCloud.request=async(route,key,method,data)=>{calls.push({route,key,method,data});if(route==='/health')return {capabilities:['player-language-preference']};return method==='PUT'?{revision:3,updatedAt:'2026-10-21T20:00:00Z'}:response;};
  vm.runInContext(fs.readFileSync(path.join(root,'web/cloud-personal.js'),'utf8'),context);
  await submit();
  assert.equal(calls.at(-1).method,'PUT');assert.equal(calls.at(-1).data.revision,2);assert.equal(calls.at(-1).key,'');
  assert.equal(nodes.cloudbadge.textContent,'Saved online');assert.equal(nodes.cloudsave.disabled,false);
+ assert.equal(calls.at(-1).data.input.preferredLanguage,'ar','explicit language is included in shared setup');
  // Validation focuses a specific field and never submits invalid entries.
  const beforeInvalid=calls.length;nodes.personalcapacity.value='';
  await submit();assert.equal(calls.length,beforeInvalid);
@@ -161,6 +163,11 @@ async function main(){
  assert.equal(nodes.cloudbadge.textContent,'Earlier entries saved');
  assert.equal(nodes.personalstock10archers.value,'555555');assert.equal(context.window.BearPersonalProfiles.hasDraft(),true);
  assert.equal(nodes.cloudsave.disabled,false);
- console.log('Personal roster selection, presets, local/cloud saves, model apply, copy and import checks pass.');
+ // Older Workers keep language local and must never claim that it was shared.
+ nodes.personalpreferredlanguage.value='ja';nodes.personalform.handlers.input();
+ context.BearCloud.request=async(route,key,method,data)=>{if(route==='/health')return {capabilities:[]};if(method==='PUT'){assert(!Object.hasOwn(data.input,'preferredLanguage'));return {revision:4,updatedAt:'2026-10-22T00:00:00Z'};}return response;};
+ await submit();assert.equal(nodes.cloudbadge.textContent,'Troops saved online; language saved on this device');assert.equal(nodes.personalpreferredlanguage.value,'ja');
+ assert(nodes.cloudfeedback.textContent.includes('Worker version 8'));
+ console.log('Language preference round trips and legacy Worker fallback; personal setup, saves, presets and import checks pass.');
 }
 main().catch(error=>{console.error(error);process.exitCode=1;});

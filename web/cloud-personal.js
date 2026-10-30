@@ -67,13 +67,17 @@ window.BearCloudSave=async()=>{
   if(ticket!==sequence)return;
   if(!session||session.id!==p.governorId)await check();
   if(ticket!==sequence||!session)return;
-  if(input.joinPolicy){const health=await BearCloud.request('/health','');if(!health.capabilities?.includes('bear-join-policy'))throw Error('Update the Cloudflare Worker from Organizer before saving a custom formation policy online. Your local setup is preserved.');}
+  const health=await BearCloud.request('/health','');
+  if(input.joinPolicy&&!health.capabilities?.includes('bear-join-policy'))throw Error('Update the Cloudflare Worker from Organizer before saving a custom formation policy online. Your local setup is preserved.');
+  const languageShared=!!health.capabilities?.includes('player-language-preference'),requestInput={...input};
+  if(!languageShared)delete requestInput.preferredLanguage;
   if(ticket!==sequence)return false;
-  const result=await BearCloud.request('/api/players/'+p.governorId,'','PUT',{input,revision:session.revision});
+  const result=await BearCloud.request('/api/players/'+p.governorId,'','PUT',{input:requestInput,revision:session.revision});
   if(ticket!==sequence)return;
   session.revision=result.revision;online={input,revision:result.revision,updatedAt:result.updatedAt};profile().markSaved(input);
   if(profile().stamp()!==stamp){status('Earlier entries saved','Your earlier entries were saved online. Changes made while saving are still a draft—save again when ready.','draft');return;}
-  status('Saved online','Saved online '+new Date(result.updatedAt).toLocaleString('en-US')+'. Your joining setup is below. You can load these entries on another device by selecting your name.','saved');
+  if(!languageShared&&input.preferredLanguage)status('Troops saved online; language saved on this device','Deploy Worker version 8 from Organizer to share your preferred language online. Your troops and heroes were saved online.','draft');
+  else status('Saved online','Saved online '+new Date(result.updatedAt).toLocaleString('en-US')+'. Your joining setup is below. You can load these entries on another device by selecting your name.','saved');
   $('personalresult').scrollIntoView({behavior:'smooth',block:'start'});
  }catch(error){
   if(ticket!==sequence)return;

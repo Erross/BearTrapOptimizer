@@ -1,5 +1,7 @@
 const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
 const {LANGUAGES,translator,numeric}=require('../web/i18n.js');
+assert.equal(Object.keys(LANGUAGES).length,18);
+assert.deepEqual(Object.keys(LANGUAGES),Object.keys(require('../web/personal-model.js').LANGUAGE_NAMES),'display and saved preference codes match');
 const directory=path.join(__dirname,'../web/locales'),english=JSON.parse(fs.readFileSync(path.join(directory,'en.json')));
 const markers=s=>[...s.matchAll(/\{b?\d+\}/g)].map(m=>m[0]).sort();
 const names=['Chenko','Yeonwoo','Amane','Amadeus','Howard','Jabel','Quinn','Helga','Zoe','Marlin','Saul','Gordon','Hilde','Diana','Forrest','Edwin','Seth','Kingshot','Truegold','Mithril','KvK'];
@@ -46,4 +48,4 @@ assert(code.includes("el.setAttribute('value',el.value)"),'implicit option value
 assert(code.includes('sequence!==request'),'stale language loads cannot win');
 assert(code.includes('item.translation===translated'),'rich text updates stop after HTML entity normalization');
 assert(code.includes('translate="no"'),'names and raw data can opt out');
-console.log('All eight catalogs, placeholders, game names, dynamic instructions, number formatting and page wiring pass.');
+console.log('All 18 catalogs, placeholders, game names, dynamic instructions, number formatting and page wiring pass.');
