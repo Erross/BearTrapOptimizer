@@ -1,6 +1,6 @@
 # App languages
 
-All seven pages share `web/i18n.js` and the same language picker. The picker supports English, Turkish, French, German, Danish, Spanish and Brazilian Portuguese. It remembers the selected language on this device. A first visit uses a supported browser language, otherwise English.
+All seven pages share `web/i18n.js` and the same language picker. The picker supports English, Turkish, French, German, Danish, Spanish, Brazilian Portuguese and Indonesian. It remembers the selected language on this device. A first visit uses a supported browser language, otherwise English.
 
 Translation is presentation only. Player IDs, names, troop inputs, ratios, model results, saved profiles, API requests, JSON backups and CSV column names keep their canonical values. In particular, selecting another language does not rebuild a form or save a profile. Generated results, validation feedback and chat instructions are translated when displayed or copied.
 
@@ -10,9 +10,9 @@ Translation is presentation only. Player IDs, names, troop inputs, ratios, model
 
 Static paragraphs with inline links or emphasis use `data-i18n-rich`. The `{b0}` markers represent original trusted page tags, including closing tags. Keep their order and pairing. Translations are escaped before these original tags are restored. Do not add tags to a translation.
 
-For new copy, add the English key and all six translations. Use `scripts/i18n-overrides.tsv` for reviewed shared vocabulary and important instructions. The columns are English, Turkish, French, German, Danish, Spanish and Portuguese. Run `python scripts/build_locales.py` after editing the TSV, then `node tests/check_i18n.cjs`.
+For new copy, add the English key and all seven translations. Use `scripts/i18n-overrides.tsv` for reviewed shared vocabulary and important instructions. The columns are English, Turkish, French, German, Danish, Spanish, Portuguese and Indonesian. Run `python scripts/build_locales.py` after editing the TSV, then `node tests/check_i18n.cjs`.
 
-The initial catalogs were drafted offline with NLLB, then corrected for the core game vocabulary and Bear instructions. No translation service or model is loaded in the app. Catalogs are served with the static site. Native speakers can improve phrasing directly in the catalogs or TSV without changing the calculations.
+The initial catalogs were drafted offline with NLLB (Indonesian uses OPUS-MT), then corrected for the core game vocabulary and Bear instructions. No translation service or model is loaded in the app. Catalogs are served with the static site. Native speakers can improve phrasing directly in the catalogs or TSV without changing the calculations.
 
 ## Dynamic content and data
 
