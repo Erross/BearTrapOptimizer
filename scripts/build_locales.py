@@ -3,6 +3,7 @@
 Catalogs are static source-controlled UI copy, never translations of user data.
 The TSV columns are English, Turkish, French, German, Danish, Spanish, Portuguese.
 """
+import argparse
 import json
 from pathlib import Path
 
@@ -11,6 +12,9 @@ LANGUAGES = ['en', 'tr', 'fr', 'de', 'da', 'es', 'pt']
 
 
 def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--languages', nargs='+', choices=LANGUAGES, default=LANGUAGES)
+    selected = parser.parse_args().languages
     overrides = []
     for line in (ROOT / 'scripts/i18n-overrides.tsv').read_text().splitlines():
         if not line.strip():
@@ -20,6 +24,8 @@ def main():
             raise ValueError('Each override needs seven nonempty columns: ' + row[0])
         overrides.append(row)
     for i, lang in enumerate(LANGUAGES):
+        if lang not in selected:
+            continue
         path = ROOT / 'web/locales' / (lang + '.json')
         messages = json.loads(path.read_text())
         for row in overrides:

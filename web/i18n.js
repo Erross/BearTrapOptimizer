@@ -7,21 +7,30 @@ const normalize=s=>String(s??'').replace(/\s+/g,' ').trim();
 const escapeRegex=s=>s.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
 function numeric(s,lang){
  if(lang==='en'||!/[\d]/.test(s))return s;
- return s.replace(/\b\d{1,3}(?:,\d{3})+(?:\.\d+)?\b|\b\d+\.\d+\b/g,x=>{
+ return s.replace(/(?<![\d.:/])\b\d{1,3}(?:,\d{3})+(?:\.\d+)?\b(?![\d.:/])|(?<![\d.:/])\b\d+\.\d+\b(?![\d.:/])/g,x=>{
   const digits=x.includes('.')?x.split('.')[1].length:0;
   return new Intl.NumberFormat(LANGUAGES[lang][1],{minimumFractionDigits:digits,maximumFractionDigits:digits}).format(Number(x.replaceAll(',','')));
  });
 }
 function translator(messages,lang='en'){
+ const fragments=Object.keys(messages).filter(k=>!/[{}]/.test(k)&&k.length>=8).sort((a,b)=>b.length-a.length);
  const patterns=Object.keys(messages).filter(k=>/\{\d+\}/.test(k)&&k.replace(/\{\d+\}/g,'').replace(/[^A-Za-z]/g,'').length>=4).sort((a,b)=>b.replace(/\{\d+\}/g,'').length-a.replace(/\{\d+\}/g,'').length).map(key=>{
-  const ids=[];let last=0,source='^';for(const m of key.matchAll(/\{(\d+)\}/g)){source+=escapeRegex(key.slice(last,m.index))+'([\\s\\S]*?)';ids.push(m[1]);last=m.index+m[0].length;}source+=escapeRegex(key.slice(last))+'$';return {regex:new RegExp(source),ids,value:messages[key]};
+  const ids=[];let last=0,source='^';for(const m of key.matchAll(/\{(\d+)\}/g)){source+=escapeRegex(key.slice(last,m.index))+'((?:(?![.!?] [A-Z]|\\n)[\\s\\S])*?)';ids.push(m[1]);last=m.index+m[0].length;}source+=escapeRegex(key.slice(last))+'$';return {regex:new RegExp(source),ids,value:messages[key]};
  });
  function text(value,depth=0){
   const raw=String(value??''),s=normalize(raw);if(!s||lang==='en')return raw;
   let out;
   if(Object.hasOwn(messages,s))out=messages[s];
   else if(depth<3){for(const p of patterns){const m=s.match(p.regex);if(!m)continue;const params={};p.ids.forEach((id,i)=>{params[id]=text(m[i+1],depth+1);});out=p.value.replace(/\{(\d+)\}/g,(_,id)=>params[id]??'{'+id+'}');break;}}
-  if(out===undefined&&depth<3){const pieces=raw.split(/(\n+| · | — |: (?=[A-Za-z]))/);if(pieces.length>1)out=pieces.map((x,i)=>i%2?x:text(x,depth+1)).join('');}
+  if(out===undefined&&depth<5){
+   const pieces=raw.split(/(\n+| · | — |: (?=[A-Za-z0-9])|(?<=[.!?]) (?=[A-Z])|, (?=\d)| \/ )/);
+   if(pieces.length>1)out=pieces.map((x,i)=>i%2?x:text(x,depth+1)).join('');
+   else if(/^\d+\. /.test(s)){const prefix=s.match(/^\d+\. /)[0];out=prefix+text(s.slice(prefix.length),depth+1);}
+   else {
+    // Stable source fragments cover composed messages without rewriting names.
+    for(const key of fragments){if(s.startsWith(key+' ')){out=messages[key]+' '+text(s.slice(key.length+1),depth+1);break;}if(s.endsWith(' '+key)){out=text(s.slice(0,-key.length-1),depth+1)+' '+messages[key];break;}}
+   }
+  }
   if(out===undefined)out=s;
   // Keep whitespace at boundaries: adjacent inline elements rely on it.
   return (raw.match(/^\s*/)?.[0]||'')+(depth===0?numeric(out,lang):out)+(raw.match(/\s*$/)?.[0]||'');
@@ -31,8 +40,8 @@ function translator(messages,lang='en'){
 if(typeof module!=='undefined'&&module.exports)module.exports={LANGUAGES,normalize,numeric,translator};
 if(!root.document)return;
 const document=root.document,cache=new Map(),texts=new WeakMap(),attributes=new WeakMap(),rich=new WeakMap();
-const skip='script,style,code,pre,textarea,[translate="no"],[data-i18n-skip],.app-brand,.member-name';
-let language='en',translate=String,request=0,observer,select,status,pending=new Set(),scheduled=false;
+const skip='script,style,code,pre,textarea,[translate="no"],[data-i18n-skip],.app-brand,.member-name,.player-search-option';
+let language='en',translate=String,request=0,observer,select,status,languageLabel,pending=new Set(),scheduled=false;
 function excluded(el){return !el||!!el.closest(skip)||el.tagName==='OPTION'&&!!el.closest('select[id*="player"],select[id*="member"]');}
 function renderText(node){
  if(excluded(node.parentElement))return;
@@ -77,7 +86,7 @@ async function setLanguage(next){
  try{
   const english=await catalog('en'),messages=next==='en'?english:await catalog(next);
   if(Object.keys(english).some(k=>!Object.hasOwn(messages,k)))throw Error('incomplete');if(sequence!==request)return;
-  language=next;translate=translator(messages,next);document.documentElement.lang=next;select.value=next;
+  language=next;translate=translator(messages,next);document.documentElement.lang=next;select.value=next;languageLabel.textContent=translate('Language');languageLabel.lang=next;
   try{localStorage.setItem(KEY,next);}catch(_){}
   render(document.documentElement);root.dispatchEvent(new CustomEvent('bear:languagechange',{detail:{language:next,locale:LANGUAGES[next][1]}}));
  }catch(_){if(sequence!==request)return;select.value=language;status.textContent='Language could not load. Please try again.';}
@@ -90,7 +99,7 @@ root.BearI18n={get language(){return language;},get locale(){return LANGUAGES[la
 function start(){
  const nav=document.querySelector('.app-nav');if(!nav)return;
  const control=document.createElement('div');control.className='language-control';control.setAttribute('data-i18n-skip','');
- const label=document.createElement('label');label.htmlFor='app-language';label.textContent='Language';label.lang='en';
+ const label=languageLabel=document.createElement('label');label.htmlFor='app-language';label.textContent='Language';label.lang='en';
  select=document.createElement('select');select.id='app-language';select.setAttribute('aria-label','Language / Dil / Langue / Sprache / Sprog / Idioma');
  for(const [code,[name]]of Object.entries(LANGUAGES)){const option=document.createElement('option');option.value=code;option.textContent=name;option.lang=code;select.append(option);}
  status=document.createElement('span');status.className='language-status';status.setAttribute('role','status');control.append(label,select,status);nav.append(control);
