@@ -208,7 +208,9 @@ for(const args of [['advanced',3000,2],['hammer',1250,10],['mythic',2500,3],['de
 for(const args of [['threads',100,100],['satin',1,10000],['training',400,5,60],['construction',400,5,60],['research',400,5,60],['rare',200,100],['epic',600,25],['mythic',2500,2]])offer('championship',...args);
 for(const resource of ['construction','research','training']){offer('alliance',resource,2200,4,5);offer('alliance',resource,26000,1,60);}
 offer('gems','common',500,100000);offer('gems','general',800,100000,60);
-root.KvKCatalog={version:1,resources,wallets,offers,days:['City Construction','Basic Skills Up','Pet Training','Hero Development','Power Boost'],sources:[
+// Editable planning estimate: 3 daily batches of 8; 5 batches on extended Day 5.
+const intel={missions:[24,0,24,0,40],points:6000};
+root.KvKCatalog={version:1,resources,wallets,offers,intel,days:['City Construction','Basic Skills Up','Pet Training','Hero Development','Power Boost'],sources:[
  {name:'Preparation scoring · community data extracted from game files',url:'https://ks-toolkit.com/data/events/kingdom-of-power/'},
  {name:'Swordland · prices and age-dependent stock limits',url:'https://ks-toolkit.com/data/systems/swordland-shop/'},
  {name:'Arena · prices and availability',url:'https://ks-toolkit.com/data/systems/arena-shop/'},
@@ -278,11 +280,12 @@ function number(v,min=0,max=MAX,label='Value'){if(v===''||v===null||typeof v==='
 function whole(v,min=0,max=MAX,label='Count'){const n=number(v,min,max,label);if(!Number.isSafeInteger(n))throw Error(label+' must be a whole number.');return n;}
 function text(v,label='Name'){if(typeof v!=='string'||!v.trim()||v.length>100)throw Error(label+' needs 1–100 characters.');return v.trim();}
 const days=(v,label)=>{if(!Array.isArray(v)||v.length!==5)throw Error(label+' needs five days.');return v.map(x=>whole(x,0,1e12,label));};
-function empty(){return {version:1,event:'next-kvk',confirmed:false,targets:Array(5).fill(200000),actual:Array(5).fill(0),baseline:Array(5).fill(0),closed:Array(5).fill(false),
+function empty(){return {version:1,event:'next-kvk',confirmed:false,targets:Array(5).fill(200000),actual:Array(5).fill(0),baseline:C.intel.missions.map(n=>n*C.intel.points),closed:Array(5).fill(false),
  resources:Object.fromEntries(C.resources.map(r=>[r.id,{stock:0,reserve:0,enabled:true,batch:1,cap:null}])),
  wallets:Object.fromEntries(C.wallets.map(w=>[w.id,{balance:0,reserve:0,income:Array(5).fill(0)}])),
  workloads:Object.fromEntries(['construction','research','training','master'].map(k=>[k,Array(5).fill(0)])),
  gear:root.KvKGear.empty(),offers:clone(C.offers),upgrades:[],rules:Object.fromEntries(C.resources.filter(r=>r.points).map(r=>[r.id,clone(r.points)]))};}
+function fillIntel(input){const p=clone(input);p.baseline=p.baseline.map((v,i)=>p.closed[i]||v!==0?v:C.intel.missions[i]*C.intel.points);return p;}
 function clean(input){
  if(!input||input.version!==1)throw Error('Choose a supported KvK inventory file.');
  const out=empty();out.event=text(input.event,'Event');if(!/^(next-kvk|\d{4}-\d{2}-\d{2})$/.test(out.event))throw Error('Choose the prep start date or next-kvk.');
@@ -344,7 +347,7 @@ function optimize(input,solver){
  const remaining=Object.fromEntries(C.resources.map(r=>[r.id,p.resources[r.id].stock+(bought[r.id]||0)-used[r.id]]));
  return {version:1,days,allTargets:days.every(d=>d.shortfall<.01),futureTargetsFeasible:allTargets,total:days.reduce((n,d)=>n+d.projected,0),shortfall:days.reduce((n,d)=>n+d.shortfall,0),spending,remaining,used,bought,note:'Optimal for these entered integer actions, rules, budgets and limits when the solver completes. Unentered activities, future shop resets and unconfirmed rewards are excluded. Unreachable plans maximize the number of daily targets met, then minimize remaining target shortfall before maximizing total score. Currency spending is minimized among equally scoring plans, relative to each currency’s available budget.'};
 }
-root.KvKModel={empty,clean,compile,optimize,clone};
+root.KvKModel={empty,clean,compile,optimize,clone,fillIntel};
 })(typeof globalThis!=='undefined'?globalThis:this);
 
 const ROSTER_IDS=["388886548","389607677","387952781","389524927","389623333","389901621","388247482","389902497","386809287","386035010","389918530","389721474","385953353","389541824","389099163","385887895","396332479","388017689","388755121","390033384","389295389","386264253","385985957","387739433","386494109","390048976","386576636","395551033","388099273","385936826","389115904","387165951","388804053","388017805","387264538","390050032","388722749","388722422","387215160","389672797","386281264","387526235","390032922","388787831","388951281","389853430","389164598","388919388","386969604","389721911","387017889","385937155","387853899","386346394","388034343","389508233","387100394","389869414","387756242","398345280","389869480","389476486","386019367","387198762","386625129","386150135","387395598","386789579","386035097","387706049","388672863","389213981","387951856","389033280","390016201","386346836","386740411","387559599","389558043","388017931","385920577","387395306","387690075","387018511","389754906","387412006","387559257","387248367","388001560","386444908","386084688","388198432","386511169","388116448","385888111","386445070","389557475","391421077"];

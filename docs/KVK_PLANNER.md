@@ -93,3 +93,12 @@ Run `node tests/check_kvk_model.cjs` and
 `tests/check_kvk_ui.cjs` Playwright check covers real browser/WASM calculation,
 responsive navigation, validation and player/event save separation while mocking
 external requests.
+
+
+## Intel completion assumption
+
+New plans include 144,000 expected Intel points on Days 1 and 3 (24 missions each), and 240,000 on the extended Day 5 (40 missions), at 6,000 per mission. This is an editable planning assumption: eight regular missions per refresh, three refreshes on normal days and five before the extended Day 5 ends. Saved missions, Pan extras and mission rewards that might later be spent are excluded.
+
+These points live inside the existing `baseline` allowance and are not added a second time. Already-scored points must be kept separate: on a started day, reduce the expected allowance to points still to earn. Finished days use actual points alone. Different Watchtower counts or schedules can be reflected by editing Expected from other activities.
+
+Existing saved allowances, including deliberate zeros, remain unchanged. The Step 5 button fills zero allowances only on unfinished Intel days, preserving nonzero estimates. Because the existing baseline schema is used, no Worker deployment or database changes are required for this feature.

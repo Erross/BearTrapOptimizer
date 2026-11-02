@@ -2,7 +2,7 @@
 (function(root){
 'use strict';
 const LANGUAGES={en:['English','en-US'],tr:['Türkçe','tr-TR'],fr:['Français','fr-FR'],de:['Deutsch','de-DE'],da:['Dansk','da-DK'],es:['Español','es-ES'],pt:['Português','pt-BR'],id:['Bahasa Indonesia','id-ID'],ar:['العربية','ar-SA'],ko:['한국어','ko-KR'],ja:['日本語','ja-JP'],ru:['Русский','ru-RU'],vi:['Tiếng Việt','vi-VN'],th:['ไทย','th-TH'],it:['Italiano','it-IT'],pl:['Polski','pl-PL'],'zh-CN':['简体中文','zh-CN'],'zh-TW':['繁體中文','zh-TW']};
-const VERSION='20261102-goal1',KEY='BearTrapOptimizer:language:v1';
+const VERSION='20261102-intel1',KEY='BearTrapOptimizer:language:v1';
 const normalize=s=>String(s??'').replace(/\s+/g,' ').trim();
 const escapeRegex=s=>s.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
 function numeric(s,lang){
