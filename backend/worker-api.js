@@ -44,8 +44,9 @@ function cleanProfile(input){
   const leaders=Object.fromEntries(M.TYPES.map(k=>{const name=input.leaders?.[k]??'';if(typeof name!=='string'||name&&!M.HEROES.some(h=>h.name===name&&h.type===k))fail(400,'Invalid leader selection.');return [k,name];}));
   const clean={stock:M.matrix(input.stock),joinMarches:n(input.joinMarches,1,10,'Joining marches'),presets:n(input.presets,0,12,'Presets'),capacity:n(input.capacity,1,2000000,'March capacity'),
    heroFreeCapacity:optional(input.heroFreeCapacity,2000000,'Hero-free capacity'),joinCap:optional(input.joinCap,2000000,'Joining limit'),ownEnabled:input.ownEnabled,
-   ownTier:input.ownTier==='lower'?'lower':n(input.ownTier??8,8,10,'Own rally tier'),ownCapacity:optional(input.ownCapacity,2000000,'Own capacity'),lowerConfirmed:input.lowerConfirmed===true,
-   ownTroops:Object.fromEntries(M.TYPES.map(k=>[k,n(input.ownTroops?.[k]??0,0,2000000,'Own troops')])),leaders,heroes};
+   ownTier:input.ownAllocation==='joins-first'?8:input.ownTier==='lower'?'lower':n(input.ownTier??8,8,10,'Own rally tier'),ownCapacity:optional(input.ownCapacity,2000000,'Own capacity'),lowerConfirmed:input.lowerConfirmed===true,
+   ownTroops:Object.fromEntries(M.TYPES.map(k=>[k,n(input.ownAllocation==='joins-first'?0:input.ownTroops?.[k]??0,0,2000000,'Own troops')])),leaders,heroes};
+  if(input.ownAllocation!==undefined){if(!['joins-first','manual'].includes(input.ownAllocation))fail(400,'Choose a supported own-rally allocation.');clean.ownAllocation=input.ownAllocation;if(input.ownAllocation==='joins-first'){clean.ownTier=8;clean.lowerConfirmed=false;clean.ownTroops=Object.fromEntries(M.TYPES.map(k=>[k,0]));}}
   if(input.joinPolicy!==undefined)clean.joinPolicy=M.joinPolicy(input.joinPolicy);
   if(input.preferredLanguage!==undefined)clean.preferredLanguage=M.preferredLanguage(input.preferredLanguage);
   const total=M.total(clean.stock)+(clean.ownEnabled&&clean.ownTier==='lower'?M.TYPES.reduce((n,k)=>n+clean.ownTroops[k],0):0);
@@ -61,7 +62,7 @@ export default {async fetch(request,env){
   if(request.headers.has('Origin')&&request.headers.get('Origin')!==ORIGIN)fail(403,'Origin is not allowed.');
   if(request.method==='OPTIONS')return new Response(null,{status:204,headers});
   const path=new URL(request.url).pathname;
-  if(path==='/health'&&request.method==='GET')return reply({service:'bear-player-profiles',version:8,mode:'open-profiles',capabilities:['kvk-profiles','kvk-exclusive-widgets','kvk-inventory-history','kvk-save-confirmation','bear-join-policy','player-language-preference']});
+  if(path==='/health'&&request.method==='GET')return reply({service:'bear-player-profiles',version:9,mode:'open-profiles',capabilities:['kvk-profiles','kvk-exclusive-widgets','kvk-inventory-history','kvk-save-confirmation','bear-join-policy','player-language-preference','bear-own-allocation']});
   if(!env.DB||typeof env.ADMIN_TOKEN!=='string'||env.ADMIN_TOKEN.length<32)fail(503,'Organizer must configure DB and an ADMIN_TOKEN of at least 32 characters.');
   const token=request.headers.get('Authorization')?.match(/^Bearer ([^\s]{1,512})$/)?.[1];
   if(path.startsWith('/api/admin/')){

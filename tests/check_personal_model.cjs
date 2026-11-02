@@ -72,4 +72,21 @@ test('joint search supports mixed tiers and never invents lower-tier stock',()=>
  assert(!joint.error);assert(joint.search.score>=Math.max(...Object.values(options).filter(c=>!c.error).map(c=>c.ownImpact*2.4+c.joinImpact*7))-1e-7);
  assert.equal(joint.plan.joinTotal+joint.plan.leftoverTotal+(joint.input.ownTier==='lower'?0:joint.plan.own.total),M.total(M.matrix(x.stock)));
 });
+
+test('Padeshah auto joins ignore old reservation and send all surplus',()=>{
+ const x={...base(),stock:{9:{infantry:138629,cavalry:99763,archers:128885}},joinMarches:4,joinCap:70000,capacity:120000,heroFreeCapacity:120000,ownCapacity:120000,ownAllocation:'joins-first',ownTier:9,ownTroops:{infantry:1000,cavalry:1000,archers:8000}};
+ const before=JSON.stringify(x),p=M.build(x);assert.deepEqual(p.packet[9],{infantry:12839,cavalry:24940,archers:32221});assert.deepEqual(p.own.troops,{infantry:87273,cavalry:3,archers:1});assert.equal(p.own.total,87277);assert.equal(p.leftoverTotal,0);assert.equal(JSON.stringify(x),before);
+ x.ownCapacity=50000;const capped=M.build(x);assert.equal(capped.own.total,50000);assert.equal(capped.leftoverTotal,37277);assert.deepEqual(capped.packet,p.packet);
+ x.ownCapacity=3;assert.deepEqual(M.build(x).own.troops,{infantry:1,cavalry:1,archers:1});
+});
+test('auto own rally supports mixed tiers and never invents missing types',()=>{
+ const x={...base(),stock:{8:{infantry:100},9:{cavalry:100,archers:100}},joinMarches:2,joinCap:50,ownCapacity:200,ownAllocation:'joins-first',ownTier:'lower',lowerConfirmed:false,ownTroops:{infantry:999999,cavalry:999999,archers:999999}};
+ const p=M.build(x);assert.equal(p.own.tier,'mixed');assert(p.own.packet[8].infantry>=1);assert(p.own.packet[9].cavalry>=1);assert(p.own.packet[9].archers>=1);
+ for(const t of M.TIERS)for(const k of M.TYPES)assert.equal(p.packet[t][k]*2+p.own.packet[t][k]+p.leftover[t][k],x.stock[t]?.[k]||0);
+ x.stock[9].archers=0;assert.throws(()=>M.build(x),/at least 1/);
+});
+test('explicit manual reservation is enforced and also requires all three types',()=>{
+ const x={...base(),ownAllocation:'manual',ownTier:9,ownTroops:{infantry:10,cavalry:20,archers:30}};
+ assert.deepEqual(M.build(x).own.troops,x.ownTroops);x.ownTroops.archers=0;assert.throws(()=>M.build(x),/at least 1/);
+});
 console.log(cases+' personal model checks passed.');

@@ -168,6 +168,16 @@ async function main(){
  context.BearCloud.request=async(route,key,method,data)=>{if(route==='/health')return {capabilities:[]};if(method==='PUT'){assert(!Object.hasOwn(data.input,'preferredLanguage'));return {revision:4,updatedAt:'2026-10-22T00:00:00Z'};}return response;};
  await submit();assert.equal(nodes.cloudbadge.textContent,'Troops saved online; language saved on this device');assert.equal(nodes.personalpreferredlanguage.value,'ja');
  assert(nodes.cloudfeedback.textContent.includes('Worker version 8'));
+ // Default allocation ignores stale reservations and renders exact own-send counts.
+ nodes.personalown.checked=true;nodes.personalreserveown.checked=false;
+ nodes.personalstock10archers.value='0';nodes.personalstock9infantry.value='138629';nodes.personalstock9cavalry.value='99763';nodes.personalstock9archers.value='128885';
+ nodes.personaljoins.value='4';nodes.personalcap.value='70000';nodes.personalcapacity.value='120000';nodes.personalbare.value='120000';nodes.personalowncapacity.value='120000';
+ for(const [type,name]of Object.entries({infantry:'Howard',cavalry:'Jabel',archers:'Quinn'})){nodes['personallead'+type].value=name;const h=context.BearPersonalModel.HEROES.find(h=>h.name===name);nodes['personalhas'+h.id].checked=true;nodes['personalskill'+h.id].value='5';}
+ nodes.personalform.handlers.input();nodes.personalpreview.onclick();
+ assert.equal(nodes.personalerror.hidden,true,nodes.personalerror.textContent);assert.equal(nodes.personalownresult.hidden,false);assert(nodes.personalowntable.innerHTML.includes('87,273'));assert(nodes.personalallocation.textContent.includes('87,277 in your own rally'));
+ assert.equal(nodes.personalowninfantry.disabled,true);assert.equal(context.window.BearPersonalProfiles.read().ownAllocation,'joins-first');
+ const beforeOldWorker=calls.length;context.BearCloud.request=async(route,key,method)=>{assert.notEqual(method,'PUT','Older Workers cannot silently drop allocation');return route==='/health'?{capabilities:[]}:response;};await submit();assert.equal(nodes.cloudbadge.textContent,'Not saved online');assert(nodes.cloudfeedback.textContent.includes('own-rally allocation'));
+ nodes.personalreserveown.checked=true;nodes.personalowntier.value='9';nodes.personalowninfantry.value='1000';nodes.personalowncavalry.value='1000';nodes.personalownarchers.value='8000';nodes.personalform.handlers.input();nodes.personalpreview.onclick();assert.equal(nodes.personalowninfantry.disabled,false);assert(nodes.personalallocation.textContent.includes('10,000 in your own rally'));
  console.log('Language preference round trips and legacy Worker fallback; personal setup, saves, presets and import checks pass.');
 }
 main().catch(error=>{console.error(error);process.exitCode=1;});

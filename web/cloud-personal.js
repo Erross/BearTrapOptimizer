@@ -68,6 +68,7 @@ window.BearCloudSave=async()=>{
   if(!session||session.id!==p.governorId)await check();
   if(ticket!==sequence||!session)return;
   const health=await BearCloud.request('/health','');
+  if(input.ownEnabled&&input.ownAllocation&&!health.capabilities?.includes('bear-own-allocation'))throw Error('Update the Cloudflare Worker from Organizer to save the new own-rally allocation. Your draft is preserved.');
   if(input.joinPolicy&&!health.capabilities?.includes('bear-join-policy'))throw Error('Update the Cloudflare Worker from Organizer before saving a custom formation policy online. Your local setup is preserved.');
   const languageShared=!!health.capabilities?.includes('player-language-preference'),requestInput={...input};
   if(!languageShared)delete requestInput.preferredLanguage;
