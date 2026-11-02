@@ -88,6 +88,14 @@ The search is bounded scenario exploration, not a mathematical proof of optimali
 
 These are extensions, not hidden prerequisites for using the current scenario tool.
 
+## Personal Bear troop allocation
+
+The personal planner defaults to `ownAllocation: joins-first`. It holds only the minimum 1 infantry, 1 cavalry and 1 archer needed for an enabled own rally, fills identical joining marches using the selected joining policy, then sends surplus in the own rally up to its march capacity. The own rally can contain several tiers; its result table lists exact counts by tier and type. Inventory is conserved across joins, the own rally and troops left at home. If any required troop type is missing, the planner asks the player to correct the inventory.
+
+The unchecked “Reserve my entered own-rally troops before filling joins” box is the explicit override. Checking it selects `ownAllocation: manual`, reserves the entered troops first, and still requires at least one of each type. Old reservation values are ignored in automatic mode, including separately entered lower-tier counts. Older saved profiles open in automatic mode unless they explicitly saved the manual option. Legacy direct model calls without an allocation field keep their existing reservation behavior.
+
+Online saves require Worker version 9 with the `bear-own-allocation` capability. Deploy the generated Worker using Organizer’s Copy Worker code action and replace the existing Cloudflare Worker. Existing database tables and saved profiles are retained; no database reset is needed. The frontend blocks unsupported saves and preserves the draft until the Worker is updated.
+
 ## GitHub Pages architecture
 
 The browser engines (`web/engine.js`, `web/combat.js`) mirrors the Python reference and runs in a Web Worker. There is no hosted Python backend and no third-party runtime dependency. Automated parity tests compare complete rally schedules, participant assignments, personal damage, alliance damage, resource utilization, generation and calibration across both engines. All imports and calculations stay in the browser. Project exports are user-controlled downloads.

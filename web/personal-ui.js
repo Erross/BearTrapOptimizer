@@ -20,7 +20,7 @@ function read(){
  return {preferredLanguage:M.preferredLanguage(value('personalpreferredlanguage')),stock:Object.fromEntries(M.TIERS.map(t=>[t,Object.fromEntries(M.TYPES.map(k=>[k,value('personalstock'+t+k)||0]))])),
   ...(readJoinPolicy()?{joinPolicy:readJoinPolicy()}:{}),joinMarches:value('personaljoins'),presets:value('personalpresets'),capacity:value('personalcapacity'),heroFreeCapacity:value('personalbare'),joinCap:value('personalcap'),
   heroes:M.HEROES.map(h=>({name:h.name,available:$('personalhas'+h.id).checked,skill:value('personalskill'+h.id)})),
-  ownEnabled:$('personalown').checked,ownTier:value('personalowntier'),ownCapacity:value('personalowncapacity'),lowerConfirmed:$('personallowerconfirmed').checked,
+  ownEnabled:$('personalown').checked,ownAllocation:$('personalreserveown').checked?'manual':'joins-first',ownTier:value('personalowntier'),ownCapacity:value('personalowncapacity'),lowerConfirmed:$('personallowerconfirmed').checked,
   ownTroops:Object.fromEntries(M.TYPES.map(k=>[k,value('personalown'+k)||0])),leaders:Object.fromEntries(M.TYPES.map(k=>[k,value('personallead'+k)]))};
 }
 function save(){
@@ -28,11 +28,11 @@ function save(){
  state.profiles[state.current]={...state.profiles[state.current],input:read(),updatedAt:new Date().toISOString()};
  write(PROFILES,{version:1,players:state.profiles,last:state.current});
 }
-function selectionHints(){const hasStats=M.TYPES.some(k=>['attack','lethality'].some(v=>$('personalhost'+k+v).value!==''));for(const k of M.TYPES)for(const v of ['attack','lethality'])$('personalhost'+k+v).required=hasStats;const ratio=$('personaljoinpolicy').value==='ratio';$('personaljoinratios').hidden=!ratio;$('personalinfpct').disabled=!ratio;$('personalcavpct').disabled=!ratio;
+function selectionHints(){for(const id of ['personalowntier','personalowninfantry','personalowncavalry','personalownarchers'])$(id).disabled=!$('personalreserveown').checked;const hasStats=M.TYPES.some(k=>['attack','lethality'].some(v=>$('personalhost'+k+v).value!==''));for(const k of M.TYPES)for(const v of ['attack','lethality'])$('personalhost'+k+v).required=hasStats;const ratio=$('personaljoinpolicy').value==='ratio';$('personaljoinratios').hidden=!ratio;$('personalinfpct').disabled=!ratio;$('personalcavpct').disabled=!ratio;
  if(!window.BearUI)return;
  for(const h of M.HEROES)$('personalskill'+h.id).disabled=!$('personalhas'+h.id).checked;
  for(const k of M.TYPES)$('personallead'+k).required=$('personalown').checked;
- $('personallowerwrap').hidden=!$('personalown').checked||$('personalowntier').value!=='lower';
+ $('personallowerwrap').hidden=!$('personalown').checked||!$('personalreserveown').checked||$('personalowntier').value!=='lower';
  $('personallowerconfirmed').required=!$('personallowerwrap').hidden;
  const reserved=$('personalown').checked?M.TYPES.map(k=>$('personallead'+k).value):[];
  const suitable=M.HEROES.filter(h=>h.join&&$('personalhas'+h.id).checked&&Number($('personalskill'+h.id).value)>0&&!reserved.includes(h.name)).length;
@@ -56,11 +56,11 @@ function drawOwnChoices(){
  $('personalowndecision').textContent=labels[result.winner]+' has the highest estimated personal total for your measurements.'+(result.breakEven!==null&&result.breakEven>0?' Own march first beats joins first when the same test march in your rally scores more than '+result.breakEven.toFixed(1)+'% of its damage in a typical joined rally, using these hit counts.':'')+' Other players’ damage is not included.';
 
 }
-function useOwnChoice(mode){try{const input=read(),options=M.ownAlternatives(input),choice=mode==='joint'?M.jointOwn(input,comparisonValues(),options):options[mode];if(choice.error)throw Error(choice.error);$('personalowntier').value=String(choice.input.ownTier);for(const k of M.TYPES)$('personalown'+k).value=choice.input.ownTroops[k];dirty();$('personalowncomparison').scrollIntoView?.({block:'center'});}catch(error){reportError(error);}}
+function useOwnChoice(mode){try{$('personalreserveown').checked=true;const input=read(),options=M.ownAlternatives(input),choice=mode==='joint'?M.jointOwn(input,comparisonValues(),options):options[mode];if(choice.error)throw Error(choice.error);$('personalowntier').value=String(choice.input.ownTier);for(const k of M.TYPES)$('personalown'+k).value=choice.input.ownTroops[k];dirty();$('personalowncomparison').scrollIntoView?.({block:'center'});}catch(error){reportError(error);}}
 function stockTotal(){
  selectionHints();drawOwnChoices();
  const sum=M.TIERS.reduce((s,t)=>s+M.TYPES.reduce((n,k)=>n+(Number($('personalstock'+t+k).value)||0),0),0);
- $('personalstocktotal').textContent=fmt(sum)+' T8–T10 troops entered.'+($('personalown').checked?' Your own-rally troops are set aside first.':' All are available for joins.');
+ $('personalstocktotal').textContent=fmt(sum)+' T8–T10 troops entered.'+($('personalown').checked?($('personalreserveown').checked?' Your own-rally troops are set aside first.':' Fill joins first, then use surplus troops in your own rally up to its march limit. Your own rally keeps at least 1 infantry, 1 cavalry and 1 archer.'):' All are available for joins.');
 }
 const errorFields=['personalplayer','personaljoins','personalpresets','personalcapacity','personalbare','personalcap','personalowncapacity','personalstock10infantry'];
 function clearErrors(){for(const id of [...errorFields,...M.TYPES.map(k=>'personallead'+k)]){const field=$(id),hint=document.getElementById(id+'error');if(!field.dataset?.uiInvalid)field.setAttribute('aria-invalid','false');if(hint)hint.hidden=true;}}
@@ -102,6 +102,7 @@ function selectPlayer(skipSave=false){window.BearPlayerSearch?.sync('personalpla
  $('personalbare').value=saved?.heroFreeCapacity??'';
  $('personalcap').value=saved?.joinCap??c?.strategy?.join_march_cap??0;
  $('personalown').checked=saved?.ownEnabled??pc?.selectedHost??p.canHost;
+ $('personalreserveown').checked=saved?.ownAllocation==='manual';
  $('personalowntier').value=saved?.ownTier??'8';
  $('personallowerconfirmed').checked=saved?.lowerConfirmed??false;
  const capacity=Number($('personalcapacity').value),s=c?.strategy;
@@ -151,12 +152,14 @@ function build(options={}){
   $('personalresultnote').textContent=(out.allocation.minimums?'Calculated per join: '+fmt(out.allocation.minimums.infantry)+' infantry and '+fmt(out.allocation.minimums.cavalry)+' cavalry; the remaining '+fmt(out.allocation.byType.archers)+' are archers. ':'')+out.note+' Joining mix: '+M.TYPES.map(k=>(out.allocation.byType[k]/out.perJoin*100).toFixed(1)+'% '+k).join(' / ')+'.';
   $('personalnumbers').innerHTML=[[fmt(out.perJoin),'troops in each join'],[String(out.joins),'normal joining marches'],[out.usedPresets+' / '+out.presets,'preset slots used / available']].map(([v,l])=>'<div class="personal-number"><strong>'+v+'</strong><span>'+l+'</span></div>').join('');
   $('personalwarnings').innerHTML=out.warnings.map(t=>'<p class="notice">'+esc(t)+'</p>').join('');
-  $('personalpacket').innerHTML=troopTable(out.packet);$('personalleftover').innerHTML=troopTable(out.leftover);
+  $('personalpacket').innerHTML=troopTable(out.packet);$('personalownresult').hidden=!out.own.enabled;
+  const ownPacket=out.own.packet||M.matrix();if(out.own.enabled&&!out.own.packet&&out.own.tier!=='lower')ownPacket[out.own.tier]={...out.own.troops};
+  $('personalowntable').innerHTML=out.own.enabled?(out.own.tier==='lower'?'<p>'+M.TYPES.map(k=>fmt(out.own.troops[k])+' '+k).join(' · ')+' · T1–T7</p>':troopTable(ownPacket)):'';$('personalleftover').innerHTML=troopTable(out.leftover);
   $('personalallocation').textContent=fmt(out.joinTotal)+' troops in all joins; '+fmt(out.own.total||0)+' in your own rally'+(out.own.tier==='lower'?' (T1–T7, entered separately)':'')+'; '+fmt(out.leftoverTotal)+' T8–T10 troops left at home.';
-  const leftoverNote=out.leftoverTotal?(out.perJoin<out.limit?
+  const leftoverNote=out.leftoverTotal?(out.own.packet?'Remaining troops do not fit within the march limits and identical-join presets.':out.perJoin<out.limit?
    fmt(out.leftoverTotal)+' troops are left because each type and tier is rounded down across '+out.joins+' identical joins. This keeps every joining preset the same, even with spare room.':
    'Each join is at its '+fmt(out.limit)+'-troop limit. The remaining troops do not fit in these joins; rounding each type and tier for identical presets can also leave a few spare.')+
-   (out.own.enabled?' To use more troops, add the leftovers manually to your own rally in game, up to its march capacity. These additions are not included in the own-rally preset below.':''):'';
+   (out.own.enabled&&!out.own.packet?' To use more troops, add the leftovers manually to your own rally in game, up to its march capacity. These additions are not included in the own-rally preset below.':''):'';
   $('personalleftovernote').textContent=leftoverNote;$('personalleftovernote').hidden=!leftoverNote;
   const rows=out.setups.map(s=>[(s.numbers.length>1?'Joins '+s.numbers[0]+'–'+s.numbers[s.numbers.length-1]:'Join '+s.numbers[0]),s.hero||'No hero',s.slot?'Preset '+s.slot+(!s.hero?' · reusable':''):'Manual setup',fmt(out.perJoin)]);
   if(out.own.enabled)rows.push(['Own rally · special',out.own.heroes.join(' / '),out.own.slot?'Preset '+out.own.slot:'Manual setup',fmt(out.own.total)]);
@@ -165,7 +168,8 @@ function build(options={}){
   for(const [i,m] of out.setups.entries()){
    steps.push((i===0?'Select ': 'Keep the same troop counts; change the first hero to ')+(m.hero?m.hero+' in the first hero slot.':'no hero: remove all heroes.')+(i===0?' Enter the counts in the joining table above.':'')+' Recheck the troop numbers and capacity. '+(m.slot?'Save as preset '+m.slot+'.':'No saved slot remains: set up this march manually when sending.')+(!m.hero?(m.slot?' Reuse this one preset for every hero-free joining march, even while another hero-free march is away.':' Use this same hero-free formation for each remaining join.'):''));
   }
-  if(out.own.enabled)steps.push('Own rally: select '+out.own.heroes.join(', ')+'. Enter '+M.TYPES.map(k=>fmt(out.own.troops[k])+' '+k).join(', ')+' at '+(out.own.tier==='lower'?'your confirmed lower tier':'T'+out.own.tier)+'. '+(out.own.slot?'Save as preset '+out.own.slot+'.':'Use manual setup; your saved slots are assigned to joins.'));
+  if(out.own.enabled&&out.own.packet)steps.push('Own rally: select '+out.own.heroes.join(', ')+'. '+M.TIERS.filter(t=>M.TYPES.some(k=>out.own.packet[t][k])).map(t=>'T'+t+': '+M.TYPES.map(k=>fmt(out.own.packet[t][k])+' '+k).join(', ')).join('; ')+'. '+(out.own.slot?'Save as preset '+out.own.slot+'.':'Use manual setup; your saved slots are assigned to joins.'));
+  else if(out.own.enabled)steps.push('Own rally: select '+out.own.heroes.join(', ')+'. Enter '+M.TYPES.map(k=>fmt(out.own.troops[k])+' '+k).join(', ')+' at '+(out.own.tier==='lower'?'your confirmed lower tier':'T'+out.own.tier)+'. '+(out.own.slot?'Save as preset '+out.own.slot+'.':'Use manual setup; your saved slots are assigned to joins.'));
   steps.push('Do not reuse a hero already away in another march. For a hero-free join, remove all heroes and recheck the capacity. Saved presets may load ratios or adjust counts: verify the exact counts on deployment.');
   $('personalsetupsteps').innerHTML=steps.map(s=>'<li>'+esc(s)+'</li>').join('');
   const instructions=timing(p,input);$('personaltiming').innerHTML=instructions.html;
@@ -187,7 +191,7 @@ async function start(){
  $('personalheroes').innerHTML=M.HEROES.map((h,i)=>(i===0?'<h3 class="hero-group-title">Approved joining heroes</h3>':!h.join&&M.HEROES[i-1]?.join?'<h3 class="hero-group-title">Own-rally options</h3>':'')+'<div class="personal-hero"><label><input id="personalhas'+h.id+'" type="checkbox"> '+esc(h.name)+'<small>'+labels[h.type]+(h.join?' · approved joiner':' · own-rally only')+'</small></label><select id="personalskill'+h.id+'" aria-label="'+esc(h.name)+' first Expedition skill level">'+Array.from({length:6},(_,i)=>'<option value="'+i+'">'+(i?'Lv '+i:'Unknown')+'</option>').join('')+'</select></div>').join('');
  $('personalleaders').innerHTML=M.TYPES.map(k=>'<label>'+labels[k]+' leader<select id="personallead'+k+'" aria-describedby="personallead'+k+'error"><option value="">Choose '+k+' hero</option></select><small id="personallead'+k+'error" class="field-error" hidden></small></label>').join('');
  $('personalform').addEventListener('input',dirty);
- $('personalform').addEventListener('change',e=>{if(e.target.id==='personalplayer')return;if(e.target.id.startsWith('personalhas'))leaderOptions();dirty();});
+ $('personalform').addEventListener('change',e=>{if(e.target.id==='personalplayer')return;if(e.target.id==='personalreserveown'&&e.target.checked)for(const k of M.TYPES)if(Number($('personalown'+k).value)<1)$('personalown'+k).value=1;if(e.target.id.startsWith('personalhas'))leaderOptions();dirty();});
  $('personalplayer').addEventListener('change',selectPlayer);
  $('personalform').addEventListener('submit',e=>{e.preventDefault();if(window.BearCloudSave)return window.BearCloudSave();return build();});
  $('personalusejoint').onclick=()=>useOwnChoice('joint');$('personalusejoinfirst').onclick=()=>useOwnChoice('joinFirst');$('personalusesmall').onclick=()=>useOwnChoice('small');$('personalusefull').onclick=()=>useOwnChoice('full');for(const id of comparisonFields){const field=$(id),update=e=>{e.stopPropagation?.();write('BearTrapOptimizer:own-comparison:v1:'+state.current,comparisonValues());drawOwnChoices();};field.addEventListener('input',update);field.addEventListener('change',update);}
@@ -200,7 +204,7 @@ async function start(){
    const input=read();M.build(input);const next=A.validatePlan(stored(PLAN)||state.plan),p=next.players.find(p=>p.governorId===state.current&&p.active);
    if(!p)throw Error('This member is not in the current alliance plan.');
    const stock=M.matrix(input.stock);
-   for(const k of M.TYPES)p.stats[k]=M.TIERS.reduce((n,t)=>n+stock[t][k],0)+(input.ownEnabled&&input.ownTier==='lower'?Number(input.ownTroops[k]):0);
+   for(const k of M.TYPES)p.stats[k]=M.TIERS.reduce((n,t)=>n+stock[t][k],0)+(input.ownEnabled&&input.ownAllocation!=='joins-first'&&input.ownTier==='lower'?Number(input.ownTroops[k]):0);
    p.stats.troops=M.TYPES.reduce((n,k)=>n+p.stats[k],0);p.stats.join_slots=Number(input.joinMarches);p.stats.march_capacity=Number(input.capacity);p.canHost=input.ownEnabled;
    const validated=A.validatePlan(next);if(!write(PLAN,validated))throw Error('Cannot save the alliance model in this browser. Export your player file instead.');
    state.plan=validated;localStorage.removeItem(CONTEXT);

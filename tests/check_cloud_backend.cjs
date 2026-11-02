@@ -103,7 +103,7 @@ async function main(){
   await globalThis.BearCloud.request('/api/players/'+id,'');assert(!('Authorization' in network.at(-1).options.headers));
   await globalThis.BearCloud.request('/api/admin/profiles',ADMIN_TOKEN);assert.equal(network.at(-1).options.headers.Authorization,'Bearer '+ADMIN_TOKEN);assert(!network.at(-1).url.includes(ADMIN_TOKEN));
  }finally{globalThis.fetch=actualFetch;}
- const health=(await call('/health',{key:''})).data;assert.equal(health.version,8);assert(health.capabilities.includes('player-language-preference'));
+ const health=(await call('/health',{key:''})).data;assert.equal(health.version,9);assert(health.capabilities.includes('player-language-preference'));
  for(const language of ['ar','zh-CN','zh-TW','']){
   const current=(await call(path,{key:''})).data;
   sqlite.prepare("UPDATE player_profiles SET updated_at='2000-01-01T00:00:00.000Z' WHERE governor_id=?").run(id);
@@ -111,6 +111,10 @@ async function main(){
   assert.equal((await call(path,{key:''})).data.input.preferredLanguage,language);
  }
  for(const language of ['unknown','AR',null,{},'<script>']){const current=(await call(path,{key:''})).data;assert.equal((await call(path,{key:'',method:'PUT',data:{input:{...input,preferredLanguage:language},revision:current.revision}})).status,400);}
+ const auto={...input,ownEnabled:true,ownAllocation:'joins-first',ownCapacity:100000,ownTier:'lower',lowerConfirmed:false,ownTroops:{infantry:999999,cavalry:999999,archers:999999},leaders:{infantry:'Howard',cavalry:'Jabel',archers:'Quinn'},heroes:['Howard','Jabel','Quinn'].map(name=>({name,available:true,skill:5}))};
+ assert(health.capabilities.includes('bear-own-allocation'));
+ {const current=(await call(path,{key:''})).data;sqlite.prepare("UPDATE player_profiles SET updated_at='2000-01-01T00:00:00.000Z' WHERE governor_id=?").run(id);assert.equal((await call(path,{key:'',method:'PUT',data:{input:auto,revision:current.revision}})).status,200);const read=(await call(path,{key:''})).data;assert.equal(read.input.ownAllocation,'joins-first');assert.equal(read.input.ownTier,8);assert.equal(M.build(read.input).leftoverTotal,0);}
+ {const current=(await call(path,{key:''})).data;assert.equal((await call(path,{key:'',method:'PUT',data:{input:{...auto,ownAllocation:'bad'},revision:current.revision}})).status,400);}
  console.log('Player language round trips, clearing and validation; inventory history, profile saves, conflicts and rollback checks pass.');
 }
 main().catch(error=>{console.error(error);process.exitCode=1;}).finally(()=>sqlite.close());

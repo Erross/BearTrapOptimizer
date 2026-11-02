@@ -17,7 +17,7 @@ function applyProfiles(plan,records){
  for(const record of records){
   const p=next.players.find(p=>p.active&&p.governorId===record.governorId);if(!p)continue;
   const input=record.input;M.build(input);const stock=M.matrix(input.stock);
-  for(const k of M.TYPES)p.stats[k]=M.TIERS.reduce((n,t)=>n+stock[t][k],0)+(input.ownEnabled&&input.ownTier==='lower'?Number(input.ownTroops[k]):0);
+  for(const k of M.TYPES)p.stats[k]=M.TIERS.reduce((n,t)=>n+stock[t][k],0)+(input.ownEnabled&&input.ownAllocation!=='joins-first'&&input.ownTier==='lower'?Number(input.ownTroops[k]):0);
   p.stats.troops=M.TYPES.reduce((n,k)=>n+p.stats[k],0);p.stats.join_slots=Number(input.joinMarches);p.stats.march_capacity=Number(input.capacity);p.canHost=input.ownEnabled;count++;
  }
  return {plan:A.validatePlan(next),count};

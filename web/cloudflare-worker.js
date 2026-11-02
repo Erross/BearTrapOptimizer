@@ -48,7 +48,7 @@ function damagePacket(quota,limit,stats){const amount=Math.min(limit,total(quota
 function impactScore(packet,stats){return referenceScore(packet,stats)*Math.sqrt(Math.min(total(packet),5000));}
 function ownAlternatives(input){
  const stock=matrix(input.stock),capacity=whole(input.ownCapacity,1,2000000,'Own-rally march capacity');
- const copy=()=>JSON.parse(JSON.stringify({...input,ownEnabled:true}));
+ const copy=()=>JSON.parse(JSON.stringify({...input,ownEnabled:true,ownAllocation:undefined}));
  let small=copy(),full=null;
  if(input.ownTier==='lower'&&input.lowerConfirmed){small.ownTier='lower';small.ownTroops=Object.fromEntries(TYPES.map(k=>[k,Number(input.ownTroops?.[k])>0?1:0]));if(!TYPES.some(k=>small.ownTroops[k]))throw Error('Enter the T1–T7 troops you will send before applying a minimum own march.');}
  else{const tier=[8,9,10].find(t=>TYPES.some(k=>stock[t][k]>0));if(tier===undefined)throw Error('Enter troops before comparing own-rally options.');small.ownTier=tier;let left=capacity;small.ownTroops=Object.fromEntries(TYPES.map(k=>[k,stock[tier][k]&&left-->0?1:0]));}
@@ -59,7 +59,7 @@ function ownAlternatives(input){
  for(const t of TIERS)for(const k of TYPES)quota[t][k]=Math.floor(stock[t][k]/joins);
  const packet=optimizedPacket(quota,limit,joinPolicy(input.joinPolicy)),surplus=matrix(stock);for(const t of TIERS)for(const k of TYPES)surplus[t][k]-=packet[t][k]*joins;
  const joinFirst=fromStock(surplus)||(small.ownTier==='lower'?small:null);
- function scenario(candidate){if(!candidate)return {error:'No entered T8–T10 stock is available for a full own march.'};try{const plan=build(candidate),ownPacket=matrix();if(candidate.ownTier!=='lower')ownPacket[candidate.ownTier]={...candidate.ownTroops};return {input:candidate,plan,ownImpact:candidate.ownTier==='lower'?0:impactScore(ownPacket,joinPolicy(input.joinPolicy).stats),joinImpact:plan.joins*impactScore(plan.packet,joinPolicy(input.joinPolicy).stats)};}catch(error){return {error:error.message};}}
+ function scenario(candidate){if(candidate&&input.ownAllocation!==undefined)candidate={...candidate,ownAllocation:'manual'};if(!candidate)return {error:'No entered T8–T10 stock is available for a full own march.'};try{const plan=build(candidate),ownPacket=matrix();if(candidate.ownTier!=='lower')ownPacket[candidate.ownTier]={...candidate.ownTroops};return {input:candidate,plan,ownImpact:candidate.ownTier==='lower'?0:impactScore(ownPacket,joinPolicy(input.joinPolicy).stats),joinImpact:plan.joins*impactScore(plan.packet,joinPolicy(input.joinPolicy).stats)};}catch(error){return {error:error.message};}}
  return {joinFirst:scenario(joinFirst),small:scenario(small),full:scenario(full),current:scenario(copy())};
 }
 // Joint numerical search over the own packet. Every candidate re-optimizes all
@@ -79,7 +79,7 @@ function jointOwn(input,measurements={},options=ownAlternatives(input)){
  for(const tier of TIERS){
   if(!TYPES.some(k=>stock[tier][k]))continue;
   const cache=new Map();
-  function evaluate(counts){const key=counts.join(',');if(cache.has(key))return cache.get(key);const amount=counts.reduce((a,b)=>a+b,0);if(amount<1||amount>capacity||counts.some((n,i)=>n<0||n>stock[tier][TYPES[i]]))return null;
+  function evaluate(counts){const key=counts.join(',');if(cache.has(key))return cache.get(key);const amount=counts.reduce((a,b)=>a+b,0);if(amount<1||amount>capacity||counts.some((n,i)=>n<(input.ownAllocation!==undefined?1:0)||n>stock[tier][TYPES[i]]))return null;
    const pool=matrix(stock),ownPacket=matrix();TYPES.forEach((k,i)=>{pool[tier][k]-=counts[i];ownPacket[tier][k]=counts[i];});for(const t of TIERS)for(const k of TYPES)pool[t][k]=Math.floor(pool[t][k]/joins);
    const packet=damagePacket(pool,limit,policy.stats);if(!total(packet))return null;
    const ownImpact=impactScore(ownPacket,policy.stats),joinImpact=joins*impactScore(packet,policy.stats),result={counts,ownImpact,joinImpact,score:ownImpact*ownFactor+joinImpact*joinFactor};cache.set(key,result);evaluations++;return result;
@@ -96,7 +96,7 @@ function jointOwn(input,measurements={},options=ownAlternatives(input)){
    const steps=[];for(let step=2**Math.floor(Math.log2(capacity));step>=1;step/=2)steps.push(step);steps.push(joins,1);
    for(const step of steps)for(let pass=0;pass<100;pass++){let next=current;for(const d of directions){const candidate=evaluate(current.counts.map((n,i)=>n+d[i]*step));if(candidate&&candidate.score>next.score+1e-9)next=candidate;}if(next===current)break;current=next;}
   }
-  if(current.score>bestScore+1e-9){const candidate=JSON.parse(JSON.stringify(input));candidate.ownTier=tier;candidate.ownTroops=Object.fromEntries(TYPES.map((k,i)=>[k,current.counts[i]]));const plan=build(candidate);best={input:candidate,plan,ownImpact:current.ownImpact,joinImpact:current.joinImpact};bestScore=current.score;}
+  if(current.score>bestScore+1e-9){const candidate=JSON.parse(JSON.stringify(input));delete candidate.ownAllocation;candidate.ownTier=tier;candidate.ownTroops=Object.fromEntries(TYPES.map((k,i)=>[k,current.counts[i]]));const plan=build(candidate);best={input:candidate,plan,ownImpact:current.ownImpact,joinImpact:current.joinImpact};bestScore=current.score;}
  }
  return {...best,search:{assumedEqual:blank,weights:{ownHits:Number(weights.ownHits),joinHits:Number(weights.joinHits),relative:Number(weights.relative)},evaluations,score:bestScore,method:'Integer numerical search; best plan found, not a proven in-game maximum.'}};
 }
@@ -117,13 +117,21 @@ function heroOptions(entries=[]){
 }
 function build(input){
  preferredLanguage(input.preferredLanguage);
+ if(input.ownAllocation!==undefined&&!['joins-first','manual'].includes(input.ownAllocation))throw Error('Choose a supported own-rally allocation.');
+ const automatic=input.ownAllocation==='joins-first';
  const stock=matrix(input.stock),remaining=matrix(stock),joins=whole(input.joinMarches,1,10,'Joining marches');
  const presets=whole(input.presets,0,12,'Saved preset slots'),capacity=whole(input.capacity,1,2000000,'Joining march capacity');
  const cap=whole(input.joinCap??0,0,2000000,'Alliance joining limit');
  const available=heroOptions(input.heroes),lead=[],warnings=[];
  const ownEnabled=!!input.ownEnabled,own={enabled:ownEnabled,tier:input.ownTier??8,troops:{},heroes:[],slot:null};
  if(ownEnabled){
+  if(automatic){
+   own.packet=matrix();own.capacity=whole(input.ownCapacity??capacity,3,2000000,'Own-rally march capacity');
+   for(const k of TYPES){const t=[8,9,10].find(t=>remaining[t][k]>0);if(t===undefined)throw Error('Automatic own rally needs at least 1 infantry, 1 cavalry and 1 archer in your entered stock.');own.packet[t][k]=1;remaining[t][k]--;}
+   own.total=3;own.troops=Object.fromEntries(TYPES.map(k=>[k,1]));
+  }else{
   for(const k of TYPES)own.troops[k]=whole(input.ownTroops?.[k]??0,0,2000000,'Own-rally '+k);
+  if(input.ownAllocation==='manual'&&TYPES.some(k=>own.troops[k]<1))throw Error('Your own rally needs at least 1 infantry, 1 cavalry and 1 archer.');
   own.total=TYPES.reduce((n,k)=>n+own.troops[k],0);
   if(own.total<1)throw Error('Reserve at least one troop for your special own-rally march.');
   const ownCapacity=whole(input.ownCapacity??capacity,1,2000000,'Own-rally march capacity');
@@ -133,6 +141,7 @@ function build(input){
   }else{
    own.tier=whole(own.tier,8,10,'Own-rally tier');
    for(const k of TYPES){if(own.troops[k]>remaining[own.tier][k])throw Error('Not enough T'+own.tier+' '+k+' for your own rally.');remaining[own.tier][k]-=own.troops[k];}
+  }
   }
   for(const type of TYPES){
    const name=input.leaders?.[type];if(!name)throw Error('Choose an available '+type+' hero for your own rally, or untick I start my own Bear rally.');
@@ -157,6 +166,15 @@ function build(input){
  const count=total(packet);if(!count)throw Error('There are too few troops for identical non-empty joining presets. Enter more troops or reduce the joining-march count.');
  const leftover=matrix(remaining);
  for(const t of TIERS)for(const k of TYPES)leftover[t][k]-=packet[t][k]*joins;
+ if(ownEnabled&&automatic){
+  const pool=matrix(leftover);for(const t of TIERS)for(const k of TYPES)pool[t][k]+=own.packet[t][k];
+  own.packet=matrix();for(const k of TYPES){const t=TIERS.find(t=>pool[t][k]>0);own.packet[t][k]=1;pool[t][k]--;}
+  const extra=optimizedPacket(pool,own.capacity-3,joinPolicy());
+  for(const t of TIERS)for(const k of TYPES){own.packet[t][k]+=extra[t][k];leftover[t][k]=pool[t][k]-extra[t][k];}
+  own.total=total(own.packet);own.troops=Object.fromEntries(TYPES.map(k=>[k,TIERS.reduce((n,t)=>n+own.packet[t][k],0)]));
+  const tiers=TIERS.filter(t=>TYPES.some(k=>own.packet[t][k]));own.tier=tiers.length===1?tiers[0]:'mixed';
+ }
+
  const setups=[],byHero=new Map();
  const marches=assigned.map((hero,i)=>{
   let setup=byHero.get(hero);
@@ -169,7 +187,7 @@ function build(input){
  if(manual)warnings.push(manual+' march setup'+(manual===1?' needs':'s need')+' manual selection because you have fewer saved presets than different march setups.');
  if(total(leftover))warnings.push('Some T8–T10 troops remain at home because of the joining cap, available march slots, or identical-preset rounding. See Troops left at home below.');
  return {allocation,joins,presets,setups,usedPresets:setups.filter(s=>s.slot).length+(own.slot?1:0),requiredPresets:setups.length+(ownEnabled?1:0),packet,perJoin:count,joinTotal:count*joins,leftover,leftoverTotal:total(leftover),own,marches,warnings,limit,manual,
-  note:(policy.mode==='optimized'?'Calculated mix estimates damage within your stock and limits; unentered leader bonuses are assumed equal. ':policy.mode==='ratio'?'Target join ratio: '+policy.infantryPct+'% infantry / '+policy.cavalryPct+'% cavalry / '+(100-policy.infantryPct-policy.cavalryPct)+'% archers. Shortages fill from archers, cavalry, then infantry. ':'Archers first, then cavalry, then infantry. ')+(ownEnabled?'Your own-rally troops are set aside first. ':'')+'The chosen joining formation builds '+joins+' identical joins, using the highest available tiers within each troop type.'};
+  note:(policy.mode==='optimized'?'Calculated mix estimates damage within your stock and limits; unentered leader bonuses are assumed equal. ':policy.mode==='ratio'?'Target join ratio: '+policy.infantryPct+'% infantry / '+policy.cavalryPct+'% cavalry / '+(100-policy.infantryPct-policy.cavalryPct)+'% archers. Shortages fill from archers, cavalry, then infantry. ':'Archers first, then cavalry, then infantry. ')+(ownEnabled?(automatic?'Fill joins first, then use surplus troops in your own rally up to its march limit. Your own rally keeps at least 1 infantry, 1 cavalry and 1 archer. ':'Your own-rally troops are set aside first. '):'')+'The chosen joining formation builds '+joins+' identical joins, using the highest available tiers within each troop type.'};
 }
 function suggestLeaders(entries,observed=[]){
  const available=heroOptions(entries),result={};
@@ -397,8 +415,9 @@ function cleanProfile(input){
   const leaders=Object.fromEntries(M.TYPES.map(k=>{const name=input.leaders?.[k]??'';if(typeof name!=='string'||name&&!M.HEROES.some(h=>h.name===name&&h.type===k))fail(400,'Invalid leader selection.');return [k,name];}));
   const clean={stock:M.matrix(input.stock),joinMarches:n(input.joinMarches,1,10,'Joining marches'),presets:n(input.presets,0,12,'Presets'),capacity:n(input.capacity,1,2000000,'March capacity'),
    heroFreeCapacity:optional(input.heroFreeCapacity,2000000,'Hero-free capacity'),joinCap:optional(input.joinCap,2000000,'Joining limit'),ownEnabled:input.ownEnabled,
-   ownTier:input.ownTier==='lower'?'lower':n(input.ownTier??8,8,10,'Own rally tier'),ownCapacity:optional(input.ownCapacity,2000000,'Own capacity'),lowerConfirmed:input.lowerConfirmed===true,
-   ownTroops:Object.fromEntries(M.TYPES.map(k=>[k,n(input.ownTroops?.[k]??0,0,2000000,'Own troops')])),leaders,heroes};
+   ownTier:input.ownAllocation==='joins-first'?8:input.ownTier==='lower'?'lower':n(input.ownTier??8,8,10,'Own rally tier'),ownCapacity:optional(input.ownCapacity,2000000,'Own capacity'),lowerConfirmed:input.lowerConfirmed===true,
+   ownTroops:Object.fromEntries(M.TYPES.map(k=>[k,n(input.ownAllocation==='joins-first'?0:input.ownTroops?.[k]??0,0,2000000,'Own troops')])),leaders,heroes};
+  if(input.ownAllocation!==undefined){if(!['joins-first','manual'].includes(input.ownAllocation))fail(400,'Choose a supported own-rally allocation.');clean.ownAllocation=input.ownAllocation;if(input.ownAllocation==='joins-first'){clean.ownTier=8;clean.lowerConfirmed=false;clean.ownTroops=Object.fromEntries(M.TYPES.map(k=>[k,0]));}}
   if(input.joinPolicy!==undefined)clean.joinPolicy=M.joinPolicy(input.joinPolicy);
   if(input.preferredLanguage!==undefined)clean.preferredLanguage=M.preferredLanguage(input.preferredLanguage);
   const total=M.total(clean.stock)+(clean.ownEnabled&&clean.ownTier==='lower'?M.TYPES.reduce((n,k)=>n+clean.ownTroops[k],0):0);
@@ -414,7 +433,7 @@ export default {async fetch(request,env){
   if(request.headers.has('Origin')&&request.headers.get('Origin')!==ORIGIN)fail(403,'Origin is not allowed.');
   if(request.method==='OPTIONS')return new Response(null,{status:204,headers});
   const path=new URL(request.url).pathname;
-  if(path==='/health'&&request.method==='GET')return reply({service:'bear-player-profiles',version:8,mode:'open-profiles',capabilities:['kvk-profiles','kvk-exclusive-widgets','kvk-inventory-history','kvk-save-confirmation','bear-join-policy','player-language-preference']});
+  if(path==='/health'&&request.method==='GET')return reply({service:'bear-player-profiles',version:9,mode:'open-profiles',capabilities:['kvk-profiles','kvk-exclusive-widgets','kvk-inventory-history','kvk-save-confirmation','bear-join-policy','player-language-preference','bear-own-allocation']});
   if(!env.DB||typeof env.ADMIN_TOKEN!=='string'||env.ADMIN_TOKEN.length<32)fail(503,'Organizer must configure DB and an ADMIN_TOKEN of at least 32 characters.');
   const token=request.headers.get('Authorization')?.match(/^Bearer ([^\s]{1,512})$/)?.[1];
   if(path.startsWith('/api/admin/')){
