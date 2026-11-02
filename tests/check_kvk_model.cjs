@@ -2,7 +2,7 @@ const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('nod
 require('../web/kvk-catalog.js');require('../web/kvk-gear.js');require('../web/kvk-model.js');
 require('../web/kvk-solver.js');
 (async()=>{const highs=await require('../web/vendor/kvk-highs.js')({locateFile:()=>require.resolve('../web/vendor/highs.wasm')});const solver=KvKSolver.adapter(highs),M=KvKModel,G=KvKGear;
-function profile(){const p=M.empty();p.confirmed=true;return p;}
+function profile(){const p=M.empty();p.confirmed=true;p.baseline.fill(0);return p;}
 // Daily 200k targets are floors: optimize the entire available five-day score.
 {
  const p=profile();p.offers=[];
@@ -12,6 +12,22 @@ function profile(){const p=M.empty();p.confirmed=true;return p;}
  const result=M.optimize(p,solver);
  assert(result.days.every(d=>d.projected>=200000));
  assert.equal(result.total,1708000,'All available scoring actions are used beyond the 1M combined daily minimum');
+}
+
+// Intel defaults contribute once on Days 1/3/5 without spending inventory.
+{
+ const p=M.empty();p.confirmed=true;p.offers=[];
+ assert.deepEqual(p.baseline,[144000,0,144000,0,240000]);
+ const result=M.optimize(p,solver);assert.equal(result.total,528000);
+ assert.equal(result.days[4].shortfall,0);assert.equal(result.days[0].shortfall,56000);
+ p.closed[0]=true;p.actual[0]=150000;
+ assert.equal(M.optimize(p,solver).days[0].projected,150000,'Finished days never add the estimate to actual points');
+ p.closed[0]=false;p.baseline[0]=6000;p.actual[0]=138000;
+ assert.equal(M.optimize(p,solver).days[0].projected,144000,'Remaining Intel can be entered without repeating already-scored points');
+ const legacy=profile();assert.equal(M.clean(legacy).baseline[0],0,'Saved zero estimates remain opt-outs');
+ legacy.baseline[0]=9000;legacy.closed[2]=true;
+ assert.deepEqual(M.fillIntel(legacy).baseline,[9000,0,0,0,240000],'Fill button preserves nonzero entries and finished days');
+ assert.deepEqual(legacy.baseline,[9000,0,0,0,0],'Filling does not mutate the original profile');
 }
 let p=profile();assert.equal(M.optimize(p,solver).shortfall,1e6);
 // A Guide by itself never scores; a completed charm consumes both materials.

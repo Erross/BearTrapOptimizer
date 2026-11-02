@@ -19,7 +19,9 @@ for(const args of [['advanced',3000,2],['hammer',1250,10],['mythic',2500,3],['de
 for(const args of [['threads',100,100],['satin',1,10000],['training',400,5,60],['construction',400,5,60],['research',400,5,60],['rare',200,100],['epic',600,25],['mythic',2500,2]])offer('championship',...args);
 for(const resource of ['construction','research','training']){offer('alliance',resource,2200,4,5);offer('alliance',resource,26000,1,60);}
 offer('gems','common',500,100000);offer('gems','general',800,100000,60);
-root.KvKCatalog={version:1,resources,wallets,offers,days:['City Construction','Basic Skills Up','Pet Training','Hero Development','Power Boost'],sources:[
+// Editable planning estimate: 3 daily batches of 8; 5 batches on extended Day 5.
+const intel={missions:[24,0,24,0,40],points:6000};
+root.KvKCatalog={version:1,resources,wallets,offers,intel,days:['City Construction','Basic Skills Up','Pet Training','Hero Development','Power Boost'],sources:[
  {name:'Preparation scoring · community data extracted from game files',url:'https://ks-toolkit.com/data/events/kingdom-of-power/'},
  {name:'Swordland · prices and age-dependent stock limits',url:'https://ks-toolkit.com/data/systems/swordland-shop/'},
  {name:'Arena · prices and availability',url:'https://ks-toolkit.com/data/systems/arena-shop/'},
