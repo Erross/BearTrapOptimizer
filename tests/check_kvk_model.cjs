@@ -3,6 +3,16 @@ require('../web/kvk-catalog.js');require('../web/kvk-gear.js');require('../web/k
 require('../web/kvk-solver.js');
 (async()=>{const highs=await require('../web/vendor/kvk-highs.js')({locateFile:()=>require.resolve('../web/vendor/highs.wasm')});const solver=KvKSolver.adapter(highs),M=KvKModel,G=KvKGear;
 function profile(){const p=M.empty();p.confirmed=true;return p;}
+// Daily 200k targets are floors: optimize the entire available five-day score.
+{
+ const p=profile();p.offers=[];
+ p.resources.truegold.stock=200;p.resources.mythic.stock=200;
+ p.resources.advanced.stock=20;p.resources.hammer.stock=100;
+ p.gear.heroes[0]={rarity:'mythic',enhancement:20,mastery:0};
+ const result=M.optimize(p,solver);
+ assert(result.days.every(d=>d.projected>=200000));
+ assert.equal(result.total,1708000,'All available scoring actions are used beyond the 1M combined daily minimum');
+}
 let p=profile();assert.equal(M.optimize(p,solver).shortfall,1e6);
 // A Guide by itself never scores; a completed charm consumes both materials.
 p.resources.guides.stock=5;p.gear.charms[0].level=0;assert.equal(M.optimize(p,solver).total,0);p.resources.designs.stock=5;let r=M.optimize(p,solver);assert.equal(r.total,43750);assert.equal(r.remaining.guides,0);assert.equal(r.remaining.designs,0);
