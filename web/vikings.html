@@ -7,9 +7,9 @@ body{margin:0;background:#101b25;color:#f4f7fa;font:16px system-ui,sans-serif}
 main{max-width:1080px;margin:auto;padding:28px 18px}
 a{color:#a6d6fb}h1{margin-bottom:5px}.muted{color:#aebcc7}
 .controls{display:flex;flex-wrap:wrap;align-items:end;gap:12px;margin:24px 0}
-label{display:grid;gap:5px}input,button,textarea{background:#fff;color:#182733;border-radius:7px;padding:9px;border:1px solid #95a7b5;font:inherit}
+label{display:grid;gap:5px}input,button,textarea,select{background:#fff;color:#182733;border-radius:7px;padding:9px;border:1px solid #95a7b5;font:inherit}
 input[type=number]{width:100px}button{cursor:pointer;background:#add8f5}
-#groups{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px}
+#difficulty-panel{margin:18px 0;padding:18px;border:1px solid #4c6477;border-radius:12px;background:#1c2c3a}#difficulty-panel[hidden]{display:none}#difficulty-table{border-collapse:collapse;width:100%;margin-top:12px}#difficulty-table th,#difficulty-table td{text-align:left;border-bottom:1px solid #405366;padding:6px}#difficulty-panel .controls{margin:10px 0}.toggle{display:flex;align-items:center;gap:8px}.toggle input{width:auto}#groups{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px}
 article{border:1px solid #4c6477;border-radius:12px;padding:15px;background:#1c2c3a}
 article h2{font-size:1.1rem;margin:0 0 8px}ol{margin:8px 0;padding-left:23px}
 small{color:#bfd0dc}#error{color:#ffb2a8}textarea{box-sizing:border-box;width:100%;height:110px}
@@ -19,13 +19,47 @@ small{color:#bfd0dc}#error{color:#ffb2a8}textarea{box-sizing:border-box;width:10
 <p class="muted">One static grouping for all waves. Choose the maximum people per group; players are balanced into geographically close groups. This does not assign troops.</p>
 <div class="controls"><label>Group size <input id="size" type="number" min="2" max="20" step="1" value="7"></label>
 <button id="calculate">Regroup by proximity</button><button id="copy">Copy groups</button><button id="csv">Download CSV</button></div>
+<label class="toggle"><input type="checkbox" id="model-difficulty"> Model Viking event difficulty (optional)</label>
+<section id="difficulty-panel" hidden aria-label="Viking difficulty model">
+ <div class="controls"><label>Event difficulty <select id="difficulty"></select></label>
+ <label>Observed wave 19 attackers (optional) <input id="observed19" type="number" min="1" step="1" placeholder="e.g. 462000" style="width:150px"></label></div>
+ <p class="muted">Wave point budgets use the published difficulty progression. Published enemy troop counts are available for difficulty 1; other difficulties require verified counts. A wave 19 observation replaces that wave's unknown count only. No troop requirement or combat performance is inferred.</p>
+ <div style="overflow-x:auto"><table id="difficulty-table"><thead><tr><th>Wave</th><th>Target</th><th>City/HQ point budget</th><th>Enemy troops</th><th>Enemy data source</th></tr></thead><tbody id="difficulty-rows"></tbody></table></div>
+ <p class="muted"><small>Community references: <a href="https://ks-toolkit.com/data/events/vikings-vengeance/" target="_blank" rel="noopener noreferrer">KingShot Toolkit scoring</a> and <a href="https://kingshotguide.org/data-center/viking-vengeance-data" target="_blank" rel="noopener noreferrer">Kingshot Guide wave counts</a>. Verify exact figures against game reports.</small></p>
+</section>
 <p id="status" role="status">Loading CNQ saved roster…</p><p id="error" role="alert"></p>
 <details><summary>Use custom roster instead (CSV: name,x,y; optional id)</summary><p class="muted">Leave blank for the saved CNQ alliance snapshot. People missing coordinates are reported separately, not assigned arbitrary locations.</p><textarea id="manual" placeholder="name,x,y&#10;Ridcully,500,600"></textarea><button id="usemanual">Load CSV roster</button><button id="usecnq">Restore CNQ roster</button></details>
 <div id="groups"></div><div id="missing"></div>
-</main><script src="./vikings-grouping.js"></script><script>
+</main><script src="./vikings-grouping.js"></script><script src="./vikings-difficulty.js"></script><script>
 (function(){
  const $=id=>document.getElementById(id);
  const key='vikings:group-size:v1';let roster=[],result=null;
+ const diffKey='vikings:difficulty:v1';
+ const savedDiff=(()=>{try{return JSON.parse(localStorage.getItem(diffKey))||{};}catch{return {};}})();
+ for(let d=1;d<=21;d++){const opt=document.createElement('option');opt.value=String(d);opt.textContent='Difficulty '+d;$('difficulty').append(opt);}
+ $('difficulty').value=String(Number.isInteger(savedDiff.difficulty)&&savedDiff.difficulty>=1&&savedDiff.difficulty<=21?savedDiff.difficulty:1);
+ $('model-difficulty').checked=!!savedDiff.enabled;
+ $('observed19').value=Number.isInteger(savedDiff.observed19)&&savedDiff.observed19>0?String(savedDiff.observed19):'';
+ function renderDifficulty(){
+   const enabled=$('model-difficulty').checked;
+   $('difficulty-panel').hidden=!enabled;
+   const difficulty=Number($('difficulty').value);
+   const obs=Number($('observed19').value);
+   const observed=Number.isSafeInteger(obs)&&obs>0&&$('observed19').value.trim()?{19:obs}:{};
+   localStorage.setItem(diffKey,JSON.stringify({enabled,difficulty,observed19:observed[19]||null}));
+   if(!enabled)return;
+   const rows=VikingsDifficulty.waveTable(difficulty,observed),body=$('difficulty-rows');
+   body.replaceChildren();
+   for(const w of rows){
+     const tr=document.createElement('tr');
+     for(const text of [w.wave,w.target,w.points.toLocaleString('en-US'),w.enemy==null?'Not verified':w.enemy.toLocaleString('en-US'),w.enemySource]){
+       const td=document.createElement('td');td.textContent=String(text);tr.append(td);
+     }
+     body.append(tr);
+   }
+ }
+ ['model-difficulty','difficulty','observed19'].forEach(id=>$(id).addEventListener('change',renderDifficulty));
+ renderDifficulty();
  const el=(tag,text)=>{const e=document.createElement(tag);e.textContent=text;return e;};
  const saved=Number(localStorage.getItem(key));if(Number.isInteger(saved)&&saved>=2&&saved<=20)$('size').value=saved;
  function render(){

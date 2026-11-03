@@ -1,0 +1,14 @@
+const assert=require('node:assert/strict');
+const model=require('../web/vikings-difficulty.js');
+assert.equal(model.waveTable(1).length,20);
+assert.equal(model.waveTable(1)[18].enemy,173601);
+assert.equal(model.waveTable(1)[18].points,24600);
+assert.equal(model.waveTable(2)[18].points,25830);
+assert.equal(model.waveTable(21)[18].points,49200);
+assert.equal(model.waveTable(21)[18].enemy,null);
+assert.equal(model.waveTable(21,{19:462000})[18].enemy,462000);
+assert.equal(model.waveTable(21,{19:462000})[17].enemy,null);
+assert.equal(model.target(17),'Online');
+assert.equal(model.target(20),'HQ');
+assert.throws(()=>model.waveTable(22));
+console.log('Vikings difficulty model tests passed');
