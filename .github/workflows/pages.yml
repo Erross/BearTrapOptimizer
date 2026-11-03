@@ -34,6 +34,8 @@ jobs:
       - run: node tests/check_cloud_backend.cjs
       - run: node tests/check_kvk_model.cjs
       - run: node tests/check_i18n.cjs
+      - run: node tests/check_vikings_groups.cjs
+      - run: node tests/check_vikings_difficulty.cjs
   deploy:
     needs: validate
     environment:
