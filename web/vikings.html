@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Vikings proximity groups · CNQ</title>
+<link rel="stylesheet" href="./styles.css">
+<style>
+body{margin:0;background:#101b25;color:#f4f7fa;font:16px system-ui,sans-serif}
+main{max-width:1080px;margin:auto;padding:28px 18px}
+a{color:#a6d6fb}h1{margin-bottom:5px}.muted{color:#aebcc7}
+.controls{display:flex;flex-wrap:wrap;align-items:end;gap:12px;margin:24px 0}
+label{display:grid;gap:5px}input,button,textarea{background:#fff;color:#182733;border-radius:7px;padding:9px;border:1px solid #95a7b5;font:inherit}
+input[type=number]{width:100px}button{cursor:pointer;background:#add8f5}
+#groups{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px}
+article{border:1px solid #4c6477;border-radius:12px;padding:15px;background:#1c2c3a}
+article h2{font-size:1.1rem;margin:0 0 8px}ol{margin:8px 0;padding-left:23px}
+small{color:#bfd0dc}#error{color:#ffb2a8}textarea{box-sizing:border-box;width:100%;height:110px}
+</style></head><body><main>
+<nav><a href="./index.html">← Alliance optimizer</a></nav>
+<h1>Vikings · proximity groups</h1>
+<p class="muted">One static grouping for all waves. Choose the maximum people per group; players are balanced into geographically close groups. This does not assign troops.</p>
+<div class="controls"><label>Group size <input id="size" type="number" min="2" max="20" step="1" value="7"></label>
+<button id="calculate">Regroup by proximity</button><button id="copy">Copy groups</button><button id="csv">Download CSV</button></div>
+<p id="status" role="status">Loading CNQ saved roster…</p><p id="error" role="alert"></p>
+<details><summary>Use custom roster instead (CSV: name,x,y; optional id)</summary><p class="muted">Leave blank for the saved CNQ alliance snapshot. People missing coordinates are reported separately, not assigned arbitrary locations.</p><textarea id="manual" placeholder="name,x,y&#10;Ridcully,500,600"></textarea><button id="usemanual">Load CSV roster</button><button id="usecnq">Restore CNQ roster</button></details>
+<div id="groups"></div><div id="missing"></div>
+</main><script src="./vikings-grouping.js"></script><script>
+(function(){
+ const $=id=>document.getElementById(id);
+ const key='vikings:group-size:v1';let roster=[],result=null;
+ const el=(tag,text)=>{const e=document.createElement(tag);e.textContent=text;return e;};
+ const saved=Number(localStorage.getItem(key));if(Number.isInteger(saved)&&saved>=2&&saved<=20)$('size').value=saved;
+ function render(){
+   const size=Number($('size').value);result=VikingsGrouping.group(roster,size);
+   localStorage.setItem(key,String(size));
+   $('groups').replaceChildren();$('missing').replaceChildren();
+   for(const g of result.groups){
+     const card=el('article',''),title=el('h2','Group '+g.id+' · '+g.members.length+' players');
+     card.append(title,el('small','Largest separation: '+g.maxDistance.toFixed(1)+' map units'));
+     const list=el('ol','');for(const p of g.members)list.append(el('li',p.name+' ('+p.x+', '+p.y+')'));card.append(list);$('groups').append(card);
+   }
+   if(result.missing.length)$('missing').append(el('p',result.missing.length+' players need coordinates: '+result.missing.map(p=>p.name).join(', ')));
+   $('status').textContent=result.groups.length+' groups · '+result.groups.reduce((s,g)=>s+g.members.length,0)+' located members · '+result.missing.length+' missing locations';
+   $('error').textContent='';
+ }
+ function attempt(){try{render();}catch(e){$('error').textContent=e.message;}}
+ function parseCSV(raw){
+  const lines=raw.trim().split(/\r?\n/).filter(Boolean),header=lines.shift().split(',').map(x=>x.trim().toLowerCase());
+  if(!['name','x','y'].every(n=>header.includes(n)))throw Error('CSV requires name,x,y headers.');
+  return lines.map((line,i)=>{const v=line.split(',').map(s=>s.trim()),get=k=>v[header.indexOf(k)];
+   return {id:header.includes('id')?get('id'):String(i+1),name:get('name'),x:get('x')===''?null:Number(get('x')),y:get('y')===''?null:Number(get('y'))};
+  });
+ }
+ $('calculate').onclick=attempt;
+ $('usemanual').onclick=()=>{try{roster=parseCSV($('manual').value);render();}catch(e){$('error').textContent=e.message;}};
+ $('usecnq').onclick=load;
+ $('copy').onclick=async()=>{if(!result)return;const text=result.groups.map(g=>'Group '+g.id+': '+g.members.map(p=>p.name).join(', ')).join('\n');try{await navigator.clipboard.writeText(text);$('status').textContent='Groups copied.';}catch(e){$('error').textContent='Copy unavailable in this browser.';}};
+ $('csv').onclick=()=>{if(!result)return;const lines=['group,id,name,x,y',...result.groups.flatMap(g=>g.members.map(p=>[g.id,p.id,'"'+p.name.replace(/"/g,'""')+'"',p.x,p.y].join(',')))];const url=URL.createObjectURL(new Blob([lines.join('\n')],{type:'text/csv'}));const a=document.createElement('a');a.href=url;a.download='vikings-groups.csv';a.click();URL.revokeObjectURL(url);};
+ async function load(){try{const response=await fetch('./data/alliance-api.json',{cache:'no-store'});if(!response.ok)throw Error('CNQ snapshot unavailable: HTTP '+response.status);roster=VikingsGrouping.fromSnapshot(await response.json());render();}catch(e){$('error').textContent=e.message+' · You can load a custom CSV above.';$('status').textContent='Roster not loaded';}}
+ load();
+})();
+</script></body></html>
