@@ -9,7 +9,7 @@
       const id=String(r.governor_id??r.governorId??r.id??i);
       if(seen.has(id))throw Error('Duplicate player ID: '+id);
       seen.add(id);
-      const x=Number(r.x), y=Number(r.y);
+      const x=r.x==null||r.x===''?NaN:Number(r.x), y=r.y==null||r.y===''?NaN:Number(r.y);
       return {id,name:String(r.name??r.nick_name??r.nick??id),x,y,active:r.active!==false&&r.attending!==false};
     });
   }
