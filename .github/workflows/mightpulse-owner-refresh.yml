@@ -35,7 +35,14 @@ jobs:
       - run: python -m pip install -r scripts/requirements-map-refresh.txt
       - run: python -m playwright install --with-deps chromium
       - name: Open kingdom map, request refresh and wait five minutes
+        id: map_preflight
+        continue-on-error: true
         run: python scripts/mightpulse_map_refresh.py
+      - name: Note unsuccessful map preflight
+        if: steps.map_preflight.outcome == 'failure'
+        run: |
+          echo "::warning::Map refresh failed or was blocked. Continuing to MightPulse API import; provider observations may be stale."
+          echo "Map preflight failed; continuing with the API import. Check the imported snapshot's observation timestamps before relying on member power or coordinates." >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v4
         if: always()
         with:
