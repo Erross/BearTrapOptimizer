@@ -48,8 +48,15 @@ class Page:
         self.clock, self.initial, self.final, self.age, self.body, self.status = clock, initial, final, age, body, status
         self.clicks = 0
 
+    @property
+    def url(self):
+        return 'https://www.mightpulse.com/map?kid=2399'
+
+    def title(self):
+        return 'MightPulse Kingdom Map'
+
     def goto(self, url, **kwargs):
-        assert url == 'https://mightpulse.com/map?kid=2399'
+        assert url == 'https://www.mightpulse.com/map?kid=2399'
         return self
 
     def locator(self, selector):
@@ -95,6 +102,11 @@ class MapRefreshTests(unittest.TestCase):
                 warm_map(page, clock.pause, clock.now)
             self.assertEqual(page.clicks, 0)
             self.assertEqual(clock.value, 0)
+
+    def test_http_status_is_in_failure_message(self):
+        clock = Clock()
+        with self.assertRaisesRegex(MapRefreshError, 'HTTP 403'):
+            warm_map(Page(clock, status=403), clock.pause, clock.now)
 
     def test_visible_age_formats(self):
         for text, seconds in [('just now', 0), ('21s ago', 21), ('5m ago', 300), ('3 days, 6h ago', 280800)]:
