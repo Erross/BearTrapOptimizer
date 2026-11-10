@@ -9,7 +9,7 @@ import re
 import sys
 import time
 
-MAP_URL = "https://mightpulse.com/map?kid=2399"
+MAP_URL = "https://www.mightpulse.com/map?kid=2399"
 WAIT_SECONDS = 300
 REPORT_PATH = Path("artifacts/mightpulse-map/report.json")
 
@@ -40,8 +40,14 @@ def location_age_seconds(text):
 
 def warm_map(page, pause=time.sleep, clock=time.monotonic):
     response = page.goto(MAP_URL, wait_until="domcontentloaded", timeout=60000)
-    if response is None or response.status >= 400:
-        raise MapRefreshError("MightPulse map could not be opened.")
+    if response is None:
+        raise MapRefreshError(f"MightPulse map returned no document response (final URL: {page.url}).")
+    if response.status >= 400:
+        raise MapRefreshError(
+            f"MightPulse map returned HTTP {response.status} "
+            f"(final URL: {response.url}, page title: {page.title()!r}). "
+            "API import skipped."
+        )
     guard(page)
     page.locator("#mapOverlay").wait_for(state="hidden", timeout=60000)
     button = page.locator("#btnUpdateMap")
